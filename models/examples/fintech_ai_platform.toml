@@ -1,0 +1,221 @@
+[meta]
+schema_version = "0.1"
+model_id = "fintech-ai-demo"
+last_updated = "2026-03-15"
+author = "Michel Kinasz"
+
+[system]
+name = "Fintech AI Payment Platform"
+description = "A mobile payment platform with AI-assisted fraud analysis"
+criticality = "high"
+industry = "financial-services"
+
+[[security_domains]]
+id = "client"
+name = "Client Domain"
+trust_level = "low"
+
+[[security_domains]]
+id = "edge"
+name = "Edge/API Domain"
+trust_level = "medium"
+
+[[security_domains]]
+id = "backend"
+name = "Backend Services"
+trust_level = "high"
+
+[[security_domains]]
+id = "ml"
+name = "ML Domain"
+trust_level = "medium"
+
+[[privilege_levels]]
+id = "public"
+level = 0
+description = "Unauthenticated or public access"
+
+[[privilege_levels]]
+id = "user"
+level = 1
+description = "Authenticated end-user privileges"
+
+[[privilege_levels]]
+id = "service"
+level = 2
+description = "Backend service privileges"
+
+[[privilege_levels]]
+id = "admin"
+level = 3
+description = "Administrative privileges"
+
+[[modules]]
+id = "mobile_app"
+name = "Mobile App"
+module_type = "client_application"
+domain = "client"
+privilege = "user"
+internet_exposed = true
+processes_sensitive_data = true
+ai_relevant = false
+description = "Customer mobile application"
+
+[[modules]]
+id = "api_gateway"
+name = "API Gateway"
+module_type = "gateway"
+domain = "edge"
+privilege = "service"
+internet_exposed = true
+processes_sensitive_data = true
+ai_relevant = false
+
+[[modules]]
+id = "auth_service"
+name = "Auth Service"
+module_type = "identity_service"
+domain = "backend"
+privilege = "service"
+internet_exposed = false
+processes_sensitive_data = true
+ai_relevant = false
+
+[[modules]]
+id = "payment_service"
+name = "Payment Service"
+module_type = "transaction_service"
+domain = "backend"
+privilege = "service"
+internet_exposed = false
+processes_sensitive_data = true
+ai_relevant = false
+
+[[modules]]
+id = "fraud_model_service"
+name = "Fraud Model Service"
+module_type = "ml_service"
+domain = "ml"
+privilege = "service"
+internet_exposed = false
+processes_sensitive_data = true
+ai_relevant = true
+
+[[objects]]
+id = "user_credentials"
+name = "User Credentials"
+object_type = "credential"
+classification = "secret"
+regulated = true
+ai_relevant = false
+
+[[objects]]
+id = "payment_instruction"
+name = "Payment Instruction"
+object_type = "transaction_data"
+classification = "confidential"
+regulated = true
+ai_relevant = false
+
+[[objects]]
+id = "fraud_features"
+name = "Fraud Features"
+object_type = "feature_vector"
+classification = "confidential"
+regulated = true
+ai_relevant = true
+
+[[datastores]]
+id = "txn_db"
+name = "Transaction Database"
+store_type = "relational_database"
+domain = "backend"
+contains = ["payment_instruction"]
+ai_relevant = false
+
+[[datastores]]
+id = "feature_store"
+name = "Feature Store"
+store_type = "feature_store"
+domain = "ml"
+contains = ["fraud_features"]
+ai_relevant = true
+
+[[external_actors]]
+id = "customer"
+name = "Customer"
+actor_type = "end_user"
+
+[[external_actors]]
+id = "attacker"
+name = "External Attacker"
+actor_type = "threat_actor"
+
+[[workflows]]
+id = "user_login"
+name = "User Login"
+description = "Customer authenticates through mobile app"
+steps = [
+  "customer -> mobile_app",
+  "mobile_app -> api_gateway",
+  "api_gateway -> auth_service"
+]
+modules = ["mobile_app", "api_gateway", "auth_service"]
+objects = ["user_credentials"]
+
+[[workflows]]
+id = "payment_execution"
+name = "Payment Execution"
+description = "Customer initiates payment and fraud checks are performed"
+steps = [
+  "customer -> mobile_app",
+  "mobile_app -> api_gateway",
+  "api_gateway -> payment_service",
+  "payment_service -> fraud_model_service",
+  "payment_service -> txn_db",
+  "fraud_model_service -> feature_store"
+]
+modules = ["mobile_app", "api_gateway", "payment_service", "fraud_model_service"]
+objects = ["payment_instruction", "fraud_features"]
+
+[[trust_boundaries]]
+id = "internet_boundary"
+name = "Internet Boundary"
+from_domain = "client"
+to_domain = "edge"
+
+[[trust_boundaries]]
+id = "backend_ml_boundary"
+name = "Backend to ML Boundary"
+from_domain = "backend"
+to_domain = "ml"
+
+[[dependencies]]
+source = "mobile_app"
+target = "api_gateway"
+relationship = "calls"
+
+[[dependencies]]
+source = "api_gateway"
+target = "auth_service"
+relationship = "calls"
+
+[[dependencies]]
+source = "api_gateway"
+target = "payment_service"
+relationship = "calls"
+
+[[dependencies]]
+source = "payment_service"
+target = "fraud_model_service"
+relationship = "calls"
+
+[[dependencies]]
+source = "payment_service"
+target = "txn_db"
+relationship = "writes"
+
+[[dependencies]]
+source = "fraud_model_service"
+target = "feature_store"
+relationship = "reads_writes"
