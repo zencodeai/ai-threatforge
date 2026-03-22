@@ -1,76 +1,124 @@
-# Threat Forge AI Architecture
+# Threat Forge AI — Architecture
 
-## System intent
-Threat Forge AI turns a canonical system model into explainable security analysis outputs. The platform is intentionally model-driven: deterministic components produce repeatable outputs, while agent workflows provide analyst interaction on top.
+> Model-driven threat modeling: deterministic components produce repeatable, explainable security outputs; agent workflows provide analyst interaction on top.
 
-## High-level data flow
-The full architecture is captured in `docs/diagrams/architecture.mmd`.
+---
 
-```mermaid
-flowchart LR
-    A[Canonical TOML Model] --> B[Pydantic Schema Validation]
-    B --> C[Neo4j Graph Loader]
-    C --> D[Security Graph]
+## Pipeline overview
 
-    D --> E[Threat Engine\nHeuristics + ATT&CK/ATLAS Mapping]
-    E --> F[Threat Report JSON]
+<p align="center">
+  <img src="diagrams/pipeline.svg" alt="End-to-end analysis pipeline" width="960" />
+</p>
 
-    F --> G[Risk Engine\nWeighted Explainable Scoring]
-    G --> H[Risk Report JSON]
+Architecture data flows through seven layers, each with a single clear responsibility and a well-defined input/output contract. All core analysis is **deterministic** — the same model always produces the same threats and risk scores.
 
-    D --> I[Agent Tools]
-    F --> I
-    H --> I
-    J[Knowledge Layer\nRules + Mappings + Optional External Corpus] --> I
-
-    I --> K[Query Workflow]
-    K --> L[Streamlit Analyst UI]
-
-    K --> M[Observability\nJSONL + Optional LangSmith]
-```
+---
 
 ## Components
+
 ### 1. Canonical model layer
-- Source: `models/examples/*.toml`
-- Contract: `models/schema/canonical_model.py`
-- Responsibility: stable representation of architecture entities and relationships.
+
+| | |
+|---|---|
+| **Source** | `models/examples/*.toml` |
+| **Contract** | `models/schema/canonical_model.py` (Pydantic) |
+| **Entities** | systems, domains, modules, workflows, objects, datastores, trust boundaries, privilege levels |
+| **Responsibility** | Provide the single source of truth for architecture structure and security metadata. Cross-reference integrity is enforced at validation time. |
 
 ### 2. Graph layer
-- Source: `graph/graph_loader.py`, `graph/graph_queries.py`
-- Storage: Neo4j with constraints/indexes in `graph/cypher/`
-- Responsibility: attack-path and dependency traversal queries.
+
+| | |
+|---|---|
+| **Source** | `graph/graph_loader.py`, `graph/graph_queries.py` |
+| **Storage** | Neo4j with constraints and indexes (`graph/cypher/`) |
+| **Key queries** | neighbours, dependency paths, trust-boundary crossings, exposure checks |
+| **Responsibility** | Project the canonical model into a graph database that supports attack-path and dependency traversal queries with sub-second latency. |
 
 ### 3. Threat layer
-- Source: `analysis/threat_generation.py`, `analysis/technique_mapping.py`, `analysis/threat_outputs.py`
-- Output: `models/outputs/threats/*_threats.json`
-- Responsibility: generate structured, mapped threat candidates with rationale.
+
+| | |
+|---|---|
+| **Source** | `analysis/threat_generation.py`, `analysis/technique_mapping.py`, `analysis/threat_outputs.py` |
+| **Output** | `models/outputs/threats/*_threats.json` |
+| **Mapping** | MITRE ATT&CK (enterprise techniques) and MITRE ATLAS (AI/ML techniques) |
+| **Responsibility** | Apply heuristic rules against graph patterns to generate structured, mapped threat candidates with rationale text explaining *why* each threat applies. |
 
 ### 4. Risk layer
-- Source: `analysis/risk_scoring.py`
-- Output: `models/outputs/risks/*_risks.json`
-- Responsibility: deterministic risk ranking, priority bands, and driver explanations.
 
-### 5. Agent/query layer
-- Source: `agents/tools.py`, `agents/workflow.py`
-- Responsibility: route analyst questions, execute grounded lookups, and compose evidence-backed answers.
+<p align="center">
+  <img src="diagrams/risk_scoring.svg" alt="Risk scoring methodology" width="780" />
+</p>
+
+| | |
+|---|---|
+| **Source** | `analysis/risk_scoring.py` |
+| **Output** | `models/outputs/risks/*_risks.json` |
+| **Formula** | Weighted sum across six factors: likelihood (0.25), impact (0.20), exposure (0.15), privilege sensitivity (0.15), data criticality (0.15), exploitability (0.10) |
+| **Responsibility** | Convert each threat into a deterministic risk score with priority band (critical / high / medium / low) and human-readable driver explanations. |
+
+### 5. Agent / query layer
+
+<p align="center">
+  <img src="diagrams/query_workflow.svg" alt="Query workflow routing" width="720" />
+</p>
+
+| | |
+|---|---|
+| **Source** | `agents/tools.py`, `agents/workflow.py`, `agents/state.py` |
+| **Tools** | `list_threats`, `list_risks`, `graph_query`, `technique_lookup`, `search_knowledge` |
+| **Responsibility** | Accept analyst questions, route them to the correct tool(s) via deterministic keyword matching, execute grounded lookups, and compose an `AgentAnswer` with evidence references and stated limitations. |
 
 ### 6. Observability layer
-- Source: `agents/observability.py`
-- Output: `models/outputs/traces/agent_runs.jsonl`
-- Optional: LangSmith export when env vars are present.
+
+| | |
+|---|---|
+| **Source** | `agents/observability.py` |
+| **Local output** | `models/outputs/traces/agent_runs.jsonl` (structured event log) |
+| **Optional** | LangSmith export via `.[observability]` extra |
+| **Events** | `workflow_start`, `tool_result`, `workflow_end` |
+| **Responsibility** | Record every workflow invocation for audit, debugging, and performance review. The composite recorder pattern supports simultaneous local and remote tracing. |
 
 ### 7. UI layer
-- Source: `ui/app.py`, `ui/pages/*`
-- Responsibility: analyst workflows for model summary, threats, risks, and chat.
+
+| | |
+|---|---|
+| **Source** | `ui/app.py`, `ui/pages/*` |
+| **Framework** | Streamlit (`.[ui]` extra) |
+| **Screens** | Model Overview · Threats · Risks · Analyst Chat |
+| **Responsibility** | Provide analyst workflows for exploring model structure, reviewing generated threats and risks, and running natural-language queries against the analysis outputs. Includes a one-click rebuild action that re-runs the full pipeline. |
+
+---
 
 ## Architecture trade-offs
-1. Determinism over generative inference in core scoring/generation.
-2. Local-first storage and execution to keep the MVP reproducible.
-3. Agent orchestration as interaction surface, not source-of-truth logic.
-4. Explicit outputs (`threats.json`, `risks.json`) for auditability and downstream reuse.
+
+| Decision | Rationale |
+|---|---|
+| **Determinism over generative inference** | Core scoring and threat generation use fixed rules so outputs are repeatable and auditable. |
+| **Local-first execution** | All data and analysis run on the developer's machine — no cloud dependency for the MVP. |
+| **Agent as interaction layer, not source of truth** | The query workflow adds value through presentation and routing; it does not invent new threats or scores. |
+| **Explicit JSON outputs** | `threats.json` and `risks.json` are first-class artifacts that downstream tools or CI pipelines can consume. |
+| **Optional observability** | Tracing is always available locally; LangSmith integration is opt-in to keep the core dependency footprint small. |
+
+---
 
 ## Extension seams
-- Replace stub knowledge search with retriever-backed RAG connectors.
-- Add additional model ingestion channels (SBOM, code metadata).
-- Add mitigation generation and control coverage scoring.
-- Evolve UI to multi-project and team collaboration workflows.
+
+| Extension | Description |
+|---|---|
+| **RAG-backed knowledge search** | Replace the stub `search_knowledge` tool with a retriever-backed connector (e.g., vector store over internal security policies). |
+| **Additional ingestion channels** | Ingest SBOMs, IaC definitions, or code metadata alongside TOML models. |
+| **Mitigation generation** | Map threats to control frameworks and generate recommended mitigations with coverage scores. |
+| **Red-team plan export** | Produce structured red-team engagement plans from high-priority threats. |
+| **Multi-project workspace** | Evolve the UI and data layer to manage and compare multiple architecture models. |
+
+---
+
+## Diagram sources
+
+| Diagram | File |
+|---|---|
+| Full pipeline | `docs/diagrams/pipeline.svg` |
+| Query workflow | `docs/diagrams/query_workflow.svg` |
+| Risk scoring | `docs/diagrams/risk_scoring.svg` |
+| Project layout | `docs/diagrams/project_structure.svg` |
+| Pipeline (Mermaid source) | `docs/diagrams/architecture.mmd` |

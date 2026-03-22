@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" font-family="Segoe UI, system-ui, -apple-system, sans-serif" font-size="13">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="10" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 3 L 0 6 z" fill="#64748b"/>
+    </marker>
+    <linearGradient id="gModel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#dbeafe"/><stop offset="100%" stop-color="#bfdbfe"/>
+    </linearGradient>
+    <linearGradient id="gGraph" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e0e7ff"/><stop offset="100%" stop-color="#c7d2fe"/>
+    </linearGradient>
+    <linearGradient id="gThreat" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fef3c7"/><stop offset="100%" stop-color="#fde68a"/>
+    </linearGradient>
+    <linearGradient id="gRisk" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fee2e2"/><stop offset="100%" stop-color="#fecaca"/>
+    </linearGradient>
+    <linearGradient id="gAgent" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d1fae5"/><stop offset="100%" stop-color="#a7f3d0"/>
+    </linearGradient>
+    <linearGradient id="gUI" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ede9fe"/><stop offset="100%" stop-color="#ddd6fe"/>
+    </linearGradient>
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="112%">
+      <feDropShadow dx="1" dy="2" stdDeviation="2" flood-opacity="0.1"/>
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <text x="480" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#1e293b">End-to-End Analysis Pipeline</text>
+
+  <!-- ── Row 1: Model → Validate → Graph ── -->
+  <!-- Model -->
+  <rect x="30" y="60" width="160" height="70" rx="10" fill="url(#gModel)" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="110" y="88" text-anchor="middle" font-weight="600" fill="#1e40af">Canonical Model</text>
+  <text x="110" y="108" text-anchor="middle" font-size="11" fill="#3b82f6">TOML definitions</text>
+
+  <!-- Arrow 1 -->
+  <line x1="190" y1="95" x2="240" y2="95" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Validate -->
+  <rect x="244" y="60" width="160" height="70" rx="10" fill="url(#gModel)" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="324" y="88" text-anchor="middle" font-weight="600" fill="#1e40af">Schema Validation</text>
+  <text x="324" y="108" text-anchor="middle" font-size="11" fill="#3b82f6">Pydantic contracts</text>
+
+  <!-- Arrow 2 -->
+  <line x1="404" y1="95" x2="454" y2="95" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Graph Loader -->
+  <rect x="458" y="60" width="160" height="70" rx="10" fill="url(#gGraph)" stroke="#6366f1" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="538" y="88" text-anchor="middle" font-weight="600" fill="#3730a3">Graph Loader</text>
+  <text x="538" y="108" text-anchor="middle" font-size="11" fill="#6366f1">Neo4j ingestion</text>
+
+  <!-- Arrow 3 -->
+  <line x1="618" y1="95" x2="668" y2="95" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Security Graph -->
+  <rect x="672" y="60" width="160" height="70" rx="10" fill="url(#gGraph)" stroke="#6366f1" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="752" y="88" text-anchor="middle" font-weight="600" fill="#3730a3">Security Graph</text>
+  <text x="752" y="108" text-anchor="middle" font-size="11" fill="#6366f1">Nodes &amp; relationships</text>
+
+  <!-- ── Vertical connector: Graph → Threat Engine ── -->
+  <line x1="752" y1="130" x2="752" y2="165" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ── Row 2: Threat Engine → Threat Report ── -->
+  <!-- Threat Engine -->
+  <rect x="458" y="170" width="160" height="70" rx="10" fill="url(#gThreat)" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="538" y="195" text-anchor="middle" font-weight="600" fill="#92400e">Threat Engine</text>
+  <text x="538" y="215" text-anchor="middle" font-size="11" fill="#b45309">Heuristics + ATT&amp;CK/ATLAS</text>
+
+  <!-- Arrow -->
+  <line x1="618" y1="205" x2="668" y2="205" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Threat Report -->
+  <rect x="672" y="170" width="160" height="70" rx="10" fill="url(#gThreat)" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="752" y="195" text-anchor="middle" font-weight="600" fill="#92400e">Threat Report</text>
+  <text x="752" y="215" text-anchor="middle" font-size="11" fill="#b45309">Structured JSON output</text>
+
+  <!-- ── Vertical connector: Threat Report → Risk Engine ── -->
+  <line x1="752" y1="240" x2="752" y2="275" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ── Row 3: Risk Engine → Risk Report ── -->
+  <!-- Risk Engine -->
+  <rect x="458" y="280" width="160" height="70" rx="10" fill="url(#gRisk)" stroke="#ef4444" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="538" y="305" text-anchor="middle" font-weight="600" fill="#991b1b">Risk Engine</text>
+  <text x="538" y="325" text-anchor="middle" font-size="11" fill="#dc2626">Weighted scoring</text>
+
+  <!-- Arrow -->
+  <line x1="618" y1="315" x2="668" y2="315" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Risk Report -->
+  <rect x="672" y="280" width="160" height="70" rx="10" fill="url(#gRisk)" stroke="#ef4444" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="752" y="305" text-anchor="middle" font-weight="600" fill="#991b1b">Risk Report</text>
+  <text x="752" y="325" text-anchor="middle" font-size="11" fill="#dc2626">Priority-ranked JSON</text>
+
+  <!-- ── Vertical connector: Risk Report → Agent layer ── -->
+  <line x1="752" y1="350" x2="752" y2="385" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ── Row 4: Agent Tools + Query Workflow ── -->
+  <!-- Knowledge Layer -->
+  <rect x="30" y="390" width="160" height="70" rx="10" fill="url(#gAgent)" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="110" y="418" text-anchor="middle" font-weight="600" fill="#065f46">Knowledge Layer</text>
+  <text x="110" y="438" text-anchor="middle" font-size="11" fill="#059669">Rules + mappings</text>
+
+  <!-- Arrow -->
+  <line x1="190" y1="425" x2="240" y2="425" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Agent Tools -->
+  <rect x="244" y="390" width="160" height="70" rx="10" fill="url(#gAgent)" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="324" y="418" text-anchor="middle" font-weight="600" fill="#065f46">Agent Tools</text>
+  <text x="324" y="438" text-anchor="middle" font-size="11" fill="#059669">Graph · Threats · Risks</text>
+
+  <!-- Arrow -->
+  <line x1="404" y1="425" x2="454" y2="425" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Query Workflow -->
+  <rect x="458" y="390" width="160" height="70" rx="10" fill="url(#gAgent)" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="538" y="418" text-anchor="middle" font-weight="600" fill="#065f46">Query Workflow</text>
+  <text x="538" y="438" text-anchor="middle" font-size="11" fill="#059669">Route → Execute → Compose</text>
+
+  <!-- Arrow to UI -->
+  <line x1="618" y1="415" x2="668" y2="415" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Streamlit UI -->
+  <rect x="672" y="390" width="160" height="70" rx="10" fill="url(#gUI)" stroke="#8b5cf6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="752" y="418" text-anchor="middle" font-weight="600" fill="#5b21b6">Analyst UI</text>
+  <text x="752" y="438" text-anchor="middle" font-size="11" fill="#7c3aed">Streamlit dashboard</text>
+
+  <!-- Observability (branching from Query Workflow) -->
+  <line x1="538" y1="460" x2="538" y2="495" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <rect x="458" y="496" width="160" height="24" rx="6" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>
+  <text x="538" y="513" text-anchor="middle" font-size="11" fill="#64748b">JSONL + LangSmith traces</text>
+
+  <!-- ── Cross-row feed lines: Graph feeds Threat and Agent ── -->
+  <!-- Graph → Threat Engine (diagonal) -->
+  <path d="M 752 130 Q 752 150, 618 175" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="5,3"/>
+  <!-- Graph → Agent Tools (long vertical) -->
+  <path d="M 672 130 L 672 155 Q 672 165, 400 390 Q 395 395, 390 400" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="5,3"/>
+  <!-- Threat Report → Agent Tools -->
+  <path d="M 672 240 Q 500 310, 400 395" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="5,3"/>
+
+  <!-- Legend -->
+  <rect x="30" y="475" width="12" height="12" rx="2" fill="url(#gModel)" stroke="#3b82f6" stroke-width="1"/>
+  <text x="48" y="486" font-size="10" fill="#475569">Model &amp; Validation</text>
+  <rect x="140" y="475" width="12" height="12" rx="2" fill="url(#gGraph)" stroke="#6366f1" stroke-width="1"/>
+  <text x="158" y="486" font-size="10" fill="#475569">Graph</text>
+  <rect x="200" y="475" width="12" height="12" rx="2" fill="url(#gThreat)" stroke="#f59e0b" stroke-width="1"/>
+  <text x="218" y="486" font-size="10" fill="#475569">Threat</text>
+  <rect x="265" y="475" width="12" height="12" rx="2" fill="url(#gRisk)" stroke="#ef4444" stroke-width="1"/>
+  <text x="283" y="486" font-size="10" fill="#475569">Risk</text>
+  <rect x="320" y="475" width="12" height="12" rx="2" fill="url(#gAgent)" stroke="#10b981" stroke-width="1"/>
+  <text x="338" y="486" font-size="10" fill="#475569">Agent</text>
+  <rect x="385" y="475" width="12" height="12" rx="2" fill="url(#gUI)" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="403" y="486" font-size="10" fill="#475569">UI</text>
+</svg>

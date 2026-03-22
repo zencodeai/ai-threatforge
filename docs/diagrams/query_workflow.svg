@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" font-family="Segoe UI, system-ui, -apple-system, sans-serif" font-size="13">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="10" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 3 L 0 6 z" fill="#64748b"/>
+    </marker>
+    <linearGradient id="gQ" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#dbeafe"/><stop offset="100%" stop-color="#bfdbfe"/>
+    </linearGradient>
+    <linearGradient id="gR" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d1fae5"/><stop offset="100%" stop-color="#a7f3d0"/>
+    </linearGradient>
+    <linearGradient id="gT" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fef3c7"/><stop offset="100%" stop-color="#fde68a"/>
+    </linearGradient>
+    <linearGradient id="gA" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ede9fe"/><stop offset="100%" stop-color="#ddd6fe"/>
+    </linearGradient>
+    <filter id="sh" x="-4%" y="-4%" width="108%" height="112%">
+      <feDropShadow dx="1" dy="2" stdDeviation="2" flood-opacity="0.1"/>
+    </filter>
+  </defs>
+
+  <text x="360" y="28" text-anchor="middle" font-size="15" font-weight="700" fill="#1e293b">Query Workflow — Route → Execute → Compose</text>
+
+  <!-- Step 1: Question In -->
+  <rect x="20" y="55" width="140" height="60" rx="8" fill="url(#gQ)" stroke="#3b82f6" stroke-width="1.5" filter="url(#sh)"/>
+  <text x="90" y="82" text-anchor="middle" font-weight="600" fill="#1e40af">Analyst Question</text>
+  <text x="90" y="100" text-anchor="middle" font-size="11" fill="#3b82f6">Natural language</text>
+
+  <!-- Arrow -->
+  <line x1="160" y1="85" x2="196" y2="85" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Step 2: Router -->
+  <rect x="200" y="55" width="140" height="60" rx="8" fill="url(#gR)" stroke="#10b981" stroke-width="1.5" filter="url(#sh)"/>
+  <text x="270" y="82" text-anchor="middle" font-weight="600" fill="#065f46">Keyword Router</text>
+  <text x="270" y="100" text-anchor="middle" font-size="11" fill="#059669">Deterministic rules</text>
+
+  <!-- Branch down to tool cards -->
+  <line x1="270" y1="115" x2="270" y2="148" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Tool fan-out -->
+  <rect x="40" y="152" width="115" height="50" rx="6" fill="url(#gT)" stroke="#f59e0b" stroke-width="1" filter="url(#sh)"/>
+  <text x="97" y="175" text-anchor="middle" font-weight="600" font-size="11" fill="#92400e">list_threats</text>
+  <text x="97" y="191" text-anchor="middle" font-size="10" fill="#b45309">by target / ID</text>
+
+  <rect x="170" y="152" width="115" height="50" rx="6" fill="url(#gT)" stroke="#f59e0b" stroke-width="1" filter="url(#sh)"/>
+  <text x="227" y="175" text-anchor="middle" font-weight="600" font-size="11" fill="#92400e">list_risks</text>
+  <text x="227" y="191" text-anchor="middle" font-size="10" fill="#b45309">top-N ranked</text>
+
+  <rect x="300" y="152" width="115" height="50" rx="6" fill="url(#gT)" stroke="#f59e0b" stroke-width="1" filter="url(#sh)"/>
+  <text x="357" y="175" text-anchor="middle" font-weight="600" font-size="11" fill="#92400e">graph_query</text>
+  <text x="357" y="191" text-anchor="middle" font-size="10" fill="#b45309">path / neighbor</text>
+
+  <rect x="430" y="152" width="115" height="50" rx="6" fill="url(#gT)" stroke="#f59e0b" stroke-width="1" filter="url(#sh)"/>
+  <text x="487" y="175" text-anchor="middle" font-weight="600" font-size="11" fill="#92400e">technique_lookup</text>
+  <text x="487" y="191" text-anchor="middle" font-size="10" fill="#b45309">ATT&amp;CK / ATLAS</text>
+
+  <rect x="560" y="152" width="115" height="50" rx="6" fill="url(#gT)" stroke="#f59e0b" stroke-width="1" filter="url(#sh)"/>
+  <text x="617" y="175" text-anchor="middle" font-weight="600" font-size="11" fill="#92400e">search_knowledge</text>
+  <text x="617" y="191" text-anchor="middle" font-size="10" fill="#b45309">extensible RAG</text>
+
+  <!-- Fan-out lines -->
+  <line x1="270" y1="148" x2="97"  y2="152" stroke="#64748b" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="270" y1="148" x2="227" y2="152" stroke="#64748b" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="270" y1="148" x2="357" y2="152" stroke="#64748b" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="270" y1="148" x2="487" y2="152" stroke="#64748b" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="270" y1="148" x2="617" y2="152" stroke="#64748b" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <!-- Converge to Composer -->
+  <line x1="97"  y1="202" x2="360" y2="242" stroke="#64748b" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="227" y1="202" x2="360" y2="242" stroke="#64748b" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="357" y1="202" x2="360" y2="242" stroke="#64748b" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="487" y1="202" x2="360" y2="242" stroke="#64748b" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="617" y1="202" x2="360" y2="242" stroke="#64748b" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <!-- Step 4: Answer Composer -->
+  <rect x="290" y="238" width="140" height="60" rx="8" fill="url(#gA)" stroke="#8b5cf6" stroke-width="1.5" filter="url(#sh)"/>
+  <text x="360" y="264" text-anchor="middle" font-weight="600" fill="#5b21b6">Compose Answer</text>
+  <text x="360" y="282" text-anchor="middle" font-size="11" fill="#7c3aed">Evidence + limitations</text>
+
+  <!-- Arrow to output -->
+  <line x1="430" y1="268" x2="476" y2="268" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Output -->
+  <rect x="480" y="238" width="200" height="60" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" filter="url(#sh)"/>
+  <text x="580" y="260" text-anchor="middle" font-weight="600" fill="#334155">AgentAnswer</text>
+  <text x="580" y="278" text-anchor="middle" font-size="11" fill="#64748b">text · evidence_refs · limitations</text>
+</svg>
