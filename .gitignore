@@ -6,3 +6,5 @@ __pycache__/
 *.egg-info/
 .env
 models/outputs/traces/
+models/outputs/threats/
+models/outputs/risks/
