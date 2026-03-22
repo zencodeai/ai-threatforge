@@ -1,0 +1,19 @@
+flowchart LR
+    A[Canonical TOML Model] --> B[Pydantic Validation]
+    B --> C[Neo4j Graph Loader]
+    C --> D[Security Graph]
+
+    D --> E[Threat Generation Rules]
+    E --> F[Threat JSON Output]
+
+    F --> G[Risk Scoring Engine]
+    G --> H[Risk JSON Output]
+
+    D --> I[Agent Tools]
+    F --> I
+    H --> I
+    J[Knowledge Layer] --> I
+
+    I --> K[Query Workflow]
+    K --> L[Streamlit Analyst UI]
+    K --> M[Observability Traces]

@@ -1,85 +1,89 @@
 # Threat Forge AI
 
-Threat Forge AI is a model-driven threat modeling platform.
+Threat Forge AI is a model-driven threat modeling platform that converts architecture context into explainable, analyst-ready security outputs.
 
-## Current scope
-- Phase 1: canonical TOML schema, validation, and example model
-- Phase 2: Neo4j graph schema, idempotent graph loader, and graph loader tests
-- Issue #6: reusable graph query library and analyst sample query pack
-- Issue #7: deterministic threat heuristic catalog and methodology
-- Issue #8: ATT&CK/ATLAS technique mapping for all threat rules
-- Issue #9: structured threat output generation and artifact writing
-- Phase 4 PR A/B: risk methodology, schema, and deterministic scoring engine
-- Phase 4 PR C: risk scoring CLI and risk artifact generation
-- Phase 5 PR A/B: agent tools and deterministic query workflow
-- Phase 5 PR C: observability instrumentation with local traces and optional LangSmith
-- Phase 6 PR A: Streamlit MVP analyst interface (model, threats, risks, chat)
+## Problem and approach
+Security teams often have architecture knowledge spread across diagrams, tickets, and tribal memory. Threat Forge AI addresses that by treating system architecture as code:
 
-## Included
-- Canonical TOML schema via Pydantic models
-- Validation CLI script
-- Realistic example model for fintech AI payment platform
-- Graph schema documentation, constraints, and indexes
-- Neo4j loader with idempotent `MERGE` behavior
-- Reusable graph query service for analyst-facing lookups
-- Sample Cypher query pack (10 queries)
-- Threat heuristic catalog for Phase 3 rule definitions
-- Rule-to-technique mapping catalog (ATT&CK + ATLAS)
-- Structured threat report generation and JSON output artifacts
-- Deterministic risk scoring with explainable driver contributions
-- Agent observability trace pipeline (JSONL traces + optional LangSmith)
-- Streamlit analyst interface with rebuild workflow controls
-- Unit and integration tests for schema and graph loading
+1. Capture system structure in a canonical TOML model.
+2. Validate integrity with strict schema and cross-reference checks.
+3. Load model relationships into Neo4j for path-aware analysis.
+4. Generate deterministic ATT&CK and ATLAS-aligned threats.
+5. Score and prioritize risks with explainable weighted factors.
+6. Expose evidence-backed answers through an analyst query workflow and UI.
 
-## Threat heuristics
-Phase 3 heuristic definitions are implemented in `analysis/threat_generation.py`
-and documented in `docs/threat_methodology.md`.
+## Architecture overview
+The end-to-end architecture is documented in:
+- `docs/architecture.md`
+- `docs/diagrams/architecture.mmd`
 
-Current catalog includes six deterministic rules covering:
-- internet-exposed sensitive-data handling
-- low-trust to high-value attack paths
-- high-privilege externally reachable modules
-- AI-relevant dependency exposure
-- regulated data concentration in critical workflows
-- trust-boundary privileged dependency crossings
+Pipeline summary:
+`model -> graph -> threats -> risks -> query workflow -> UI + observability`
 
-## Technique mapping
-Rule-to-technique mappings are implemented in `analysis/technique_mapping.py`.
-This layer binds each heuristic rule (`TH-001` to `TH-006`) to ATT&CK/ATLAS
-technique IDs, names, tactics, and rationale strings.
+## What is implemented
+Completed through Phase 6 PR A:
+- canonical schema + validation (`models/schema/canonical_model.py`)
+- graph loader + query helpers (`graph/`)
+- threat generation + ATT&CK/ATLAS mappings (`analysis/`)
+- deterministic risk scoring and outputs (`analysis/risk_scoring.py`)
+- agent tools, routing workflow, and tracing (`agents/`)
+- Streamlit analyst interface (`ui/app.py`)
 
-## Threat outputs
-Structured threat generation is implemented in `analysis/threat_outputs.py` and
-can be executed with:
+## Quick start
 
+### 1. Setup
 ```bash
-set -a && source .env && set +a
-python scripts/generate_threats.py --model models/examples/fintech_ai_platform.toml
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
 ```
 
-By default this writes JSON to:
-- `models/outputs/threats/<model_id>_threats.json`
-
-## Risk scoring
-Risk scoring is implemented in `analysis/risk_scoring.py` and can be executed with:
-
+### 2. Configure Neo4j
 ```bash
+cp .env.example .env
+```
+
+Set these values in `.env`:
+- `NEO4J_URI`
+- `NEO4J_USERNAME`
+- `NEO4J_PASSWORD`
+- `NEO4J_DATABASE`
+
+### 3. Run the analysis pipeline
+```bash
+python scripts/validate_model.py --model models/examples/fintech_ai_platform.toml
+set -a && source .env && set +a
+python scripts/load_graph.py --model models/examples/fintech_ai_platform.toml --clear
+python scripts/generate_threats.py --model models/examples/fintech_ai_platform.toml
 python scripts/score_risks.py
 ```
 
-Optional flags:
-- `--threats <path>`: explicit threat report JSON
-- `--output <path>`: explicit risk report destination
+### 4. Launch the analyst UI
+```bash
+pip install -e .[ui]
+streamlit run ui/app.py
+```
 
-By default this writes JSON to:
-- `models/outputs/risks/<model_id>_risks.json`
+## Streamlit screens
+- Model Overview: architecture entities and counts
+- Threats: generated threats with ATT&CK/ATLAS mappings
+- Risks: ranked risks with priority and driver context
+- Analyst Chat: grounded natural-language responses with evidence refs
 
-## Agent observability
-Query workflow runs are instrumented for end-to-end observability.
+The UI sidebar includes a `Run Rebuild Workflow` action that executes:
+1. `scripts/validate_model.py`
+2. `scripts/load_graph.py --clear`
+3. `scripts/generate_threats.py`
+4. `scripts/score_risks.py`
 
-Local traces:
-- emitted automatically to `models/outputs/traces/agent_runs.jsonl`
-- include `workflow_start`, `tool_result`, and `workflow_end` events per run
+## Observability
+Query workflow traces are written locally to:
+- `models/outputs/traces/agent_runs.jsonl`
+
+Events:
+- `workflow_start`
+- `tool_result`
+- `workflow_end`
 
 Optional LangSmith export:
 ```bash
@@ -89,112 +93,25 @@ export LANGSMITH_API_KEY=<your_key>
 export LANGSMITH_PROJECT=threat-forge-ai
 ```
 
-When enabled, traces are sent to LangSmith in addition to local JSONL logs.
+## Portfolio docs and demo assets
+- Architecture narrative: `docs/architecture.md`
+- End-to-end walkthrough: `docs/walkthrough.md`
+- Live demo script: `docs/demo_script.md`
+- Diagram source: `docs/diagrams/architecture.mmd`
+- Screenshot capture guide: `docs/screenshots/README.md`
 
-## Streamlit MVP UI
-Launch the analyst interface:
-
+## Test
 ```bash
-pip install -e .[ui]
-streamlit run ui/app.py
+pytest -q
 ```
 
-Included screens:
-- Model Overview
-- Threats
-- Risks
-- Analyst Chat
+## Project structure (key paths)
+- `models/`: canonical examples, schema, generated artifacts
+- `graph/`: Neo4j loader, constraints, reusable query helpers
+- `analysis/`: threat and risk engines
+- `agents/`: tool interfaces, workflow orchestration, tracing
+- `ui/`: Streamlit MVP analyst interface
+- `docs/`: architecture, walkthrough, and demo collateral
 
-The sidebar includes a `Run Rebuild Workflow` action that runs:
-1. `scripts/validate_model.py`
-2. `scripts/load_graph.py --clear`
-3. `scripts/generate_threats.py`
-4. `scripts/score_risks.py`
-
-## Prerequisites
-- Python 3.11+
-- Neo4j instance (for graph loading and integration tests)
-
-## Neo4j configuration
-Copy `.env.example` to `.env` and set credentials:
-
-```bash
-cp .env.example .env
-```
-
-Environment variables:
-- `NEO4J_URI`
-- `NEO4J_USERNAME`
-- `NEO4J_PASSWORD`
-- `NEO4J_DATABASE`
-
-## Quick start
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .[dev]
-
-# Validate canonical TOML model
-python scripts/validate_model.py --model models/examples/fintech_ai_platform.toml
-
-# Load model into Neo4j (uses .env values)
-set -a && source .env && set +a
-python scripts/load_graph.py --model models/examples/fintech_ai_platform.toml --clear
-
-# Optional: inspect bundled sample Cypher queries
-sed -n '1,220p' graph/cypher/sample_queries.cypher
-
-# Run tests
-pytest
-```
-
-## Test modes
-- Unit/default: `pytest -q`
-- Integration (requires Neo4j env vars): `set -a && source .env && set +a && pytest -q`
-
-Integration tests are marked with `@pytest.mark.integration` in `tests/test_graph_loader.py`.
-
-## Query pack
-The repository includes a query pack for common analyst questions in
-`graph/cypher/sample_queries.cypher` (10 queries), plus a Python query interface
-in `graph/graph_queries.py`.
-
-Included query themes:
-- internet-exposed modules
-- sensitive and regulated data flows
-- trust-boundary crossings
-- high-privilege externally reachable modules
-- AI-relevant dependencies
-- low-trust attack path candidates
-
-## Key files
-- `models/schema/canonical_model.py`: canonical schema and cross-reference validation
-- `models/examples/fintech_ai_platform.toml`: demo system model
-- `graph/graph_loader.py`: TOML-to-Neo4j loader
-- `graph/neo4j_client.py`: Neo4j connection client
-- `graph/graph_queries.py`: reusable graph query interface
-- `graph/cypher/constraints.cypher`: graph constraints
-- `graph/cypher/indexes.cypher`: graph indexes
-- `graph/cypher/sample_queries.cypher`: analyst query pack (10 queries)
-- `analysis/threat_generation.py`: Phase 3 heuristic catalog (`TH-001` to `TH-006`)
-- `analysis/technique_mapping.py`: ATT&CK/ATLAS mapping catalog and lookup helpers
-- `analysis/threat_outputs.py`: deterministic threat report generation and persistence
-- `analysis/risk_scoring.py`: deterministic risk scoring and report generation
-- `docs/graph_schema.md`: graph design and mapping
-- `docs/threat_methodology.md`: threat rule intent, pattern, and output mapping
-- `docs/risk_methodology.md`: risk factors, weights, priority bands, explainability
-- `scripts/validate_model.py`: model validator CLI
-- `scripts/load_graph.py`: graph load CLI
-- `scripts/generate_threats.py`: threat artifact generation CLI
-- `scripts/score_risks.py`: risk scoring CLI
-- `tests/test_graph_queries.py`: query-layer unit tests
-- `tests/test_threat_generation.py`: heuristic catalog guardrail tests
-- `tests/test_technique_mapping.py`: technique mapping coverage and integrity tests
-- `tests/test_threat_outputs.py`: structured threat output tests
-- `tests/test_risk_model.py`: risk schema tests
-- `tests/test_risk_scoring.py`: deterministic scoring and risk report tests
-- `ui/app.py`: Streamlit MVP analyst interface entrypoint
-- `ui/data_access.py`: model and artifact loading helpers for UI pages
-- `ui/actions.py`: rebuild workflow command runner for UI controls
-- `tests/test_ui_data_access.py`: UI data loading tests
-- `tests/test_ui_actions.py`: UI action pipeline tests
+## License
+Licensed under the Apache License 2.0. See `LICENSE`.

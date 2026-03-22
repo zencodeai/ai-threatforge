@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Model-driven threat modeling MVP"
 readme = "README.md"
 requires-python = ">=3.11"
+license = "Apache-2.0"
 dependencies = [
   "pydantic>=2.8,<3.0",
   "neo4j>=5.20,<6.0",
