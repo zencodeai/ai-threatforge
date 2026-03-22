@@ -121,4 +121,3 @@ Architecture data flows through seven layers, each with a single clear responsib
 | Query workflow | `docs/diagrams/query_workflow.svg` |
 | Risk scoring | `docs/diagrams/risk_scoring.svg` |
 | Project layout | `docs/diagrams/project_structure.svg` |
-| Pipeline (Mermaid source) | `docs/diagrams/architecture.mmd` |
