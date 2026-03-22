@@ -18,7 +18,7 @@ Architecture data flows through seven layers, each with a single clear responsib
 
 ### 1. Canonical model layer
 
-| | |
+| Attribute | Detail |
 |---|---|
 | **Source** | `models/examples/*.toml` |
 | **Contract** | `models/schema/canonical_model.py` (Pydantic) |
@@ -27,7 +27,7 @@ Architecture data flows through seven layers, each with a single clear responsib
 
 ### 2. Graph layer
 
-| | |
+| Attribute | Detail |
 |---|---|
 | **Source** | `graph/graph_loader.py`, `graph/graph_queries.py` |
 | **Storage** | Neo4j with constraints and indexes (`graph/cypher/`) |
@@ -36,7 +36,7 @@ Architecture data flows through seven layers, each with a single clear responsib
 
 ### 3. Threat layer
 
-| | |
+| Attribute | Detail |
 |---|---|
 | **Source** | `analysis/threat_generation.py`, `analysis/technique_mapping.py`, `analysis/threat_outputs.py` |
 | **Output** | `models/outputs/threats/*_threats.json` |
@@ -49,7 +49,7 @@ Architecture data flows through seven layers, each with a single clear responsib
   <img src="diagrams/risk_scoring.svg" alt="Risk scoring methodology" width="780" />
 </p>
 
-| | |
+| Attribute | Detail |
 |---|---|
 | **Source** | `analysis/risk_scoring.py` |
 | **Output** | `models/outputs/risks/*_risks.json` |
@@ -62,7 +62,7 @@ Architecture data flows through seven layers, each with a single clear responsib
   <img src="diagrams/query_workflow.svg" alt="Query workflow routing" width="720" />
 </p>
 
-| | |
+| Attribute | Detail |
 |---|---|
 | **Source** | `agents/tools.py`, `agents/workflow.py`, `agents/state.py` |
 | **Tools** | `list_threats`, `list_risks`, `graph_query`, `technique_lookup`, `search_knowledge` |
@@ -70,7 +70,7 @@ Architecture data flows through seven layers, each with a single clear responsib
 
 ### 6. Observability layer
 
-| | |
+| Attribute | Detail |
 |---|---|
 | **Source** | `agents/observability.py` |
 | **Local output** | `models/outputs/traces/agent_runs.jsonl` (structured event log) |
@@ -80,7 +80,7 @@ Architecture data flows through seven layers, each with a single clear responsib
 
 ### 7. UI layer
 
-| | |
+| Attribute | Detail |
 |---|---|
 | **Source** | `ui/app.py`, `ui/pages/*` |
 | **Framework** | Streamlit (`.[ui]` extra) |
