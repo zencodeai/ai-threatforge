@@ -1,0 +1,642 @@
+{
+  "model_id": "fintech-ai-demo",
+  "generated_at": "2026-03-22T16:14:40.431615+00:00",
+  "threat_count": 17,
+  "threats": [
+    {
+      "threat_id": "TH-001-36cf51ade4",
+      "model_id": "fintech-ai-demo",
+      "rule_id": "TH-001",
+      "title": "Internet exposed module handling sensitive workflow data",
+      "description": "Detect modules reachable from the internet that participate in workflows handling confidential, secret, or regulated objects.",
+      "target_id": "api_gateway",
+      "target_type": "module",
+      "severity_hint": "high",
+      "framework_mappings": [
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1190",
+          "technique_name": "Exploit Public-Facing Application",
+          "tactic": "Initial Access",
+          "mapping_rationale": "Internet-exposed services handling sensitive data are prime targets for public-facing exploitation."
+        },
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1078",
+          "technique_name": "Valid Accounts",
+          "tactic": "Defense Evasion",
+          "mapping_rationale": "Sensitive internet-facing workflows often include credential attack surfaces that can enable valid account abuse."
+        }
+      ],
+      "rationale": "Internet-exposed module intersects with sensitive workflow context.",
+      "evidence": {
+        "module_name": "API Gateway",
+        "module_type": "gateway",
+        "sensitive_workflow_count": 2
+      },
+      "affected_workflows": [
+        "payment_execution",
+        "user_login"
+      ],
+      "affected_objects": [
+        "fraud_features",
+        "payment_instruction",
+        "user_credentials"
+      ],
+      "created_at": "2026-03-22T16:14:40.431615+00:00"
+    },
+    {
+      "threat_id": "TH-001-ae2992de89",
+      "model_id": "fintech-ai-demo",
+      "rule_id": "TH-001",
+      "title": "Internet exposed module handling sensitive workflow data",
+      "description": "Detect modules reachable from the internet that participate in workflows handling confidential, secret, or regulated objects.",
+      "target_id": "mobile_app",
+      "target_type": "module",
+      "severity_hint": "high",
+      "framework_mappings": [
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1190",
+          "technique_name": "Exploit Public-Facing Application",
+          "tactic": "Initial Access",
+          "mapping_rationale": "Internet-exposed services handling sensitive data are prime targets for public-facing exploitation."
+        },
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1078",
+          "technique_name": "Valid Accounts",
+          "tactic": "Defense Evasion",
+          "mapping_rationale": "Sensitive internet-facing workflows often include credential attack surfaces that can enable valid account abuse."
+        }
+      ],
+      "rationale": "Internet-exposed module intersects with sensitive workflow context.",
+      "evidence": {
+        "module_name": "Mobile App",
+        "module_type": "client_application",
+        "sensitive_workflow_count": 2
+      },
+      "affected_workflows": [
+        "payment_execution",
+        "user_login"
+      ],
+      "affected_objects": [
+        "fraud_features",
+        "payment_instruction",
+        "user_credentials"
+      ],
+      "created_at": "2026-03-22T16:14:40.431615+00:00"
+    },
+    {
+      "threat_id": "TH-002-0c0762983d",
+      "model_id": "fintech-ai-demo",
+      "rule_id": "TH-002",
+      "title": "Low-trust to high-value object dependency path",
+      "description": "Identify dependency chains beginning in low-trust domains and ending at confidential, secret, or regulated objects through datastores.",
+      "target_id": "fraud_features",
+      "target_type": "object",
+      "severity_hint": "critical",
+      "framework_mappings": [
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1021",
+          "technique_name": "Remote Services",
+          "tactic": "Lateral Movement",
+          "mapping_rationale": "Dependency chains from low-trust zones indicate likely remote-service lateral movement paths to high-value assets."
+        },
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1485",
+          "technique_name": "Data Destruction",
+          "tactic": "Impact",
+          "mapping_rationale": "Path access to critical objects implies elevated impact potential on high-value data."
+        }
+      ],
+      "rationale": "Low-trust dependency path reaches high-value object.",
+      "evidence": {
+        "entry_module": "mobile_app",
+        "hops": 5
+      },
+      "affected_workflows": [],
+      "affected_objects": [
+        "fraud_features"
+      ],
+      "created_at": "2026-03-22T16:14:40.431615+00:00"
+    },
+    {
+      "threat_id": "TH-002-2cdfc91e68",
+      "model_id": "fintech-ai-demo",
+      "rule_id": "TH-002",
+      "title": "Low-trust to high-value object dependency path",
+      "description": "Identify dependency chains beginning in low-trust domains and ending at confidential, secret, or regulated objects through datastores.",
+      "target_id": "payment_instruction",
+      "target_type": "object",
+      "severity_hint": "critical",
+      "framework_mappings": [
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1021",
+          "technique_name": "Remote Services",
+          "tactic": "Lateral Movement",
+          "mapping_rationale": "Dependency chains from low-trust zones indicate likely remote-service lateral movement paths to high-value assets."
+        },
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1485",
+          "technique_name": "Data Destruction",
+          "tactic": "Impact",
+          "mapping_rationale": "Path access to critical objects implies elevated impact potential on high-value data."
+        }
+      ],
+      "rationale": "Low-trust dependency path reaches high-value object.",
+      "evidence": {
+        "entry_module": "mobile_app",
+        "hops": 4
+      },
+      "affected_workflows": [],
+      "affected_objects": [
+        "payment_instruction"
+      ],
+      "created_at": "2026-03-22T16:14:40.431615+00:00"
+    },
+    {
+      "threat_id": "TH-003-6aca7b7d44",
+      "model_id": "fintech-ai-demo",
+      "rule_id": "TH-003",
+      "title": "High-privilege module externally reachable",
+      "description": "Flag modules with service/admin privilege that are internet-exposed or reachable through workflows involving external actors.",
+      "target_id": "api_gateway",
+      "target_type": "module",
+      "severity_hint": "high",
+      "framework_mappings": [
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1068",
+          "technique_name": "Exploitation for Privilege Escalation",
+          "tactic": "Privilege Escalation",
+          "mapping_rationale": "Externally reachable privileged modules increase likelihood of exploit-driven privilege escalation."
+        },
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1078",
+          "technique_name": "Valid Accounts",
+          "tactic": "Persistence",
+          "mapping_rationale": "High-privilege reachable services are at risk of persistence through account abuse."
+        }
+      ],
+      "rationale": "High-privilege module is externally reachable.",
+      "evidence": {
+        "privilege_level": 2,
+        "internet_exposed": true
+      },
+      "affected_workflows": [],
+      "affected_objects": [],
+      "created_at": "2026-03-22T16:14:40.431615+00:00"
+    },
+    {
+      "threat_id": "TH-003-5e58569300",
+      "model_id": "fintech-ai-demo",
+      "rule_id": "TH-003",
+      "title": "High-privilege module externally reachable",
+      "description": "Flag modules with service/admin privilege that are internet-exposed or reachable through workflows involving external actors.",
+      "target_id": "auth_service",
+      "target_type": "module",
+      "severity_hint": "high",
+      "framework_mappings": [
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1068",
+          "technique_name": "Exploitation for Privilege Escalation",
+          "tactic": "Privilege Escalation",
+          "mapping_rationale": "Externally reachable privileged modules increase likelihood of exploit-driven privilege escalation."
+        },
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1078",
+          "technique_name": "Valid Accounts",
+          "tactic": "Persistence",
+          "mapping_rationale": "High-privilege reachable services are at risk of persistence through account abuse."
+        }
+      ],
+      "rationale": "High-privilege module is externally reachable.",
+      "evidence": {
+        "privilege_level": 2,
+        "internet_exposed": false
+      },
+      "affected_workflows": [],
+      "affected_objects": [],
+      "created_at": "2026-03-22T16:14:40.431615+00:00"
+    },
+    {
+      "threat_id": "TH-003-9f74611cc8",
+      "model_id": "fintech-ai-demo",
+      "rule_id": "TH-003",
+      "title": "High-privilege module externally reachable",
+      "description": "Flag modules with service/admin privilege that are internet-exposed or reachable through workflows involving external actors.",
+      "target_id": "fraud_model_service",
+      "target_type": "module",
+      "severity_hint": "high",
+      "framework_mappings": [
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1068",
+          "technique_name": "Exploitation for Privilege Escalation",
+          "tactic": "Privilege Escalation",
+          "mapping_rationale": "Externally reachable privileged modules increase likelihood of exploit-driven privilege escalation."
+        },
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1078",
+          "technique_name": "Valid Accounts",
+          "tactic": "Persistence",
+          "mapping_rationale": "High-privilege reachable services are at risk of persistence through account abuse."
+        }
+      ],
+      "rationale": "High-privilege module is externally reachable.",
+      "evidence": {
+        "privilege_level": 2,
+        "internet_exposed": false
+      },
+      "affected_workflows": [],
+      "affected_objects": [],
+      "created_at": "2026-03-22T16:14:40.431615+00:00"
+    },
+    {
+      "threat_id": "TH-003-a3fd4b8f95",
+      "model_id": "fintech-ai-demo",
+      "rule_id": "TH-003",
+      "title": "High-privilege module externally reachable",
+      "description": "Flag modules with service/admin privilege that are internet-exposed or reachable through workflows involving external actors.",
+      "target_id": "payment_service",
+      "target_type": "module",
+      "severity_hint": "high",
+      "framework_mappings": [
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1068",
+          "technique_name": "Exploitation for Privilege Escalation",
+          "tactic": "Privilege Escalation",
+          "mapping_rationale": "Externally reachable privileged modules increase likelihood of exploit-driven privilege escalation."
+        },
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1078",
+          "technique_name": "Valid Accounts",
+          "tactic": "Persistence",
+          "mapping_rationale": "High-privilege reachable services are at risk of persistence through account abuse."
+        }
+      ],
+      "rationale": "High-privilege module is externally reachable.",
+      "evidence": {
+        "privilege_level": 2,
+        "internet_exposed": false
+      },
+      "affected_workflows": [],
+      "affected_objects": [],
+      "created_at": "2026-03-22T16:14:40.431615+00:00"
+    },
+    {
+      "threat_id": "TH-004-fdb3520081",
+      "model_id": "fintech-ai-demo",
+      "rule_id": "TH-004",
+      "title": "AI-relevant module dependency and model service exposure",
+      "description": "Detect modules that depend on AI-relevant services and can influence model inputs, feature stores, or inference surfaces.",
+      "target_id": "fraud_model_service",
+      "target_type": "module",
+      "severity_hint": "high",
+      "framework_mappings": [
+        {
+          "framework": "ATLAS",
+          "technique_id": "AML.T0016",
+          "technique_name": "Data Poisoning",
+          "tactic": "ML Model Manipulation",
+          "mapping_rationale": "AI-relevant module and feature pipeline dependencies create poisoning opportunities."
+        },
+        {
+          "framework": "ATLAS",
+          "technique_id": "AML.T0040",
+          "technique_name": "Model Evasion",
+          "tactic": "ML Model Inference Manipulation",
+          "mapping_rationale": "Inference-facing AI dependencies can be abused via evasion-style inputs."
+        },
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1565",
+          "technique_name": "Data Manipulation",
+          "tactic": "Impact",
+          "mapping_rationale": "ML pipeline dependencies expose data manipulation opportunities across model inputs."
+        }
+      ],
+      "rationale": "Module dependency exposes AI-relevant service surface.",
+      "evidence": {
+        "dependent_module": "payment_service"
+      },
+      "affected_workflows": [],
+      "affected_objects": [],
+      "created_at": "2026-03-22T16:14:40.431615+00:00"
+    },
+    {
+      "threat_id": "TH-005-0516cc6485",
+      "model_id": "fintech-ai-demo",
+      "rule_id": "TH-005",
+      "title": "Regulated object concentration in critical workflows",
+      "description": "Highlight workflows in high or critical systems that involve multiple regulated objects and privileged modules.",
+      "target_id": "payment_execution",
+      "target_type": "workflow",
+      "severity_hint": "high",
+      "framework_mappings": [
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1530",
+          "technique_name": "Data from Cloud Storage Object",
+          "tactic": "Collection",
+          "mapping_rationale": "Regulated objects concentrated in critical workflows are high-value collection targets."
+        },
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1020",
+          "technique_name": "Automated Exfiltration",
+          "tactic": "Exfiltration",
+          "mapping_rationale": "Critical workflows carrying regulated data increase exfiltration automation risk."
+        }
+      ],
+      "rationale": "Critical workflow aggregates regulated data and privileged modules.",
+      "evidence": {
+        "system_criticality": "high"
+      },
+      "affected_workflows": [
+        "payment_execution"
+      ],
+      "affected_objects": [
+        "fraud_features",
+        "payment_instruction"
+      ],
+      "created_at": "2026-03-22T16:14:40.431615+00:00"
+    },
+    {
+      "threat_id": "TH-005-84d138fc15",
+      "model_id": "fintech-ai-demo",
+      "rule_id": "TH-005",
+      "title": "Regulated object concentration in critical workflows",
+      "description": "Highlight workflows in high or critical systems that involve multiple regulated objects and privileged modules.",
+      "target_id": "user_login",
+      "target_type": "workflow",
+      "severity_hint": "high",
+      "framework_mappings": [
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1530",
+          "technique_name": "Data from Cloud Storage Object",
+          "tactic": "Collection",
+          "mapping_rationale": "Regulated objects concentrated in critical workflows are high-value collection targets."
+        },
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1020",
+          "technique_name": "Automated Exfiltration",
+          "tactic": "Exfiltration",
+          "mapping_rationale": "Critical workflows carrying regulated data increase exfiltration automation risk."
+        }
+      ],
+      "rationale": "Critical workflow aggregates regulated data and privileged modules.",
+      "evidence": {
+        "system_criticality": "high"
+      },
+      "affected_workflows": [
+        "user_login"
+      ],
+      "affected_objects": [
+        "user_credentials"
+      ],
+      "created_at": "2026-03-22T16:14:40.431615+00:00"
+    },
+    {
+      "threat_id": "TH-006-dea40b8e2e",
+      "model_id": "fintech-ai-demo",
+      "rule_id": "TH-006",
+      "title": "Trust boundary crossing with privileged dependency",
+      "description": "Detect dependencies that traverse defined trust boundaries and terminate in privileged backend or datastore components.",
+      "target_id": "api_gateway",
+      "target_type": "module",
+      "severity_hint": "medium",
+      "framework_mappings": [
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1570",
+          "technique_name": "Lateral Tool Transfer",
+          "tactic": "Lateral Movement",
+          "mapping_rationale": "Boundary crossing dependencies can support staged tool transfer into trusted zones."
+        },
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1550",
+          "technique_name": "Use Alternate Authentication Material",
+          "tactic": "Lateral Movement",
+          "mapping_rationale": "Cross-boundary privileged dependencies can be abused through token/key-based movement."
+        }
+      ],
+      "rationale": "Dependency can cross trust boundary into privileged/sensitive zone.",
+      "evidence": {
+        "dependency_target": "auth_service",
+        "dependency_relationship": "calls",
+        "trust_boundaries": [
+          "backend_ml_boundary",
+          "internet_boundary"
+        ]
+      },
+      "affected_workflows": [],
+      "affected_objects": [],
+      "created_at": "2026-03-22T16:14:40.431615+00:00"
+    },
+    {
+      "threat_id": "TH-006-e5a4f01fe2",
+      "model_id": "fintech-ai-demo",
+      "rule_id": "TH-006",
+      "title": "Trust boundary crossing with privileged dependency",
+      "description": "Detect dependencies that traverse defined trust boundaries and terminate in privileged backend or datastore components.",
+      "target_id": "api_gateway",
+      "target_type": "module",
+      "severity_hint": "medium",
+      "framework_mappings": [
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1570",
+          "technique_name": "Lateral Tool Transfer",
+          "tactic": "Lateral Movement",
+          "mapping_rationale": "Boundary crossing dependencies can support staged tool transfer into trusted zones."
+        },
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1550",
+          "technique_name": "Use Alternate Authentication Material",
+          "tactic": "Lateral Movement",
+          "mapping_rationale": "Cross-boundary privileged dependencies can be abused through token/key-based movement."
+        }
+      ],
+      "rationale": "Dependency can cross trust boundary into privileged/sensitive zone.",
+      "evidence": {
+        "dependency_target": "payment_service",
+        "dependency_relationship": "calls",
+        "trust_boundaries": [
+          "backend_ml_boundary",
+          "internet_boundary"
+        ]
+      },
+      "affected_workflows": [],
+      "affected_objects": [],
+      "created_at": "2026-03-22T16:14:40.431615+00:00"
+    },
+    {
+      "threat_id": "TH-006-d64e7de526",
+      "model_id": "fintech-ai-demo",
+      "rule_id": "TH-006",
+      "title": "Trust boundary crossing with privileged dependency",
+      "description": "Detect dependencies that traverse defined trust boundaries and terminate in privileged backend or datastore components.",
+      "target_id": "fraud_model_service",
+      "target_type": "module",
+      "severity_hint": "medium",
+      "framework_mappings": [
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1570",
+          "technique_name": "Lateral Tool Transfer",
+          "tactic": "Lateral Movement",
+          "mapping_rationale": "Boundary crossing dependencies can support staged tool transfer into trusted zones."
+        },
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1550",
+          "technique_name": "Use Alternate Authentication Material",
+          "tactic": "Lateral Movement",
+          "mapping_rationale": "Cross-boundary privileged dependencies can be abused through token/key-based movement."
+        }
+      ],
+      "rationale": "Dependency can cross trust boundary into privileged/sensitive zone.",
+      "evidence": {
+        "dependency_target": "feature_store",
+        "dependency_relationship": "reads_writes",
+        "trust_boundaries": [
+          "backend_ml_boundary",
+          "internet_boundary"
+        ]
+      },
+      "affected_workflows": [],
+      "affected_objects": [],
+      "created_at": "2026-03-22T16:14:40.431615+00:00"
+    },
+    {
+      "threat_id": "TH-006-e785178f37",
+      "model_id": "fintech-ai-demo",
+      "rule_id": "TH-006",
+      "title": "Trust boundary crossing with privileged dependency",
+      "description": "Detect dependencies that traverse defined trust boundaries and terminate in privileged backend or datastore components.",
+      "target_id": "mobile_app",
+      "target_type": "module",
+      "severity_hint": "medium",
+      "framework_mappings": [
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1570",
+          "technique_name": "Lateral Tool Transfer",
+          "tactic": "Lateral Movement",
+          "mapping_rationale": "Boundary crossing dependencies can support staged tool transfer into trusted zones."
+        },
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1550",
+          "technique_name": "Use Alternate Authentication Material",
+          "tactic": "Lateral Movement",
+          "mapping_rationale": "Cross-boundary privileged dependencies can be abused through token/key-based movement."
+        }
+      ],
+      "rationale": "Dependency can cross trust boundary into privileged/sensitive zone.",
+      "evidence": {
+        "dependency_target": "api_gateway",
+        "dependency_relationship": "calls",
+        "trust_boundaries": [
+          "backend_ml_boundary",
+          "internet_boundary"
+        ]
+      },
+      "affected_workflows": [],
+      "affected_objects": [],
+      "created_at": "2026-03-22T16:14:40.431615+00:00"
+    },
+    {
+      "threat_id": "TH-006-230f8de95c",
+      "model_id": "fintech-ai-demo",
+      "rule_id": "TH-006",
+      "title": "Trust boundary crossing with privileged dependency",
+      "description": "Detect dependencies that traverse defined trust boundaries and terminate in privileged backend or datastore components.",
+      "target_id": "payment_service",
+      "target_type": "module",
+      "severity_hint": "medium",
+      "framework_mappings": [
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1570",
+          "technique_name": "Lateral Tool Transfer",
+          "tactic": "Lateral Movement",
+          "mapping_rationale": "Boundary crossing dependencies can support staged tool transfer into trusted zones."
+        },
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1550",
+          "technique_name": "Use Alternate Authentication Material",
+          "tactic": "Lateral Movement",
+          "mapping_rationale": "Cross-boundary privileged dependencies can be abused through token/key-based movement."
+        }
+      ],
+      "rationale": "Dependency can cross trust boundary into privileged/sensitive zone.",
+      "evidence": {
+        "dependency_target": "fraud_model_service",
+        "dependency_relationship": "calls",
+        "trust_boundaries": [
+          "backend_ml_boundary",
+          "internet_boundary"
+        ]
+      },
+      "affected_workflows": [],
+      "affected_objects": [],
+      "created_at": "2026-03-22T16:14:40.431615+00:00"
+    },
+    {
+      "threat_id": "TH-006-7248b038f7",
+      "model_id": "fintech-ai-demo",
+      "rule_id": "TH-006",
+      "title": "Trust boundary crossing with privileged dependency",
+      "description": "Detect dependencies that traverse defined trust boundaries and terminate in privileged backend or datastore components.",
+      "target_id": "payment_service",
+      "target_type": "module",
+      "severity_hint": "medium",
+      "framework_mappings": [
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1570",
+          "technique_name": "Lateral Tool Transfer",
+          "tactic": "Lateral Movement",
+          "mapping_rationale": "Boundary crossing dependencies can support staged tool transfer into trusted zones."
+        },
+        {
+          "framework": "ATTACK",
+          "technique_id": "T1550",
+          "technique_name": "Use Alternate Authentication Material",
+          "tactic": "Lateral Movement",
+          "mapping_rationale": "Cross-boundary privileged dependencies can be abused through token/key-based movement."
+        }
+      ],
+      "rationale": "Dependency can cross trust boundary into privileged/sensitive zone.",
+      "evidence": {
+        "dependency_target": "txn_db",
+        "dependency_relationship": "writes",
+        "trust_boundaries": [
+          "backend_ml_boundary",
+          "internet_boundary"
+        ]
+      },
+      "affected_workflows": [],
+      "affected_objects": [],
+      "created_at": "2026-03-22T16:14:40.431615+00:00"
+    }
+  ]
+}

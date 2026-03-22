@@ -8,6 +8,7 @@ Threat Forge AI is a model-driven threat modeling platform.
 - Issue #6: reusable graph query library and analyst sample query pack
 - Issue #7: deterministic threat heuristic catalog and methodology
 - Issue #8: ATT&CK/ATLAS technique mapping for all threat rules
+- Issue #9: structured threat output generation and artifact writing
 
 ## Included
 - Canonical TOML schema via Pydantic models
@@ -19,6 +20,7 @@ Threat Forge AI is a model-driven threat modeling platform.
 - Sample Cypher query pack (10 queries)
 - Threat heuristic catalog for Phase 3 rule definitions
 - Rule-to-technique mapping catalog (ATT&CK + ATLAS)
+- Structured threat report generation and JSON output artifacts
 - Unit and integration tests for schema and graph loading
 
 ## Threat heuristics
@@ -37,6 +39,18 @@ Current catalog includes six deterministic rules covering:
 Rule-to-technique mappings are implemented in `analysis/technique_mapping.py`.
 This layer binds each heuristic rule (`TH-001` to `TH-006`) to ATT&CK/ATLAS
 technique IDs, names, tactics, and rationale strings.
+
+## Threat outputs
+Structured threat generation is implemented in `analysis/threat_outputs.py` and
+can be executed with:
+
+```bash
+set -a && source .env && set +a
+python scripts/generate_threats.py --model models/examples/fintech_ai_platform.toml
+```
+
+By default this writes JSON to:
+- `models/outputs/threats/<model_id>_threats.json`
 
 ## Prerequisites
 - Python 3.11+
@@ -105,10 +119,13 @@ Included query themes:
 - `graph/cypher/sample_queries.cypher`: analyst query pack (10 queries)
 - `analysis/threat_generation.py`: Phase 3 heuristic catalog (`TH-001` to `TH-006`)
 - `analysis/technique_mapping.py`: ATT&CK/ATLAS mapping catalog and lookup helpers
+- `analysis/threat_outputs.py`: deterministic threat report generation and persistence
 - `docs/graph_schema.md`: graph design and mapping
 - `docs/threat_methodology.md`: threat rule intent, pattern, and output mapping
 - `scripts/validate_model.py`: model validator CLI
 - `scripts/load_graph.py`: graph load CLI
+- `scripts/generate_threats.py`: threat artifact generation CLI
 - `tests/test_graph_queries.py`: query-layer unit tests
 - `tests/test_threat_generation.py`: heuristic catalog guardrail tests
 - `tests/test_technique_mapping.py`: technique mapping coverage and integrity tests
+- `tests/test_threat_outputs.py`: structured threat output tests
