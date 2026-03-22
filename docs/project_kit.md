@@ -2,7 +2,7 @@
 
 ## Project Identity
 
-**Working title:** ThreatGraph AI  
+**Working title:** Threat Forge AI  
 **Category:** AI-assisted security architecture / threat modeling / agentic analysis  
 **Primary goal:** Build a portfolio-grade MVP that can evolve into a real product.
 
@@ -338,7 +338,7 @@ Streamlit analyst UI
 ## 3. Repo Skeleton
 
 ```text
-threatgraph-ai/
+threat-forge-ai/
 ├── README.md
 ├── pyproject.toml
 ├── .env.example
@@ -909,7 +909,7 @@ Examples:
 ## 6. Recommended Working Narrative
 
 ### Elevator pitch
-ThreatGraph AI is a graph-native, model-driven threat modeling platform that converts system architecture into a canonical security model, maps threats using ATT&CK and ATLAS, prioritizes them with an explainable risk engine, and exposes the results through agentic LLM workflows.
+Threat Forge AI is a graph-native, model-driven threat modeling platform that converts system architecture into a canonical security model, maps threats using ATT&CK and ATLAS, prioritizes them with an explainable risk engine, and exposes the results through agentic LLM workflows.
 
 ### Why this is portfolio-strong
 It demonstrates:
@@ -949,9 +949,9 @@ It demonstrates:
 ## 8.1 `README.md`
 
 ```md
-# ThreatGraph AI
+# Threat Forge AI
 
-ThreatGraph AI is a graph-native, model-driven threat modeling platform that converts system architecture into a canonical security model, maps threats using MITRE ATT&CK and MITRE ATLAS, prioritizes them with an explainable risk engine, and exposes the results through agentic LLM workflows.
+Threat Forge AI is a graph-native, model-driven threat modeling platform that converts system architecture into a canonical security model, maps threats using MITRE ATT&CK and MITRE ATLAS, prioritizes them with an explainable risk engine, and exposes the results through agentic LLM workflows.
 
 ## Why this project exists
 This project is designed as both:
@@ -1003,7 +1003,7 @@ Streamlit analyst UI
 
 ## Repository structure
 ```text
-threatgraph-ai/
+threat-forge-ai/
 ├── docs/
 ├── models/
 ├── ingestion/
@@ -1079,7 +1079,7 @@ This scenario was chosen because it supports both:
 - modular architecture for extensibility
 
 ## Running vision
-ThreatGraph AI is best understood not as “an AI that does threat modeling,” but as a **model-driven security analysis platform with agentic reasoning**.
+Threat Forge AI is best understood not as “an AI that does threat modeling,” but as a **model-driven security analysis platform with agentic reasoning**.
 
 ## Next milestones
 1. finalize schema v0.1
@@ -1095,10 +1095,10 @@ ThreatGraph AI is best understood not as “an AI that does threat modeling,” 
 ## 8.2 `docs/one_page_architecture.md`
 
 ```md
-# ThreatGraph AI — One-Page Architecture
+# Threat Forge AI — One-Page Architecture
 
 ## Product statement
-ThreatGraph AI is a graph-native, model-driven threat modeling platform that transforms architecture evidence into a canonical security model, maps threats using MITRE ATT&CK and MITRE ATLAS, prioritizes them through an explainable risk engine, and exposes the results through agentic LLM workflows.
+Threat Forge AI is a graph-native, model-driven threat modeling platform that transforms architecture evidence into a canonical security model, maps threats using MITRE ATT&CK and MITRE ATLAS, prioritizes them through an explainable risk engine, and exposes the results through agentic LLM workflows.
 
 ## Architectural intent
 The platform is designed to demonstrate and eventually productize five capabilities:
