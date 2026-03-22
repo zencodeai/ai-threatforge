@@ -1,3 +1,4 @@
+from .observability import JsonlTraceRecorder, create_trace_recorder, new_run_id
 from .state import AgentAnswer, AgentState, ToolCallRecord, ToolError, ToolResponse
 from .tools import AgentTools
 from .workflow import QueryWorkflow
@@ -10,4 +11,7 @@ __all__ = [
     "AgentAnswer",
     "AgentTools",
     "QueryWorkflow",
+    "JsonlTraceRecorder",
+    "create_trace_recorder",
+    "new_run_id",
 ]

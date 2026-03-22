@@ -11,6 +11,8 @@ Threat Forge AI is a model-driven threat modeling platform.
 - Issue #9: structured threat output generation and artifact writing
 - Phase 4 PR A/B: risk methodology, schema, and deterministic scoring engine
 - Phase 4 PR C: risk scoring CLI and risk artifact generation
+- Phase 5 PR A/B: agent tools and deterministic query workflow
+- Phase 5 PR C: observability instrumentation with local traces and optional LangSmith
 
 ## Included
 - Canonical TOML schema via Pydantic models
@@ -24,6 +26,7 @@ Threat Forge AI is a model-driven threat modeling platform.
 - Rule-to-technique mapping catalog (ATT&CK + ATLAS)
 - Structured threat report generation and JSON output artifacts
 - Deterministic risk scoring with explainable driver contributions
+- Agent observability trace pipeline (JSONL traces + optional LangSmith)
 - Unit and integration tests for schema and graph loading
 
 ## Threat heuristics
@@ -68,6 +71,23 @@ Optional flags:
 
 By default this writes JSON to:
 - `models/outputs/risks/<model_id>_risks.json`
+
+## Agent observability
+Query workflow runs are instrumented for end-to-end observability.
+
+Local traces:
+- emitted automatically to `models/outputs/traces/agent_runs.jsonl`
+- include `workflow_start`, `tool_result`, and `workflow_end` events per run
+
+Optional LangSmith export:
+```bash
+pip install -e .[observability]
+export LANGSMITH_TRACING=true
+export LANGSMITH_API_KEY=<your_key>
+export LANGSMITH_PROJECT=threat-forge-ai
+```
+
+When enabled, traces are sent to LangSmith in addition to local JSONL logs.
 
 ## Prerequisites
 - Python 3.11+

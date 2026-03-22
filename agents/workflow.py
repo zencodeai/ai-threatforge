@@ -5,6 +5,7 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from .observability import TraceRecorder, create_trace_recorder, new_run_id
 from .state import AgentAnswer, AgentState, ToolCallRecord
 from .tools import AgentTools
 
@@ -21,10 +22,12 @@ class QueryWorkflow:
 
     _TECHNIQUE_PATTERN = re.compile(r"\b(T\d{4}(?:\.\d{3})?|AML\.T\d{4})\b", re.IGNORECASE)
 
-    def __init__(self, tools: AgentTools | None = None):
+    def __init__(self, tools: AgentTools | None = None, tracer: TraceRecorder | None = None):
         self.tools = tools or AgentTools()
+        self.tracer = tracer or create_trace_recorder()
 
     def answer(self, question: str) -> tuple[AgentAnswer, AgentState]:
+        run_id = new_run_id()
         state = AgentState(question=question)
         actions = self._route(question)
 
@@ -37,13 +40,17 @@ class QueryWorkflow:
                 )
             ]
 
+        self.tracer.on_workflow_start(run_id, question, [action.tool_name for action in actions])
+
         for action in actions:
             response = self._run_action(action)
             state.tool_calls.append(
                 ToolCallRecord(name=action.tool_name, tool_input=action.tool_input, response=response)
             )
+            self.tracer.on_tool_result(run_id, action.tool_name, action.tool_input, response)
 
         answer = self._compose_answer(state)
+        self.tracer.on_workflow_end(run_id, answer)
         return answer, state
 
     def _route(self, question: str) -> list[RoutedAction]:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from agents.observability import NullTraceRecorder
 from agents.tools import AgentTools
 from agents.workflow import QueryWorkflow
 from models.schema.risk_model import RiskFactors, RiskRecord, RiskReport
@@ -142,7 +143,7 @@ def _workflow(base_dir: Path) -> QueryWorkflow:
         return [{"module_id": "api_gateway", "module_name": "API Gateway", "module_type": "gateway"}]
 
     tools = AgentTools(base_dir=base_dir, graph_runner=_graph_runner)
-    return QueryWorkflow(tools)
+    return QueryWorkflow(tools, tracer=NullTraceRecorder())
 
 
 def test_query_workflow_answers_representative_questions(tmp_path: Path) -> None:
@@ -181,7 +182,7 @@ def test_query_workflow_reports_limitations_on_tool_failure(tmp_path: Path) -> N
         raise RuntimeError("neo4j unavailable")
 
     tools = AgentTools(base_dir=tmp_path, graph_runner=_raise_graph)
-    workflow = QueryWorkflow(tools)
+    workflow = QueryWorkflow(tools, tracer=NullTraceRecorder())
 
     answer, state = workflow.answer("Show internet exposed modules from the graph")
 
