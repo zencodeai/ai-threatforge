@@ -19,7 +19,7 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["models*", "graph*", "analysis*"]
+include = ["models*", "graph*", "analysis*", "agents*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
