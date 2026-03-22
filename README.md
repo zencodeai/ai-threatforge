@@ -7,6 +7,7 @@ Threat Forge AI is a model-driven threat modeling platform.
 - Phase 2: Neo4j graph schema, idempotent graph loader, and graph loader tests
 - Issue #6: reusable graph query library and analyst sample query pack
 - Issue #7: deterministic threat heuristic catalog and methodology
+- Issue #8: ATT&CK/ATLAS technique mapping for all threat rules
 
 ## Included
 - Canonical TOML schema via Pydantic models
@@ -17,6 +18,7 @@ Threat Forge AI is a model-driven threat modeling platform.
 - Reusable graph query service for analyst-facing lookups
 - Sample Cypher query pack (10 queries)
 - Threat heuristic catalog for Phase 3 rule definitions
+- Rule-to-technique mapping catalog (ATT&CK + ATLAS)
 - Unit and integration tests for schema and graph loading
 
 ## Threat heuristics
@@ -30,6 +32,11 @@ Current catalog includes six deterministic rules covering:
 - AI-relevant dependency exposure
 - regulated data concentration in critical workflows
 - trust-boundary privileged dependency crossings
+
+## Technique mapping
+Rule-to-technique mappings are implemented in `analysis/technique_mapping.py`.
+This layer binds each heuristic rule (`TH-001` to `TH-006`) to ATT&CK/ATLAS
+technique IDs, names, tactics, and rationale strings.
 
 ## Prerequisites
 - Python 3.11+
@@ -97,9 +104,11 @@ Included query themes:
 - `graph/cypher/indexes.cypher`: graph indexes
 - `graph/cypher/sample_queries.cypher`: analyst query pack (10 queries)
 - `analysis/threat_generation.py`: Phase 3 heuristic catalog (`TH-001` to `TH-006`)
+- `analysis/technique_mapping.py`: ATT&CK/ATLAS mapping catalog and lookup helpers
 - `docs/graph_schema.md`: graph design and mapping
 - `docs/threat_methodology.md`: threat rule intent, pattern, and output mapping
 - `scripts/validate_model.py`: model validator CLI
 - `scripts/load_graph.py`: graph load CLI
 - `tests/test_graph_queries.py`: query-layer unit tests
 - `tests/test_threat_generation.py`: heuristic catalog guardrail tests
+- `tests/test_technique_mapping.py`: technique mapping coverage and integrity tests

@@ -109,5 +109,5 @@ Threat objects generated from these heuristics should include at minimum:
 - `evidence`
 
 ## Notes for next phase
-- Technique mapping (`#8`) will bind each `rule_id` to ATT&CK/ATLAS technique IDs and names.
+- Technique mapping (`#8`) is implemented in `analysis/technique_mapping.py`, binding each `rule_id` to ATT&CK/ATLAS technique IDs and names.
 - Structured threat generation (`#9`) will implement deterministic evaluation over the Neo4j graph and persist outputs to `models/outputs/threats/`.
