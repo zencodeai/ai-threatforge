@@ -7,6 +7,8 @@ import streamlit as st
 from agents.tools import AgentTools
 from agents.workflow import QueryWorkflow
 
+ROOT = Path(__file__).resolve().parents[2]
+
 
 SAMPLE_QUESTIONS = [
     "What are the highest risks right now?",
@@ -50,3 +52,12 @@ def render(base_dir: Path) -> None:
 
         with st.expander("Tool Calls", expanded=False):
             st.json([call.model_dump() for call in state.tool_calls])
+
+
+def main() -> None:
+    st.set_page_config(page_title="Threat Forge AI - Chat", page_icon="TF", layout="wide")
+    render(ROOT)
+
+
+if __name__ == "__main__":
+    main()

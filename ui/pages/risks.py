@@ -6,6 +6,8 @@ import streamlit as st
 
 from ui.data_access import load_risk_report, risk_rows
 
+ROOT = Path(__file__).resolve().parents[2]
+
 
 def render(base_dir: Path) -> None:
     st.subheader("Risks")
@@ -23,3 +25,12 @@ def render(base_dir: Path) -> None:
 
     with st.expander("Raw risk report JSON", expanded=False):
         st.json(report.model_dump())
+
+
+def main() -> None:
+    st.set_page_config(page_title="Threat Forge AI - Risks", page_icon="TF", layout="wide")
+    render(ROOT)
+
+
+if __name__ == "__main__":
+    main()

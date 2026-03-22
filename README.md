@@ -35,7 +35,7 @@ Completed through Phase 6 PR A:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .[dev]
+pip install -e '.[dev]'
 ```
 
 ### 2. Configure Neo4j
@@ -60,7 +60,7 @@ python scripts/score_risks.py
 
 ### 4. Launch the analyst UI
 ```bash
-pip install -e .[ui]
+pip install -e '.[ui]'
 streamlit run ui/app.py
 ```
 
@@ -69,6 +69,9 @@ streamlit run ui/app.py
 - Threats: generated threats with ATT&CK/ATLAS mappings
 - Risks: ranked risks with priority and driver context
 - Analyst Chat: grounded natural-language responses with evidence refs
+
+Note:
+- The app supports both the custom `Screen` selector in `ui/app.py` and Streamlit's native multipage sidebar entries under `ui/pages/`.
 
 The UI sidebar includes a `Run Rebuild Workflow` action that executes:
 1. `scripts/validate_model.py`
@@ -87,7 +90,7 @@ Events:
 
 Optional LangSmith export:
 ```bash
-pip install -e .[observability]
+pip install -e '.[observability]'
 export LANGSMITH_TRACING=true
 export LANGSMITH_API_KEY=<your_key>
 export LANGSMITH_PROJECT=threat-forge-ai
