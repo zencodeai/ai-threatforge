@@ -6,6 +6,7 @@ Threat Forge AI is a model-driven threat modeling platform.
 - Phase 1: canonical TOML schema, validation, and example model
 - Phase 2: Neo4j graph schema, idempotent graph loader, and graph loader tests
 - Issue #6: reusable graph query library and analyst sample query pack
+- Issue #7: deterministic threat heuristic catalog and methodology
 
 ## Included
 - Canonical TOML schema via Pydantic models
@@ -15,7 +16,20 @@ Threat Forge AI is a model-driven threat modeling platform.
 - Neo4j loader with idempotent `MERGE` behavior
 - Reusable graph query service for analyst-facing lookups
 - Sample Cypher query pack (10 queries)
+- Threat heuristic catalog for Phase 3 rule definitions
 - Unit and integration tests for schema and graph loading
+
+## Threat heuristics
+Phase 3 heuristic definitions are implemented in `analysis/threat_generation.py`
+and documented in `docs/threat_methodology.md`.
+
+Current catalog includes six deterministic rules covering:
+- internet-exposed sensitive-data handling
+- low-trust to high-value attack paths
+- high-privilege externally reachable modules
+- AI-relevant dependency exposure
+- regulated data concentration in critical workflows
+- trust-boundary privileged dependency crossings
 
 ## Prerequisites
 - Python 3.11+
@@ -82,7 +96,10 @@ Included query themes:
 - `graph/cypher/constraints.cypher`: graph constraints
 - `graph/cypher/indexes.cypher`: graph indexes
 - `graph/cypher/sample_queries.cypher`: analyst query pack (10 queries)
+- `analysis/threat_generation.py`: Phase 3 heuristic catalog (`TH-001` to `TH-006`)
 - `docs/graph_schema.md`: graph design and mapping
+- `docs/threat_methodology.md`: threat rule intent, pattern, and output mapping
 - `scripts/validate_model.py`: model validator CLI
 - `scripts/load_graph.py`: graph load CLI
 - `tests/test_graph_queries.py`: query-layer unit tests
+- `tests/test_threat_generation.py`: heuristic catalog guardrail tests
