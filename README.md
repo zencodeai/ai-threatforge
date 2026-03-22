@@ -115,9 +115,17 @@ The UI sidebar includes a **Run Rebuild Workflow** action that re-executes the f
 
 ## Observability
 
-Workflow traces are written locally to `models/outputs/traces/agent_runs.jsonl` with events: `workflow_start`, `tool_result`, `workflow_end`.
+Every query workflow invocation is traced end-to-end. Traces are written locally to `models/outputs/traces/agent_runs.jsonl` as structured events:
 
-Optional LangSmith integration:
+- **`workflow_start`** — analyst question, run ID, timestamp
+- **`tool_result`** — tool name, input parameters, response payload, confidence score
+- **`workflow_end`** — composed answer, evidence references, limitations
+
+Each event carries a unique `run_id` (format: `run-{12-hex}`) for correlation. The recorder uses a protocol-based composite pattern, so local and remote tracing run simultaneously.
+
+### LangSmith integration (optional)
+
+When enabled, traces are exported to **LangSmith** with parent-child run relationships — the workflow run is the parent, and each tool invocation is a child run with full input/output payloads. This enables cloud-based monitoring, latency analysis, and query-pattern review.
 
 ```bash
 pip install -e '.[observability]'
@@ -125,6 +133,8 @@ export LANGSMITH_TRACING=true
 export LANGSMITH_API_KEY=<your_key>
 export LANGSMITH_PROJECT=threat-forge-ai
 ```
+
+No code changes are needed — the factory function `create_trace_recorder()` auto-detects the environment and configures the appropriate recorder stack.
 
 ---
 
@@ -155,15 +165,29 @@ pytest -q
 
 ## Tech stack
 
-| Layer | Technology |
-|---|---|
-| Language | Python 3.11+ |
-| Schema validation | Pydantic ≥ 2.8 |
-| Graph database | Neo4j ≥ 5.20 |
-| Threat mapping | MITRE ATT&CK + ATLAS |
-| UI | Streamlit ≥ 1.35 |
-| Observability | JSONL + LangSmith (optional) |
-| Testing | pytest ≥ 8.0 |
+| Layer | Technology | Role |
+|---|---|---|
+| Language | Python 3.11+ | Type hints, `tomllib`, modern stdlib features |
+| Schema validation | Pydantic ≥ 2.8 | Model contracts with cross-reference integrity enforcement |
+| Graph database | Neo4j ≥ 5.20 | Property graph for attack-path traversal and dependency analysis |
+| Graph protocol | Bolt (official `neo4j` driver) | Parameterised Cypher queries with connection pooling |
+| Threat mapping | MITRE ATT&CK + ATLAS | Enterprise and AI/ML technique alignment for every generated threat |
+| UI | Streamlit ≥ 1.35 | Multipage analyst dashboard with sidebar controls and one-click rebuild |
+| Observability | JSONL local traces | Structured event log for every workflow invocation |
+| Observability (opt.) | LangSmith | Cloud trace export with parent-child run relationships |
+| Testing | pytest ≥ 8.0 | 49 tests across 13 modules — schema, graph, analysis, agents, UI |
+
+### Why these choices
+
+**Neo4j** — security analysis is inherently a graph problem. "Can a low-trust module reach a regulated datastore through a dependency chain?" is a single Cypher query (`MATCH path = (m)-[:DEPENDS_ON*1..5]->(ds)`) but would require recursive CTEs or application-side joins in a relational database. Neo4j's indexed property graph handles multi-hop traversal, trust-boundary crossings, and attack-path enumeration in sub-second time.
+
+**Pydantic** — the canonical model contract is the foundation every downstream layer depends on. Pydantic's `model_validator` lets us enforce not just type correctness but structural invariants (every module references an existing domain; every workflow references existing modules and objects). Invalid models are rejected before any graph or analysis work begins.
+
+**Deterministic workflow (no LLM)** — the query layer routes analyst questions via regex and keyword matching, not an LLM. This is deliberate: the agent adds value through structured tool orchestration and evidence composition, not generative inference. Outputs are fully reproducible and auditable.
+
+**LangSmith** — optional cloud observability that attaches to the existing trace recorder protocol. When enabled, every workflow invocation (question → routing decisions → tool calls → composed answer) is exported with parent-child run relationships for drill-down analysis. Useful for monitoring query patterns and response quality without changing application code.
+
+**Streamlit** — chosen for rapid UI prototyping with minimal frontend code. The native multipage pattern maps cleanly to the four analyst screens, and the sidebar provides model selection and pipeline rebuild controls in a few lines of Python.
 
 ---
 
