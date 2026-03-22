@@ -9,6 +9,8 @@ Threat Forge AI is a model-driven threat modeling platform.
 - Issue #7: deterministic threat heuristic catalog and methodology
 - Issue #8: ATT&CK/ATLAS technique mapping for all threat rules
 - Issue #9: structured threat output generation and artifact writing
+- Phase 4 PR A/B: risk methodology, schema, and deterministic scoring engine
+- Phase 4 PR C: risk scoring CLI and risk artifact generation
 
 ## Included
 - Canonical TOML schema via Pydantic models
@@ -21,6 +23,7 @@ Threat Forge AI is a model-driven threat modeling platform.
 - Threat heuristic catalog for Phase 3 rule definitions
 - Rule-to-technique mapping catalog (ATT&CK + ATLAS)
 - Structured threat report generation and JSON output artifacts
+- Deterministic risk scoring with explainable driver contributions
 - Unit and integration tests for schema and graph loading
 
 ## Threat heuristics
@@ -51,6 +54,20 @@ python scripts/generate_threats.py --model models/examples/fintech_ai_platform.t
 
 By default this writes JSON to:
 - `models/outputs/threats/<model_id>_threats.json`
+
+## Risk scoring
+Risk scoring is implemented in `analysis/risk_scoring.py` and can be executed with:
+
+```bash
+python scripts/score_risks.py
+```
+
+Optional flags:
+- `--threats <path>`: explicit threat report JSON
+- `--output <path>`: explicit risk report destination
+
+By default this writes JSON to:
+- `models/outputs/risks/<model_id>_risks.json`
 
 ## Prerequisites
 - Python 3.11+
@@ -120,12 +137,17 @@ Included query themes:
 - `analysis/threat_generation.py`: Phase 3 heuristic catalog (`TH-001` to `TH-006`)
 - `analysis/technique_mapping.py`: ATT&CK/ATLAS mapping catalog and lookup helpers
 - `analysis/threat_outputs.py`: deterministic threat report generation and persistence
+- `analysis/risk_scoring.py`: deterministic risk scoring and report generation
 - `docs/graph_schema.md`: graph design and mapping
 - `docs/threat_methodology.md`: threat rule intent, pattern, and output mapping
+- `docs/risk_methodology.md`: risk factors, weights, priority bands, explainability
 - `scripts/validate_model.py`: model validator CLI
 - `scripts/load_graph.py`: graph load CLI
 - `scripts/generate_threats.py`: threat artifact generation CLI
+- `scripts/score_risks.py`: risk scoring CLI
 - `tests/test_graph_queries.py`: query-layer unit tests
 - `tests/test_threat_generation.py`: heuristic catalog guardrail tests
 - `tests/test_technique_mapping.py`: technique mapping coverage and integrity tests
 - `tests/test_threat_outputs.py`: structured threat output tests
+- `tests/test_risk_model.py`: risk schema tests
+- `tests/test_risk_scoring.py`: deterministic scoring and risk report tests

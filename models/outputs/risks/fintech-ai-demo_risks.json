@@ -1,0 +1,745 @@
+{
+  "model_id": "fintech-ai-demo",
+  "generated_at": "2026-03-22T16:36:14.139748+00:00",
+  "methodology_version": "0.1",
+  "risk_count": 17,
+  "risks": [
+    {
+      "risk_id": "RISK-02e4f1a118",
+      "model_id": "fintech-ai-demo",
+      "threat_id": "TH-002-0c0762983d",
+      "rule_id": "TH-002",
+      "title": "Low-trust to high-value object dependency path",
+      "target_id": "fraud_features",
+      "target_type": "object",
+      "risk_score": 0.712,
+      "priority": "high",
+      "factors": {
+        "likelihood": 1.0,
+        "impact": 1.0,
+        "exposure": 0.4,
+        "privilege_sensitivity": 0.2,
+        "data_criticality": 0.78,
+        "exploitability": 0.55
+      },
+      "drivers": [
+        {
+          "factor": "likelihood",
+          "score": 1.0,
+          "weighted_contribution": 0.25
+        },
+        {
+          "factor": "impact",
+          "score": 1.0,
+          "weighted_contribution": 0.2
+        },
+        {
+          "factor": "data_criticality",
+          "score": 0.78,
+          "weighted_contribution": 0.117
+        }
+      ],
+      "explanation": "Risk score 0.71 derived from top drivers: likelihood=0.25, impact=0.20, data_criticality=0.12.",
+      "evidence": {
+        "entry_module": "mobile_app",
+        "hops": 5
+      },
+      "created_at": "2026-03-22T16:36:14.139748+00:00"
+    },
+    {
+      "risk_id": "RISK-f2d6a216db",
+      "model_id": "fintech-ai-demo",
+      "threat_id": "TH-002-2cdfc91e68",
+      "rule_id": "TH-002",
+      "title": "Low-trust to high-value object dependency path",
+      "target_id": "payment_instruction",
+      "target_type": "object",
+      "risk_score": 0.709,
+      "priority": "high",
+      "factors": {
+        "likelihood": 1.0,
+        "impact": 1.0,
+        "exposure": 0.38,
+        "privilege_sensitivity": 0.2,
+        "data_criticality": 0.78,
+        "exploitability": 0.55
+      },
+      "drivers": [
+        {
+          "factor": "likelihood",
+          "score": 1.0,
+          "weighted_contribution": 0.25
+        },
+        {
+          "factor": "impact",
+          "score": 1.0,
+          "weighted_contribution": 0.2
+        },
+        {
+          "factor": "data_criticality",
+          "score": 0.78,
+          "weighted_contribution": 0.117
+        }
+      ],
+      "explanation": "Risk score 0.71 derived from top drivers: likelihood=0.25, impact=0.20, data_criticality=0.12.",
+      "evidence": {
+        "entry_module": "mobile_app",
+        "hops": 4
+      },
+      "created_at": "2026-03-22T16:36:14.139748+00:00"
+    },
+    {
+      "risk_id": "RISK-062410bc70",
+      "model_id": "fintech-ai-demo",
+      "threat_id": "TH-003-6aca7b7d44",
+      "rule_id": "TH-003",
+      "title": "High-privilege module externally reachable",
+      "target_id": "api_gateway",
+      "target_type": "module",
+      "risk_score": 0.705,
+      "priority": "high",
+      "factors": {
+        "likelihood": 0.9,
+        "impact": 0.8,
+        "exposure": 0.6,
+        "privilege_sensitivity": 0.9500000000000001,
+        "data_criticality": 0.25,
+        "exploitability": 0.5
+      },
+      "drivers": [
+        {
+          "factor": "likelihood",
+          "score": 0.9,
+          "weighted_contribution": 0.225
+        },
+        {
+          "factor": "impact",
+          "score": 0.8,
+          "weighted_contribution": 0.16
+        },
+        {
+          "factor": "privilege_sensitivity",
+          "score": 0.95,
+          "weighted_contribution": 0.1425
+        }
+      ],
+      "explanation": "Risk score 0.70 derived from top drivers: likelihood=0.23, impact=0.16, privilege_sensitivity=0.14.",
+      "evidence": {
+        "privilege_level": 2,
+        "internet_exposed": true
+      },
+      "created_at": "2026-03-22T16:36:14.139748+00:00"
+    },
+    {
+      "risk_id": "RISK-4222c4cc55",
+      "model_id": "fintech-ai-demo",
+      "threat_id": "TH-003-5e58569300",
+      "rule_id": "TH-003",
+      "title": "High-privilege module externally reachable",
+      "target_id": "auth_service",
+      "target_type": "module",
+      "risk_score": 0.6225,
+      "priority": "medium",
+      "factors": {
+        "likelihood": 0.75,
+        "impact": 0.8,
+        "exposure": 0.3,
+        "privilege_sensitivity": 0.9500000000000001,
+        "data_criticality": 0.25,
+        "exploitability": 0.5
+      },
+      "drivers": [
+        {
+          "factor": "likelihood",
+          "score": 0.75,
+          "weighted_contribution": 0.1875
+        },
+        {
+          "factor": "impact",
+          "score": 0.8,
+          "weighted_contribution": 0.16
+        },
+        {
+          "factor": "privilege_sensitivity",
+          "score": 0.95,
+          "weighted_contribution": 0.1425
+        }
+      ],
+      "explanation": "Risk score 0.62 derived from top drivers: likelihood=0.19, impact=0.16, privilege_sensitivity=0.14.",
+      "evidence": {
+        "privilege_level": 2,
+        "internet_exposed": false
+      },
+      "created_at": "2026-03-22T16:36:14.139748+00:00"
+    },
+    {
+      "risk_id": "RISK-6e54dea345",
+      "model_id": "fintech-ai-demo",
+      "threat_id": "TH-003-9f74611cc8",
+      "rule_id": "TH-003",
+      "title": "High-privilege module externally reachable",
+      "target_id": "fraud_model_service",
+      "target_type": "module",
+      "risk_score": 0.6225,
+      "priority": "medium",
+      "factors": {
+        "likelihood": 0.75,
+        "impact": 0.8,
+        "exposure": 0.3,
+        "privilege_sensitivity": 0.9500000000000001,
+        "data_criticality": 0.25,
+        "exploitability": 0.5
+      },
+      "drivers": [
+        {
+          "factor": "likelihood",
+          "score": 0.75,
+          "weighted_contribution": 0.1875
+        },
+        {
+          "factor": "impact",
+          "score": 0.8,
+          "weighted_contribution": 0.16
+        },
+        {
+          "factor": "privilege_sensitivity",
+          "score": 0.95,
+          "weighted_contribution": 0.1425
+        }
+      ],
+      "explanation": "Risk score 0.62 derived from top drivers: likelihood=0.19, impact=0.16, privilege_sensitivity=0.14.",
+      "evidence": {
+        "privilege_level": 2,
+        "internet_exposed": false
+      },
+      "created_at": "2026-03-22T16:36:14.139748+00:00"
+    },
+    {
+      "risk_id": "RISK-9c9608f106",
+      "model_id": "fintech-ai-demo",
+      "threat_id": "TH-003-a3fd4b8f95",
+      "rule_id": "TH-003",
+      "title": "High-privilege module externally reachable",
+      "target_id": "payment_service",
+      "target_type": "module",
+      "risk_score": 0.6225,
+      "priority": "medium",
+      "factors": {
+        "likelihood": 0.75,
+        "impact": 0.8,
+        "exposure": 0.3,
+        "privilege_sensitivity": 0.9500000000000001,
+        "data_criticality": 0.25,
+        "exploitability": 0.5
+      },
+      "drivers": [
+        {
+          "factor": "likelihood",
+          "score": 0.75,
+          "weighted_contribution": 0.1875
+        },
+        {
+          "factor": "impact",
+          "score": 0.8,
+          "weighted_contribution": 0.16
+        },
+        {
+          "factor": "privilege_sensitivity",
+          "score": 0.95,
+          "weighted_contribution": 0.1425
+        }
+      ],
+      "explanation": "Risk score 0.62 derived from top drivers: likelihood=0.19, impact=0.16, privilege_sensitivity=0.14.",
+      "evidence": {
+        "privilege_level": 2,
+        "internet_exposed": false
+      },
+      "created_at": "2026-03-22T16:36:14.139748+00:00"
+    },
+    {
+      "risk_id": "RISK-9d9e7ff139",
+      "model_id": "fintech-ai-demo",
+      "threat_id": "TH-005-0516cc6485",
+      "rule_id": "TH-005",
+      "title": "Regulated object concentration in critical workflows",
+      "target_id": "payment_execution",
+      "target_type": "workflow",
+      "risk_score": 0.609,
+      "priority": "medium",
+      "factors": {
+        "likelihood": 0.78,
+        "impact": 1.0,
+        "exposure": 0.35,
+        "privilege_sensitivity": 0.2,
+        "data_criticality": 0.6100000000000001,
+        "exploitability": 0.4
+      },
+      "drivers": [
+        {
+          "factor": "impact",
+          "score": 1.0,
+          "weighted_contribution": 0.2
+        },
+        {
+          "factor": "likelihood",
+          "score": 0.78,
+          "weighted_contribution": 0.195
+        },
+        {
+          "factor": "data_criticality",
+          "score": 0.61,
+          "weighted_contribution": 0.0915
+        }
+      ],
+      "explanation": "Risk score 0.61 derived from top drivers: impact=0.20, likelihood=0.20, data_criticality=0.09.",
+      "evidence": {
+        "system_criticality": "high"
+      },
+      "created_at": "2026-03-22T16:36:14.139748+00:00"
+    },
+    {
+      "risk_id": "RISK-0b566860bd",
+      "model_id": "fintech-ai-demo",
+      "threat_id": "TH-001-36cf51ade4",
+      "rule_id": "TH-001",
+      "title": "Internet exposed module handling sensitive workflow data",
+      "target_id": "api_gateway",
+      "target_type": "module",
+      "risk_score": 0.598,
+      "priority": "medium",
+      "factors": {
+        "likelihood": 0.81,
+        "impact": 0.8600000000000001,
+        "exposure": 0.4,
+        "privilege_sensitivity": 0.2,
+        "data_criticality": 0.49,
+        "exploitability": 0.6000000000000001
+      },
+      "drivers": [
+        {
+          "factor": "likelihood",
+          "score": 0.81,
+          "weighted_contribution": 0.2025
+        },
+        {
+          "factor": "impact",
+          "score": 0.86,
+          "weighted_contribution": 0.172
+        },
+        {
+          "factor": "data_criticality",
+          "score": 0.49,
+          "weighted_contribution": 0.0735
+        }
+      ],
+      "explanation": "Risk score 0.60 derived from top drivers: likelihood=0.20, impact=0.17, data_criticality=0.07.",
+      "evidence": {
+        "module_name": "API Gateway",
+        "module_type": "gateway",
+        "sensitive_workflow_count": 2
+      },
+      "created_at": "2026-03-22T16:36:14.139748+00:00"
+    },
+    {
+      "risk_id": "RISK-d0f7829620",
+      "model_id": "fintech-ai-demo",
+      "threat_id": "TH-001-ae2992de89",
+      "rule_id": "TH-001",
+      "title": "Internet exposed module handling sensitive workflow data",
+      "target_id": "mobile_app",
+      "target_type": "module",
+      "risk_score": 0.598,
+      "priority": "medium",
+      "factors": {
+        "likelihood": 0.81,
+        "impact": 0.8600000000000001,
+        "exposure": 0.4,
+        "privilege_sensitivity": 0.2,
+        "data_criticality": 0.49,
+        "exploitability": 0.6000000000000001
+      },
+      "drivers": [
+        {
+          "factor": "likelihood",
+          "score": 0.81,
+          "weighted_contribution": 0.2025
+        },
+        {
+          "factor": "impact",
+          "score": 0.86,
+          "weighted_contribution": 0.172
+        },
+        {
+          "factor": "data_criticality",
+          "score": 0.49,
+          "weighted_contribution": 0.0735
+        }
+      ],
+      "explanation": "Risk score 0.60 derived from top drivers: likelihood=0.20, impact=0.17, data_criticality=0.07.",
+      "evidence": {
+        "module_name": "Mobile App",
+        "module_type": "client_application",
+        "sensitive_workflow_count": 2
+      },
+      "created_at": "2026-03-22T16:36:14.139748+00:00"
+    },
+    {
+      "risk_id": "RISK-ebf1db59ef",
+      "model_id": "fintech-ai-demo",
+      "threat_id": "TH-005-84d138fc15",
+      "rule_id": "TH-005",
+      "title": "Regulated object concentration in critical workflows",
+      "target_id": "user_login",
+      "target_type": "workflow",
+      "risk_score": 0.595,
+      "priority": "medium",
+      "factors": {
+        "likelihood": 0.78,
+        "impact": 0.99,
+        "exposure": 0.35,
+        "privilege_sensitivity": 0.2,
+        "data_criticality": 0.53,
+        "exploitability": 0.4
+      },
+      "drivers": [
+        {
+          "factor": "impact",
+          "score": 0.99,
+          "weighted_contribution": 0.198
+        },
+        {
+          "factor": "likelihood",
+          "score": 0.78,
+          "weighted_contribution": 0.195
+        },
+        {
+          "factor": "data_criticality",
+          "score": 0.53,
+          "weighted_contribution": 0.0795
+        }
+      ],
+      "explanation": "Risk score 0.59 derived from top drivers: impact=0.20, likelihood=0.20, data_criticality=0.08.",
+      "evidence": {
+        "system_criticality": "high"
+      },
+      "created_at": "2026-03-22T16:36:14.139748+00:00"
+    },
+    {
+      "risk_id": "RISK-137033602f",
+      "model_id": "fintech-ai-demo",
+      "threat_id": "TH-004-fdb3520081",
+      "rule_id": "TH-004",
+      "title": "AI-relevant module dependency and model service exposure",
+      "target_id": "fraud_model_service",
+      "target_type": "module",
+      "risk_score": 0.505,
+      "priority": "medium",
+      "factors": {
+        "likelihood": 0.75,
+        "impact": 0.8,
+        "exposure": 0.3,
+        "privilege_sensitivity": 0.2,
+        "data_criticality": 0.25,
+        "exploitability": 0.45
+      },
+      "drivers": [
+        {
+          "factor": "likelihood",
+          "score": 0.75,
+          "weighted_contribution": 0.1875
+        },
+        {
+          "factor": "impact",
+          "score": 0.8,
+          "weighted_contribution": 0.16
+        },
+        {
+          "factor": "exploitability",
+          "score": 0.45,
+          "weighted_contribution": 0.045
+        }
+      ],
+      "explanation": "Risk score 0.51 derived from top drivers: likelihood=0.19, impact=0.16, exploitability=0.04.",
+      "evidence": {
+        "dependent_module": "payment_service"
+      },
+      "created_at": "2026-03-22T16:36:14.139748+00:00"
+    },
+    {
+      "risk_id": "RISK-02860960d6",
+      "model_id": "fintech-ai-demo",
+      "threat_id": "TH-006-dea40b8e2e",
+      "rule_id": "TH-006",
+      "title": "Trust boundary crossing with privileged dependency",
+      "target_id": "api_gateway",
+      "target_type": "module",
+      "risk_score": 0.44,
+      "priority": "medium",
+      "factors": {
+        "likelihood": 0.5,
+        "impact": 0.55,
+        "exposure": 0.4,
+        "privilege_sensitivity": 0.35,
+        "data_criticality": 0.25,
+        "exploitability": 0.55
+      },
+      "drivers": [
+        {
+          "factor": "likelihood",
+          "score": 0.5,
+          "weighted_contribution": 0.125
+        },
+        {
+          "factor": "impact",
+          "score": 0.55,
+          "weighted_contribution": 0.11
+        },
+        {
+          "factor": "exposure",
+          "score": 0.4,
+          "weighted_contribution": 0.06
+        }
+      ],
+      "explanation": "Risk score 0.44 derived from top drivers: likelihood=0.12, impact=0.11, exposure=0.06.",
+      "evidence": {
+        "dependency_target": "auth_service",
+        "dependency_relationship": "calls",
+        "trust_boundaries": [
+          "backend_ml_boundary",
+          "internet_boundary"
+        ]
+      },
+      "created_at": "2026-03-22T16:36:14.139748+00:00"
+    },
+    {
+      "risk_id": "RISK-18d3c23bb9",
+      "model_id": "fintech-ai-demo",
+      "threat_id": "TH-006-e5a4f01fe2",
+      "rule_id": "TH-006",
+      "title": "Trust boundary crossing with privileged dependency",
+      "target_id": "api_gateway",
+      "target_type": "module",
+      "risk_score": 0.44,
+      "priority": "medium",
+      "factors": {
+        "likelihood": 0.5,
+        "impact": 0.55,
+        "exposure": 0.4,
+        "privilege_sensitivity": 0.35,
+        "data_criticality": 0.25,
+        "exploitability": 0.55
+      },
+      "drivers": [
+        {
+          "factor": "likelihood",
+          "score": 0.5,
+          "weighted_contribution": 0.125
+        },
+        {
+          "factor": "impact",
+          "score": 0.55,
+          "weighted_contribution": 0.11
+        },
+        {
+          "factor": "exposure",
+          "score": 0.4,
+          "weighted_contribution": 0.06
+        }
+      ],
+      "explanation": "Risk score 0.44 derived from top drivers: likelihood=0.12, impact=0.11, exposure=0.06.",
+      "evidence": {
+        "dependency_target": "payment_service",
+        "dependency_relationship": "calls",
+        "trust_boundaries": [
+          "backend_ml_boundary",
+          "internet_boundary"
+        ]
+      },
+      "created_at": "2026-03-22T16:36:14.139748+00:00"
+    },
+    {
+      "risk_id": "RISK-54137b67d5",
+      "model_id": "fintech-ai-demo",
+      "threat_id": "TH-006-e785178f37",
+      "rule_id": "TH-006",
+      "title": "Trust boundary crossing with privileged dependency",
+      "target_id": "mobile_app",
+      "target_type": "module",
+      "risk_score": 0.44,
+      "priority": "medium",
+      "factors": {
+        "likelihood": 0.5,
+        "impact": 0.55,
+        "exposure": 0.4,
+        "privilege_sensitivity": 0.35,
+        "data_criticality": 0.25,
+        "exploitability": 0.55
+      },
+      "drivers": [
+        {
+          "factor": "likelihood",
+          "score": 0.5,
+          "weighted_contribution": 0.125
+        },
+        {
+          "factor": "impact",
+          "score": 0.55,
+          "weighted_contribution": 0.11
+        },
+        {
+          "factor": "exposure",
+          "score": 0.4,
+          "weighted_contribution": 0.06
+        }
+      ],
+      "explanation": "Risk score 0.44 derived from top drivers: likelihood=0.12, impact=0.11, exposure=0.06.",
+      "evidence": {
+        "dependency_target": "api_gateway",
+        "dependency_relationship": "calls",
+        "trust_boundaries": [
+          "backend_ml_boundary",
+          "internet_boundary"
+        ]
+      },
+      "created_at": "2026-03-22T16:36:14.139748+00:00"
+    },
+    {
+      "risk_id": "RISK-6751c0692b",
+      "model_id": "fintech-ai-demo",
+      "threat_id": "TH-006-230f8de95c",
+      "rule_id": "TH-006",
+      "title": "Trust boundary crossing with privileged dependency",
+      "target_id": "payment_service",
+      "target_type": "module",
+      "risk_score": 0.44,
+      "priority": "medium",
+      "factors": {
+        "likelihood": 0.5,
+        "impact": 0.55,
+        "exposure": 0.4,
+        "privilege_sensitivity": 0.35,
+        "data_criticality": 0.25,
+        "exploitability": 0.55
+      },
+      "drivers": [
+        {
+          "factor": "likelihood",
+          "score": 0.5,
+          "weighted_contribution": 0.125
+        },
+        {
+          "factor": "impact",
+          "score": 0.55,
+          "weighted_contribution": 0.11
+        },
+        {
+          "factor": "exposure",
+          "score": 0.4,
+          "weighted_contribution": 0.06
+        }
+      ],
+      "explanation": "Risk score 0.44 derived from top drivers: likelihood=0.12, impact=0.11, exposure=0.06.",
+      "evidence": {
+        "dependency_target": "fraud_model_service",
+        "dependency_relationship": "calls",
+        "trust_boundaries": [
+          "backend_ml_boundary",
+          "internet_boundary"
+        ]
+      },
+      "created_at": "2026-03-22T16:36:14.139748+00:00"
+    },
+    {
+      "risk_id": "RISK-6d72cfc6c6",
+      "model_id": "fintech-ai-demo",
+      "threat_id": "TH-006-7248b038f7",
+      "rule_id": "TH-006",
+      "title": "Trust boundary crossing with privileged dependency",
+      "target_id": "payment_service",
+      "target_type": "module",
+      "risk_score": 0.44,
+      "priority": "medium",
+      "factors": {
+        "likelihood": 0.5,
+        "impact": 0.55,
+        "exposure": 0.4,
+        "privilege_sensitivity": 0.35,
+        "data_criticality": 0.25,
+        "exploitability": 0.55
+      },
+      "drivers": [
+        {
+          "factor": "likelihood",
+          "score": 0.5,
+          "weighted_contribution": 0.125
+        },
+        {
+          "factor": "impact",
+          "score": 0.55,
+          "weighted_contribution": 0.11
+        },
+        {
+          "factor": "exposure",
+          "score": 0.4,
+          "weighted_contribution": 0.06
+        }
+      ],
+      "explanation": "Risk score 0.44 derived from top drivers: likelihood=0.12, impact=0.11, exposure=0.06.",
+      "evidence": {
+        "dependency_target": "txn_db",
+        "dependency_relationship": "writes",
+        "trust_boundaries": [
+          "backend_ml_boundary",
+          "internet_boundary"
+        ]
+      },
+      "created_at": "2026-03-22T16:36:14.139748+00:00"
+    },
+    {
+      "risk_id": "RISK-7ea4cf3717",
+      "model_id": "fintech-ai-demo",
+      "threat_id": "TH-006-d64e7de526",
+      "rule_id": "TH-006",
+      "title": "Trust boundary crossing with privileged dependency",
+      "target_id": "fraud_model_service",
+      "target_type": "module",
+      "risk_score": 0.44,
+      "priority": "medium",
+      "factors": {
+        "likelihood": 0.5,
+        "impact": 0.55,
+        "exposure": 0.4,
+        "privilege_sensitivity": 0.35,
+        "data_criticality": 0.25,
+        "exploitability": 0.55
+      },
+      "drivers": [
+        {
+          "factor": "likelihood",
+          "score": 0.5,
+          "weighted_contribution": 0.125
+        },
+        {
+          "factor": "impact",
+          "score": 0.55,
+          "weighted_contribution": 0.11
+        },
+        {
+          "factor": "exposure",
+          "score": 0.4,
+          "weighted_contribution": 0.06
+        }
+      ],
+      "explanation": "Risk score 0.44 derived from top drivers: likelihood=0.12, impact=0.11, exposure=0.06.",
+      "evidence": {
+        "dependency_target": "feature_store",
+        "dependency_relationship": "reads_writes",
+        "trust_boundaries": [
+          "backend_ml_boundary",
+          "internet_boundary"
+        ]
+      },
+      "created_at": "2026-03-22T16:36:14.139748+00:00"
+    }
+  ]
+}
