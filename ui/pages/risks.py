@@ -1,0 +1,25 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import streamlit as st
+
+from ui.data_access import load_risk_report, risk_rows
+
+
+def render(base_dir: Path) -> None:
+    st.subheader("Risks")
+
+    report, source_path = load_risk_report(base_dir=base_dir)
+    if report is None or source_path is None:
+        st.info("No risk report found. Run Rebuild Analysis to generate risk artifacts.")
+        return
+
+    st.caption(f"Risk artifact: `{source_path}`")
+    st.metric("Risk Count", report.risk_count)
+
+    rows = risk_rows(report)
+    st.dataframe(rows, use_container_width=True)
+
+    with st.expander("Raw risk report JSON", expanded=False):
+        st.json(report.model_dump())

@@ -1,0 +1,109 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from models.schema.canonical_model import CanonicalModel, load_canonical_model
+from models.schema.risk_model import RiskReport
+from models.schema.threat_model import ThreatReport
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def list_example_models(base_dir: Path = ROOT) -> list[Path]:
+    examples_dir = base_dir / "models" / "examples"
+    if not examples_dir.exists():
+        return []
+    return sorted(examples_dir.glob("*.toml"))
+
+
+def load_model(model_path: str | Path) -> CanonicalModel:
+    return load_canonical_model(model_path)
+
+
+def build_model_overview(model: CanonicalModel) -> dict[str, object]:
+    return {
+        "model_id": model.meta.model_id,
+        "schema_version": model.meta.schema_version,
+        "system": model.system.name,
+        "criticality": model.system.criticality,
+        "industry": model.system.industry,
+        "counts": {
+            "domains": len(model.security_domains),
+            "modules": len(model.modules),
+            "objects": len(model.objects),
+            "datastores": len(model.datastores),
+            "workflows": len(model.workflows),
+            "trust_boundaries": len(model.trust_boundaries),
+            "dependencies": len(model.dependencies),
+        },
+    }
+
+
+def latest_artifact(base_dir: Path, folder: str, suffix: str) -> Path | None:
+    target = base_dir / folder
+    if not target.exists():
+        return None
+    candidates = sorted(target.glob(f"*{suffix}"))
+    return candidates[-1] if candidates else None
+
+
+def load_threat_report(
+    path: str | Path | None = None,
+    *,
+    base_dir: Path = ROOT,
+) -> tuple[ThreatReport | None, Path | None]:
+    threat_path = Path(path) if path else latest_artifact(base_dir, "models/outputs/threats", "_threats.json")
+    if threat_path is None or not threat_path.exists():
+        return None, None
+    report = ThreatReport.model_validate_json(threat_path.read_text(encoding="utf-8"))
+    return report, threat_path
+
+
+def load_risk_report(
+    path: str | Path | None = None,
+    *,
+    base_dir: Path = ROOT,
+) -> tuple[RiskReport | None, Path | None]:
+    risk_path = Path(path) if path else latest_artifact(base_dir, "models/outputs/risks", "_risks.json")
+    if risk_path is None or not risk_path.exists():
+        return None, None
+    report = RiskReport.model_validate_json(risk_path.read_text(encoding="utf-8"))
+    return report, risk_path
+
+
+def threat_rows(report: ThreatReport, limit: int | None = None) -> list[dict[str, object]]:
+    rows = [
+        {
+            "threat_id": threat.threat_id,
+            "rule_id": threat.rule_id,
+            "title": threat.title,
+            "target_id": threat.target_id,
+            "target_type": threat.target_type,
+            "severity_hint": threat.severity_hint,
+            "frameworks": ", ".join(sorted({m.framework for m in threat.framework_mappings})),
+            "techniques": ", ".join(sorted({m.technique_id for m in threat.framework_mappings})),
+        }
+        for threat in report.threats
+    ]
+    if limit is None:
+        return rows
+    return rows[: max(0, limit)]
+
+
+def risk_rows(report: RiskReport, limit: int | None = None) -> list[dict[str, object]]:
+    rows = [
+        {
+            "risk_id": risk.risk_id,
+            "threat_id": risk.threat_id,
+            "rule_id": risk.rule_id,
+            "title": risk.title,
+            "target_id": risk.target_id,
+            "priority": risk.priority,
+            "risk_score": risk.risk_score,
+            "top_driver": risk.drivers[0].factor if risk.drivers else "n/a",
+        }
+        for risk in report.risks
+    ]
+    if limit is None:
+        return rows
+    return rows[: max(0, limit)]

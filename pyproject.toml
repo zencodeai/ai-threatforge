@@ -20,9 +20,12 @@ dev = [
 observability = [
   "langsmith>=0.1,<1.0",
 ]
+ui = [
+  "streamlit>=1.35,<2.0",
+]
 
 [tool.setuptools.packages.find]
-include = ["models*", "graph*", "analysis*", "agents*"]
+include = ["models*", "graph*", "analysis*", "agents*", "ui*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

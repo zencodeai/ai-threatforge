@@ -13,6 +13,7 @@ Threat Forge AI is a model-driven threat modeling platform.
 - Phase 4 PR C: risk scoring CLI and risk artifact generation
 - Phase 5 PR A/B: agent tools and deterministic query workflow
 - Phase 5 PR C: observability instrumentation with local traces and optional LangSmith
+- Phase 6 PR A: Streamlit MVP analyst interface (model, threats, risks, chat)
 
 ## Included
 - Canonical TOML schema via Pydantic models
@@ -27,6 +28,7 @@ Threat Forge AI is a model-driven threat modeling platform.
 - Structured threat report generation and JSON output artifacts
 - Deterministic risk scoring with explainable driver contributions
 - Agent observability trace pipeline (JSONL traces + optional LangSmith)
+- Streamlit analyst interface with rebuild workflow controls
 - Unit and integration tests for schema and graph loading
 
 ## Threat heuristics
@@ -88,6 +90,26 @@ export LANGSMITH_PROJECT=threat-forge-ai
 ```
 
 When enabled, traces are sent to LangSmith in addition to local JSONL logs.
+
+## Streamlit MVP UI
+Launch the analyst interface:
+
+```bash
+pip install -e .[ui]
+streamlit run ui/app.py
+```
+
+Included screens:
+- Model Overview
+- Threats
+- Risks
+- Analyst Chat
+
+The sidebar includes a `Run Rebuild Workflow` action that runs:
+1. `scripts/validate_model.py`
+2. `scripts/load_graph.py --clear`
+3. `scripts/generate_threats.py`
+4. `scripts/score_risks.py`
 
 ## Prerequisites
 - Python 3.11+
@@ -171,3 +193,8 @@ Included query themes:
 - `tests/test_threat_outputs.py`: structured threat output tests
 - `tests/test_risk_model.py`: risk schema tests
 - `tests/test_risk_scoring.py`: deterministic scoring and risk report tests
+- `ui/app.py`: Streamlit MVP analyst interface entrypoint
+- `ui/data_access.py`: model and artifact loading helpers for UI pages
+- `ui/actions.py`: rebuild workflow command runner for UI controls
+- `tests/test_ui_data_access.py`: UI data loading tests
+- `tests/test_ui_actions.py`: UI action pipeline tests
