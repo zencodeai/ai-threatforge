@@ -74,4 +74,4 @@ Expected storage path (Phase 4):
 
 ## Notes
 - PR A (`#10`) defines methodology and schema only.
-- PR B (`#11`) will implement the deterministic scoring engine and output generation.
+- PR B (`#11`) is implemented in `analysis/risk_scoring.py`, including deterministic scoring, priority banding, explanation drivers, and risk report output helpers.
