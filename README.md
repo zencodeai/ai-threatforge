@@ -145,6 +145,10 @@ pytest -q
 | [Architecture](docs/architecture.md) | Component breakdown, trade-offs, and extension seams |
 | [Walkthrough](docs/walkthrough.md) | End-to-end fintech demo case study with example prompts |
 | [Demo Script](docs/demo_script.md) | Timed 10–12 minute presentation talk-track |
+| [Domain Model](docs/domain_model.md) | Canonical TOML model definition and cross-reference rules |
+| [Graph Schema](docs/graph_schema.md) | Neo4j node labels, relationships, constraints, and indexes |
+| [Threat Methodology](docs/threat_methodology.md) | Heuristic rule catalog with ATT&CK/ATLAS alignment |
+| [Risk Methodology](docs/risk_methodology.md) | Scoring formula, factor weights, and priority bands |
 | [Diagrams](docs/diagrams/) | SVG pipeline, workflow, risk scoring, and project layout visuals |
 
 ---

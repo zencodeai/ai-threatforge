@@ -1,6 +1,6 @@
 # Risk Methodology v0.1
 
-This document defines the explainable risk model used in Phase 4 (`#10` + `#11`).
+This document defines the explainable risk model.
 
 ## Objectives
 - convert structured threats into prioritized risk records
@@ -73,5 +73,5 @@ Expected storage path (Phase 4):
 - priority value must match defined priority bands
 
 ## Notes
-- PR A (`#10`) defines methodology and schema only.
-- PR B (`#11`) is implemented in `analysis/risk_scoring.py`, including deterministic scoring, priority banding, explanation drivers, and risk report output helpers.
+- Methodology and schema are defined in `models/schema/risk_model.py`.
+- Scoring logic is implemented in `analysis/risk_scoring.py`, including deterministic scoring, priority banding, explanation drivers, and risk report output helpers.

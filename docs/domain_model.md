@@ -1,7 +1,7 @@
 # Canonical Model v0.1
 
 ## Scope
-This document defines the Phase 1 canonical TOML model and validation assumptions.
+This document defines the canonical TOML model and validation assumptions.
 
 ## Top-level sections
 - `meta`

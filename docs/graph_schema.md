@@ -1,6 +1,6 @@
 # Graph Schema v0.1
 
-This document defines how the canonical TOML model is represented in Neo4j for Phase 2.
+This document defines how the canonical TOML model is represented in Neo4j.
 
 ## Goals
 - preserve model semantics from `CanonicalModel`

@@ -79,19 +79,19 @@
 
   <rect x="470" y="187" width="80" height="22" rx="4" fill="#fecaca" stroke="#ef4444" stroke-width="1"/>
   <text x="510" y="202" text-anchor="middle" font-size="11" font-weight="600" fill="#991b1b">Critical</text>
-  <text x="570" y="202" font-size="11" fill="#475569">score ≥ 0.75</text>
+  <text x="570" y="202" font-size="11" fill="#475569">score ≥ 0.85</text>
 
   <rect x="470" y="217" width="80" height="22" rx="4" fill="#fed7aa" stroke="#f97316" stroke-width="1"/>
   <text x="510" y="232" text-anchor="middle" font-size="11" font-weight="600" fill="#9a3412">High</text>
-  <text x="570" y="232" font-size="11" fill="#475569">score ≥ 0.55</text>
+  <text x="570" y="232" font-size="11" fill="#475569">score ≥ 0.65</text>
 
   <rect x="470" y="247" width="80" height="22" rx="4" fill="#fde68a" stroke="#f59e0b" stroke-width="1"/>
   <text x="510" y="262" text-anchor="middle" font-size="11" font-weight="600" fill="#92400e">Medium</text>
-  <text x="570" y="262" font-size="11" fill="#475569">score ≥ 0.35</text>
+  <text x="570" y="262" font-size="11" fill="#475569">score ≥ 0.40</text>
 
   <rect x="470" y="277" width="80" height="22" rx="4" fill="#d1fae5" stroke="#10b981" stroke-width="1"/>
   <text x="510" y="292" text-anchor="middle" font-size="11" font-weight="600" fill="#065f46">Low</text>
-  <text x="570" y="292" font-size="11" fill="#475569">score &lt; 0.35</text>
+  <text x="570" y="292" font-size="11" fill="#475569">score &lt; 0.40</text>
 
   <!-- Arrow from scoring to output -->
   <line x1="555" y1="120" x2="555" y2="142" stroke="#64748b" stroke-width="1.5" marker-end="url(#a)"/>

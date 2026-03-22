@@ -1,6 +1,6 @@
 # Threat Methodology v0.1
 
-This document defines the deterministic threat heuristic catalog for Phase 3 (`#7`).
+This document defines the deterministic threat heuristic catalog.
 
 ## Objectives
 - define reproducible graph-driven threat heuristics
@@ -108,6 +108,6 @@ Threat objects generated from these heuristics should include at minimum:
 - `rationale`
 - `evidence`
 
-## Notes for next phase
-- Technique mapping (`#8`) is implemented in `analysis/technique_mapping.py`, binding each `rule_id` to ATT&CK/ATLAS technique IDs and names.
-- Structured threat generation (`#9`) is implemented in `analysis/threat_outputs.py` and persists outputs to `models/outputs/threats/`.
+## Implementation notes
+- Technique mapping is implemented in `analysis/technique_mapping.py`, binding each `rule_id` to ATT&CK/ATLAS technique IDs and names.
+- Structured threat generation is implemented in `analysis/threat_outputs.py` and persists outputs to `models/outputs/threats/`.

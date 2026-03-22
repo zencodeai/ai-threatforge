@@ -16,5 +16,4 @@ This folder stores screenshots for the portfolio walkthrough.
 5. Avoid exposing secrets or local paths in the terminal.
 
 ## Notes
-- For this PR, the screenshot structure is prepared and documented.
 - Replace placeholders with real captures when recording the demo package.
