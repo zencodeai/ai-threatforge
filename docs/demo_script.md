@@ -8,7 +8,7 @@ Security architects, engineering leaders, and hiring reviewers evaluating AI + s
 2. Run model validation, graph load, threat generation, and risk scoring.
 3. Confirm Streamlit app launches.
 4. Keep these files ready:
-- `models/examples/fintech_ai_platform.toml`
+- `examples/fintech_ai_platform.toml`
 - latest threat and risk artifacts in `models/outputs/`
 
 ## Script flow
@@ -21,7 +21,7 @@ Security architects, engineering leaders, and hiring reviewers evaluating AI + s
 - Highlight explainability and traceability.
 
 ### 3. Show the model (2 minutes)
-- Open `ui/app.py` in Streamlit, Model Overview page.
+- Open `src/ui/app.py` in Streamlit, Model Overview page.
 - Point out domains, modules, workflows, trust boundaries.
 - Explain why this structure matters for security reasoning.
 

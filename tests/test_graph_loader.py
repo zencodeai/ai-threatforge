@@ -11,7 +11,7 @@ from models.schema.canonical_model import load_canonical_model
 
 
 ROOT = Path(__file__).resolve().parents[1]
-EXAMPLE_MODEL = ROOT / "models" / "examples" / "fintech_ai_platform.toml"
+EXAMPLE_MODEL = ROOT / "examples" / "fintech_ai_platform.toml"
 
 
 class FakeClient:
@@ -30,7 +30,7 @@ def test_apply_schema_reads_constraints_and_indexes() -> None:
     fake = FakeClient()
     loader = GraphLoader(fake)  # type: ignore[arg-type]
 
-    loader.apply_schema(ROOT / "graph")
+    loader.apply_schema(ROOT / "src" / "graph")
 
     executed_queries = [query for query, _ in fake.calls]
     assert any("CREATE CONSTRAINT system_id_unique" in q for q in executed_queries)

@@ -20,8 +20,8 @@ Architecture data flows through seven layers, each with a single clear responsib
 
 | Attribute | Detail |
 |---|---|
-| **Source** | `models/examples/*.toml` |
-| **Contract** | `models/schema/canonical_model.py` (Pydantic) |
+| **Source** | `examples/*.toml` |
+| **Contract** | `src/models/schema/canonical_model.py` (Pydantic) |
 | **Entities** | systems, domains, modules, workflows, objects, datastores, trust boundaries, privilege levels |
 | **Responsibility** | Provide the single source of truth for architecture structure and security metadata. Cross-reference integrity is enforced at validation time. |
 
@@ -33,8 +33,8 @@ Architecture definitions are authored in **TOML** — a format chosen for human 
 
 | Attribute | Detail |
 |---|---|
-| **Source** | `graph/neo4j_client.py`, `graph/graph_loader.py`, `graph/graph_queries.py` |
-| **Storage** | Neo4j with constraints and indexes (`graph/cypher/`) |
+| **Source** | `src/graph/neo4j_client.py`, `src/graph/graph_loader.py`, `src/graph/graph_queries.py` |
+| **Storage** | Neo4j with constraints and indexes (`src/graph/cypher/`) |
 | **Protocol** | Bolt (via the official `neo4j` Python driver) |
 | **Key queries** | neighbours, dependency paths, trust-boundary crossings, exposure checks, attack-path traversal |
 | **Responsibility** | Project the canonical model into a property graph that supports path-aware security analysis with sub-second latency. |
@@ -64,7 +64,7 @@ Custom Cypher queries can also be executed directly through the agent tool layer
 
 | Attribute | Detail |
 |---|---|
-| **Source** | `analysis/threat_generation.py`, `analysis/technique_mapping.py`, `analysis/threat_outputs.py` |
+| **Source** | `src/analysis/threat_generation.py`, `src/analysis/technique_mapping.py`, `src/analysis/threat_outputs.py` |
 | **Output** | `models/outputs/threats/*_threats.json` |
 | **Mapping** | MITRE ATT&CK (enterprise techniques) and MITRE ATLAS (AI/ML techniques) |
 | **Responsibility** | Apply heuristic rules against graph patterns to generate structured, mapped threat candidates with rationale text explaining *why* each threat applies. |
@@ -96,7 +96,7 @@ Each heuristic is executed as a Cypher query against the Neo4j graph. Matched pa
 
 | Attribute | Detail |
 |---|---|
-| **Source** | `analysis/risk_scoring.py` |
+| **Source** | `src/analysis/risk_scoring.py` |
 | **Output** | `models/outputs/risks/*_risks.json` |
 | **Formula** | Weighted sum across six factors: likelihood (0.25), impact (0.20), exposure (0.15), privilege sensitivity (0.15), data criticality (0.15), exploitability (0.10) |
 | **Responsibility** | Convert each threat into a deterministic risk score with priority band (critical / high / medium / low) and human-readable driver explanations. |
@@ -120,7 +120,7 @@ The final score is a weighted sum clamped to `[0.0, 1.0]`. Each `RiskRecord` inc
 
 | Attribute | Detail |
 |---|---|
-| **Source** | `agents/tools.py`, `agents/workflow.py`, `agents/state.py` |
+| **Source** | `src/agents/tools.py`, `src/agents/workflow.py`, `src/agents/state.py` |
 | **Tools** | `query_graph`, `get_threats`, `get_risks`, `lookup_technique`, `search_knowledge` |
 | **Responsibility** | Accept analyst questions, route them to the correct tool(s) via deterministic keyword matching, execute grounded lookups, and compose an `AgentAnswer` with evidence references and stated limitations. |
 
@@ -147,7 +147,7 @@ The five tools cover the full analysis surface:
 
 | Attribute | Detail |
 |---|---|
-| **Source** | `agents/observability.py` |
+| **Source** | `src/agents/observability.py` |
 | **Local output** | `models/outputs/traces/agent_runs.jsonl` (structured event log) |
 | **Optional** | LangSmith export via `.[observability]` extra |
 | **Events** | `workflow_start`, `tool_result`, `workflow_end` |
@@ -166,18 +166,18 @@ The factory function `create_trace_recorder()` auto-detects the environment and 
 
 | Attribute | Detail |
 |---|---|
-| **Source** | `ui/app.py`, `ui/pages/*` |
+| **Source** | `src/ui/app.py`, `src/ui/pages/*` |
 | **Framework** | Streamlit (`.[ui]` extra) |
 | **Screens** | Model Overview · Threats · Risks · Analyst Chat |
 | **Responsibility** | Provide analyst workflows for exploring model structure, reviewing generated threats and risks, and running natural-language queries against the analysis outputs. Includes a one-click rebuild action that re-runs the full pipeline. |
 
-The UI is built with **Streamlit** for rapid prototyping with minimal frontend code. It uses Streamlit's native multipage pattern — each screen is a standalone module under `ui/pages/` that can be rendered independently or routed from the main app shell.
+The UI is built with **Streamlit** for rapid prototyping with minimal frontend code. It uses Streamlit's native multipage pattern — each screen is a standalone module under `src/ui/pages/` that can be rendered independently or routed from the main app shell.
 
 The sidebar provides two interaction modes:
 - **Model selection** — choose from bundled example models or upload a custom TOML file.
 - **Rebuild workflow** — a single button that sequentially runs `validate_model.py` → `load_graph.py --clear` → `generate_threats.py` → `score_risks.py`, with per-step stdout/stderr feedback.
 
-Data access is handled through `ui/data_access.py`, which loads Pydantic-validated models and JSON artifacts, builds summary views, and discovers the latest output files via glob patterns. All data flows are read-only — the UI never mutates analysis artifacts directly.
+Data access is handled through `src/ui/data_access.py`, which loads Pydantic-validated models and JSON artifacts, builds summary views, and discovers the latest output files via glob patterns. All data flows are read-only — the UI never mutates analysis artifacts directly.
 
 ---
 

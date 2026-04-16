@@ -9,7 +9,7 @@ from ui.actions import rebuild_analysis
 from ui.data_access import list_example_models
 from ui.pages import chat, model_overview, risks, threats
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def _resolve_model_path(uploaded_file, selected_example: Path | None) -> Path | None:

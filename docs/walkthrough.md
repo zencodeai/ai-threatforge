@@ -16,7 +16,7 @@ Security context:
 ## End-to-end execution
 ### Step 1. Validate the canonical model
 ```bash
-python scripts/validate_model.py --model models/examples/fintech_ai_platform.toml
+python scripts/validate_model.py --model examples/fintech_ai_platform.toml
 ```
 Expected outcome:
 - Validation succeeds with all cross-reference integrity checks.
@@ -24,14 +24,14 @@ Expected outcome:
 ### Step 2. Load the graph
 ```bash
 set -a && source .env && set +a
-python scripts/load_graph.py --model models/examples/fintech_ai_platform.toml --clear
+python scripts/load_graph.py --model examples/fintech_ai_platform.toml --clear
 ```
 Expected outcome:
 - Neo4j graph is rebuilt with nodes and relationships for domains, modules, workflows, objects, datastores, and dependencies.
 
 ### Step 3. Generate threats
 ```bash
-python scripts/generate_threats.py --model models/examples/fintech_ai_platform.toml
+python scripts/generate_threats.py --model examples/fintech_ai_platform.toml
 ```
 Expected outcome:
 - Structured threats saved under `models/outputs/threats/`.
@@ -47,7 +47,7 @@ Expected outcome:
 
 ### Step 5. Ask analyst questions
 ```bash
-streamlit run ui/app.py
+streamlit run src/ui/app.py
 ```
 Expected outcome:
 - Analyst can ask natural-language questions from the Chat page.

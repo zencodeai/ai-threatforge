@@ -29,7 +29,7 @@ def test_rebuild_analysis_stops_on_first_failure() -> None:
             return ActionResult(ok=False, command=" ".join(command), returncode=1, stdout="", stderr="failed")
         return ActionResult(ok=True, command=" ".join(command), returncode=0, stdout="ok", stderr="")
 
-    steps = rebuild_analysis(Path("models/examples/fintech_ai_platform.toml"), executor=fake_executor)
+    steps = rebuild_analysis(Path("examples/fintech_ai_platform.toml"), executor=fake_executor)
 
     assert [name for name, _ in steps] == ["validate_model", "load_graph"]
     assert invocations == ["scripts/validate_model.py", "scripts/load_graph.py"]

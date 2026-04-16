@@ -355,73 +355,73 @@ threat-forge-ai/
 │   ├── demo_scenario.md
 │   └── portfolio_narrative.md
 ├── models/
-│   ├── examples/
-│   │   ├── fintech_ai_platform.toml
-│   │   └── minimal_demo.toml
-│   ├── outputs/
-│   │   ├── threats/
-│   │   └── risks/
-│   └── schema/
-│       ├── canonical_model.py
-│       ├── threat_model.py
-│       └── risk_model.py
-├── ingestion/
-│   ├── __init__.py
-│   ├── evidence_model.py
-│   ├── informal_parser.py
-│   ├── spec_parser.py
-│   ├── sbom_parser.py
-│   ├── code_signals.py
-│   └── model_builder.py
-├── graph/
-│   ├── __init__.py
-│   ├── neo4j_client.py
-│   ├── graph_loader.py
-│   ├── graph_queries.py
-│   ├── attack_paths.py
-│   └── cypher/
-│       ├── constraints.cypher
-│       ├── indexes.cypher
-│       └── sample_queries.cypher
-├── knowledge/
-│   ├── __init__.py
-│   ├── sources/
-│   │   ├── mitre_attack/
-│   │   ├── mitre_atlas/
-│   │   ├── cwe/
-│   │   ├── owasp/
-│   │   └── nist/
-│   ├── loaders/
-│   │   ├── mitre_loader.py
-│   │   ├── atlas_loader.py
-│   │   └── control_loader.py
-│   ├── embeddings.py
-│   ├── retriever.py
-│   └── vector_store.py
-├── analysis/
-│   ├── __init__.py
-│   ├── threat_generation.py
-│   ├── technique_mapping.py
-│   ├── risk_scoring.py
-│   ├── prioritization.py
-│   ├── red_team_plans.py
-│   └── mitigations.py
-├── agents/
-│   ├── __init__.py
-│   ├── state.py
-│   ├── tools.py
-│   ├── router.py
-│   ├── workflows.py
-│   ├── query_agent.py
-│   ├── threat_agent.py
-│   ├── risk_agent.py
-│   ├── redteam_agent.py
-│   └── mitigation_agent.py
-├── app/
-│   ├── __init__.py
-│   ├── streamlit_app.py
-│   ├── ui_components.py
-│   └── api.py
+│   └── outputs/
+│       ├── threats/
+│       ├── risks/
+│       └── traces/
+├── src/
+│   ├── models/
+│   │   └── schema/
+│   │       ├── canonical_model.py
+│   │       ├── threat_model.py
+│   │       └── risk_model.py
+│   ├── ingestion/
+│   │   ├── __init__.py
+│   │   ├── evidence_model.py
+│   │   ├── informal_parser.py
+│   │   ├── spec_parser.py
+│   │   ├── sbom_parser.py
+│   │   ├── code_signals.py
+│   │   └── model_builder.py
+│   ├── graph/
+│   │   ├── __init__.py
+│   │   ├── neo4j_client.py
+│   │   ├── graph_loader.py
+│   │   ├── graph_queries.py
+│   │   ├── attack_paths.py
+│   │   └── cypher/
+│   │       ├── constraints.cypher
+│   │       ├── indexes.cypher
+│   │       └── sample_queries.cypher
+│   ├── knowledge/
+│   │   ├── __init__.py
+│   │   ├── sources/
+│   │   │   ├── mitre_attack/
+│   │   │   ├── mitre_atlas/
+│   │   │   ├── cwe/
+│   │   │   ├── owasp/
+│   │   │   └── nist/
+│   │   ├── loaders/
+│   │   │   ├── mitre_loader.py
+│   │   │   ├── atlas_loader.py
+│   │   │   └── control_loader.py
+│   │   ├── embeddings.py
+│   │   ├── retriever.py
+│   │   └── vector_store.py
+│   ├── analysis/
+│   │   ├── __init__.py
+│   │   ├── threat_generation.py
+│   │   ├── technique_mapping.py
+│   │   ├── risk_scoring.py
+│   │   ├── prioritization.py
+│   │   ├── red_team_plans.py
+│   │   └── mitigations.py
+│   ├── agents/
+│   │   ├── __init__.py
+│   │   ├── state.py
+│   │   ├── tools.py
+│   │   ├── router.py
+│   │   ├── workflows.py
+│   │   ├── query_agent.py
+│   │   ├── threat_agent.py
+│   │   ├── risk_agent.py
+│   │   ├── redteam_agent.py
+│   │   └── mitigation_agent.py
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── streamlit_app.py
+│   │   ├── ui_components.py
+│   │   └── api.py
 ├── scripts/
 │   ├── validate_model.py
 │   ├── load_graph.py
@@ -1004,14 +1004,16 @@ Streamlit analyst UI
 ## Repository structure
 ```text
 threat-forge-ai/
+├── examples/
 ├── docs/
-├── models/
-├── ingestion/
-├── graph/
-├── knowledge/
-├── analysis/
-├── agents/
-├── app/
+├── src/
+│   ├── models/
+│   ├── ingestion/
+│   ├── graph/
+│   ├── knowledge/
+│   ├── analysis/
+│   ├── agents/
+│   └── app/
 ├── scripts/
 ├── tests/
 └── notebooks/
@@ -1192,7 +1194,7 @@ This MVP demonstrates:
 
 ---
 
-## 8.3 `models/examples/fintech_ai_platform.toml`
+## 8.3 `examples/fintech_ai_platform.toml`
 
 ```toml
 [meta]
@@ -1420,7 +1422,7 @@ relationship = "reads_writes"
 
 ---
 
-## 8.4 `models/schema/canonical_model.py`
+## 8.4 `src/models/schema/canonical_model.py`
 
 ```python
 from __future__ import annotations
@@ -1570,7 +1572,7 @@ class CanonicalModel(BaseModel):
 - document why the scenario was chosen
 
 **Done when:**
-- `models/examples/fintech_ai_platform.toml` exists
+- `examples/fintech_ai_platform.toml` exists
 - the scenario is documented in `docs/demo_scenario.md`
 
 # Epic 2 — Graph Foundation
@@ -1586,7 +1588,7 @@ class CanonicalModel(BaseModel):
 
 **Done when:**
 - `docs/graph_schema.md` exists
-- `graph/cypher/constraints.cypher` exists
+- `src/graph/cypher/constraints.cypher` exists
 
 ## Issue 5 — Implement TOML-to-graph loader
 **Goal:** load the canonical model into Neo4j.

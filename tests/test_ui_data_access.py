@@ -100,7 +100,7 @@ def test_list_example_models_contains_fintech_example() -> None:
 
 
 def test_model_overview_contains_expected_counts() -> None:
-    model = load_model(Path("models/examples/fintech_ai_platform.toml"))
+    model = load_model(Path("examples/fintech_ai_platform.toml"))
     overview = build_model_overview(model)
 
     assert overview["model_id"] == "fintech-ai-demo"

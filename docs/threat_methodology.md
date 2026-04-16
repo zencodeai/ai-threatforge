@@ -109,5 +109,5 @@ Threat objects generated from these heuristics should include at minimum:
 - `evidence`
 
 ## Implementation notes
-- Technique mapping is implemented in `analysis/technique_mapping.py`, binding each `rule_id` to ATT&CK/ATLAS technique IDs and names.
-- Structured threat generation is implemented in `analysis/threat_outputs.py` and persists outputs to `models/outputs/threats/`.
+- Technique mapping is implemented in `src/analysis/technique_mapping.py`, binding each `rule_id` to ATT&CK/ATLAS technique IDs and names.
+- Structured threat generation is implemented in `src/analysis/threat_outputs.py` and persists outputs to `models/outputs/threats/`.

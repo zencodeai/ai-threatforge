@@ -7,7 +7,7 @@ import streamlit as st
 from agents.tools import AgentTools
 from agents.workflow import QueryWorkflow
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 SAMPLE_QUESTIONS = [

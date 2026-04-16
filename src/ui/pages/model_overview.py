@@ -6,7 +6,7 @@ import streamlit as st
 
 from ui.data_access import build_model_overview, list_example_models, load_model
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 def render(model_path: Path) -> None:
@@ -69,7 +69,7 @@ def main() -> None:
     st.set_page_config(page_title="Threat Forge AI - Model Overview", page_icon="TF", layout="wide")
     model_path = _default_model_path()
     if model_path is None:
-        st.info("No example model found in models/examples.")
+        st.info("No example model found in examples/.")
         return
     render(model_path)
 

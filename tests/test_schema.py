@@ -9,7 +9,7 @@ from models.schema.canonical_model import CanonicalModel, load_canonical_model
 
 
 ROOT = Path(__file__).resolve().parents[1]
-EXAMPLE_MODEL = ROOT / "models" / "examples" / "fintech_ai_platform.toml"
+EXAMPLE_MODEL = ROOT / "examples" / "fintech_ai_platform.toml"
 
 
 def load_example_payload() -> dict[str, Any]:

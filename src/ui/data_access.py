@@ -6,11 +6,11 @@ from models.schema.canonical_model import CanonicalModel, load_canonical_model
 from models.schema.risk_model import RiskReport
 from models.schema.threat_model import ThreatReport
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def list_example_models(base_dir: Path = ROOT) -> list[Path]:
-    examples_dir = base_dir / "models" / "examples"
+    examples_dir = base_dir / "examples"
     if not examples_dir.exists():
         return []
     return sorted(examples_dir.glob("*.toml"))

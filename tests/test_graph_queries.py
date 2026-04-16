@@ -20,7 +20,7 @@ class FakeClient:
 
 
 def test_load_sample_queries_returns_expected_count() -> None:
-    queries = load_sample_queries(ROOT / "graph" / "cypher" / "sample_queries.cypher")
+    queries = load_sample_queries(ROOT / "src" / "graph" / "cypher" / "sample_queries.cypher")
     assert len(queries) == 10
 
 

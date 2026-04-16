@@ -26,6 +26,7 @@ ui = [
 ]
 
 [tool.setuptools.packages.find]
+where = ["src"]
 include = ["models*", "graph*", "analysis*", "agents*", "ui*"]
 
 [tool.pytest.ini_options]

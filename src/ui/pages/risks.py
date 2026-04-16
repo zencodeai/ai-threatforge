@@ -6,7 +6,7 @@ import streamlit as st
 
 from ui.data_access import load_risk_report, risk_rows
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 def render(base_dir: Path) -> None:
