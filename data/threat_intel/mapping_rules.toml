@@ -1,0 +1,97 @@
+# Curated heuristic-to-technique mapping rules.
+#
+# These are expert-curated bindings that are always included in threat output.
+# They encode domain judgment and are under version control.
+#
+# mapping_type is always "curated" for entries in this file.
+
+[[mappings]]
+rule_id = "TH-001"
+technique_id = "T1190"
+framework = "ATTACK"
+tactic = "initial-access"
+rationale = "Internet-exposed services handling sensitive data are prime targets for public-facing exploitation."
+
+[[mappings]]
+rule_id = "TH-001"
+technique_id = "T1078"
+framework = "ATTACK"
+tactic = "defense-evasion"
+rationale = "Sensitive internet-facing workflows often include credential attack surfaces that can enable valid account abuse."
+
+[[mappings]]
+rule_id = "TH-002"
+technique_id = "T1021"
+framework = "ATTACK"
+tactic = "lateral-movement"
+rationale = "Dependency chains from low-trust zones indicate likely remote-service lateral movement paths to high-value assets."
+
+[[mappings]]
+rule_id = "TH-002"
+technique_id = "T1485"
+framework = "ATTACK"
+tactic = "impact"
+rationale = "Path access to critical objects implies elevated impact potential on high-value data."
+
+[[mappings]]
+rule_id = "TH-003"
+technique_id = "T1068"
+framework = "ATTACK"
+tactic = "privilege-escalation"
+rationale = "Externally reachable privileged modules increase likelihood of exploit-driven privilege escalation."
+
+[[mappings]]
+rule_id = "TH-003"
+technique_id = "T1078"
+framework = "ATTACK"
+tactic = "persistence"
+rationale = "High-privilege reachable services are at risk of persistence through account abuse."
+
+[[mappings]]
+rule_id = "TH-004"
+technique_id = "AML.T0016"
+framework = "ATLAS"
+tactic = "ml-attack-staging"
+rationale = "AI-relevant module and feature pipeline dependencies create poisoning opportunities."
+
+[[mappings]]
+rule_id = "TH-004"
+technique_id = "AML.T0040"
+framework = "ATLAS"
+tactic = "ml-attack-staging"
+rationale = "Inference-facing AI dependencies can be abused via evasion-style inputs."
+
+[[mappings]]
+rule_id = "TH-004"
+technique_id = "T1565"
+framework = "ATTACK"
+tactic = "impact"
+rationale = "ML pipeline dependencies expose data manipulation opportunities across model inputs."
+
+[[mappings]]
+rule_id = "TH-005"
+technique_id = "T1530"
+framework = "ATTACK"
+tactic = "collection"
+rationale = "Regulated objects concentrated in critical workflows are high-value collection targets."
+
+[[mappings]]
+rule_id = "TH-005"
+technique_id = "T1020"
+framework = "ATTACK"
+tactic = "exfiltration"
+rationale = "Critical workflows carrying regulated data increase exfiltration automation risk."
+
+[[mappings]]
+rule_id = "TH-006"
+technique_id = "T1570"
+framework = "ATTACK"
+tactic = "lateral-movement"
+rationale = "Boundary crossing dependencies can support staged tool transfer into trusted zones."
+
+[[mappings]]
+rule_id = "TH-006"
+technique_id = "T1550"
+framework = "ATTACK"
+tactic = "lateral-movement"
+rationale = "Cross-boundary privileged dependencies can be abused through token/key-based movement."

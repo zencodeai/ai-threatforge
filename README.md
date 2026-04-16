@@ -57,11 +57,13 @@ Analyst questions are routed to tools via deterministic keyword matching, execut
 | `models/outputs/` | Generated threat, risk, and trace artifacts |
 | `src/models/` | Pydantic schema contracts |
 | `src/graph/` | Neo4j client, graph loader, query helpers, Cypher constraints/indexes |
-| `src/analysis/` | Threat generation engine, ATT&CK/ATLAS mapping, risk scoring |
+| `src/knowledge/` | MITRE ATT&CK + ATLAS ingestion, SQLite store, in-memory index |
+| `src/analysis/` | Threat generation engine, layered ATT&CK/ATLAS mapping, risk scoring |
 | `src/agents/` | Tool interfaces, deterministic query workflow, observability tracing |
 | `src/ui/` | Streamlit analyst interface (model overview, threats, risks, chat) |
 | `src/cli/` | Unified CLI (`threatforge` command) |
-| `tests/` | 49 tests across 13 modules |
+| `data/threat_intel/` | Curated mapping rules, expansion config, knowledge-base SQLite |
+| `tests/` | 82 tests across 16 modules |
 | `docs/` | Architecture narrative, walkthrough, demo script, diagrams |
 
 ---
@@ -83,7 +85,14 @@ cp .env.example .env
 # Set NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, NEO4J_DATABASE
 ```
 
-### 3. Run the analysis pipeline
+### 3. Sync the knowledge base (optional)
+
+```bash
+threatforge sync                   # fetch ATT&CK + ATLAS techniques
+threatforge sync --status          # check current sync state
+```
+
+### 4. Run the analysis pipeline
 
 ```bash
 threatforge validate --model examples/fintech_ai_platform.toml
@@ -93,7 +102,7 @@ threatforge generate-threats --model examples/fintech_ai_platform.toml
 threatforge score-risks
 ```
 
-### 4. Launch the analyst UI
+### 5. Launch the analyst UI
 
 ```bash
 pip install -e '.[ui]'
@@ -146,7 +155,7 @@ No code changes are needed — the factory function `create_trace_recorder()` au
 pytest -q
 ```
 
-49 tests across schema validation, graph operations, threat generation, technique mapping, risk scoring, agent workflow, observability, and UI layers.
+82 tests across schema validation, graph operations, threat generation, technique mapping, risk scoring, knowledge ingestion, agent workflow, observability, and UI layers.
 
 ---
 
@@ -161,7 +170,8 @@ pytest -q
 | [Graph Schema](docs/graph_schema.md) | Neo4j node labels, relationships, constraints, and indexes |
 | [Threat Methodology](docs/threat_methodology.md) | Heuristic rule catalog with ATT&CK/ATLAS alignment |
 | [Risk Methodology](docs/risk_methodology.md) | Scoring formula, factor weights, and priority bands |
-| [Diagrams](docs/diagrams/) | SVG pipeline, workflow, risk scoring, and project layout visuals |
+| [ATT&CK/ATLAS Ingestion Design](docs/design_attack_atlas_ingestion.md) | Knowledge-base sync architecture and layered mapping engine |
+| [Diagrams](docs/diagrams/) | Mermaid sources (.mmd) exported to SVG — pipeline, workflow, risk scoring, project layout, knowledge ingestion |
 
 ---
 
@@ -173,11 +183,12 @@ pytest -q
 | Schema validation | Pydantic ≥ 2.8 | Model contracts with cross-reference integrity enforcement |
 | Graph database | Neo4j ≥ 5.20 | Property graph for attack-path traversal and dependency analysis |
 | Graph protocol | Bolt (official `neo4j` driver) | Parameterised Cypher queries with connection pooling |
-| Threat mapping | MITRE ATT&CK + ATLAS | Enterprise and AI/ML technique alignment for every generated threat |
+| Knowledge base | MITRE ATT&CK + ATLAS | STIX 2.1 / YAML ingestion into SQLite with in-memory index for technique lookup |
+| Threat mapping | MITRE ATT&CK + ATLAS | Layered mapping: curated TOML rules, opt-in tactic expansion, context filtering |
 | UI | Streamlit ≥ 1.35 | Multipage analyst dashboard with sidebar controls and one-click rebuild |
 | Observability | JSONL local traces | Structured event log for every workflow invocation |
 | Observability (opt.) | LangSmith | Cloud trace export with parent-child run relationships |
-| Testing | pytest ≥ 8.0 | 49 tests across 13 modules — schema, graph, analysis, agents, UI |
+| Testing | pytest ≥ 8.0 | 82 tests across 16 modules — schema, graph, analysis, knowledge, agents, UI |
 
 ### Why these choices
 

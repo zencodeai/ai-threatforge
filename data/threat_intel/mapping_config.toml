@@ -1,0 +1,18 @@
+# Technique mapping expansion configuration.
+#
+# Controls how threat heuristics are expanded beyond curated mappings.
+
+[expansion]
+# Enable tactic-based expansion (Layer 2).
+# When true, heuristics are auto-expanded to all techniques in their target tactics.
+enabled = false
+
+# Include sub-techniques in expansion results.
+include_subtechniques = true
+
+# Maximum techniques per tactic to include (prevents output bloat).
+max_techniques_per_tactic = 20
+
+# ATT&CK domains to include in expansion.
+# Options: "enterprise", "mobile", "ics"
+domains = ["enterprise"]

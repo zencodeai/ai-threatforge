@@ -8,3 +8,4 @@ __pycache__/
 models/outputs/traces/
 models/outputs/threats/
 models/outputs/risks/
+data/threat_intel/threatforge_kb.db

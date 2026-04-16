@@ -11,6 +11,7 @@ class TechniqueReference(BaseModel):
     technique_name: str
     tactic: str
     mapping_rationale: str
+    mapping_type: Literal["curated", "tactic-expansion"] = "curated"
 
 
 class ThreatRecord(BaseModel):

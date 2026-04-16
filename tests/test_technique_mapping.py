@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from analysis.technique_mapping import (
-    RULE_TECHNIQUE_MAPPINGS,
     get_all_technique_mappings,
     get_rule_technique_mappings,
     map_rule_to_techniques,
@@ -16,7 +15,8 @@ def test_every_rule_has_mapping() -> None:
 
 
 def test_all_rule_ids_present_in_mapping_catalog() -> None:
-    mapped_rule_ids = {mapping.rule_id for mapping in RULE_TECHNIQUE_MAPPINGS}
+    all_mappings = get_all_technique_mappings()
+    mapped_rule_ids = {mapping.rule_id for mapping in all_mappings}
     expected_rule_ids = {rule.rule_id for rule in THREAT_HEURISTICS}
     assert expected_rule_ids.issubset(mapped_rule_ids)
 

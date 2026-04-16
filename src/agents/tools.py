@@ -6,6 +6,7 @@ from typing import Any, Callable
 from analysis.technique_mapping import get_all_technique_mappings
 from analysis.threat_generation import THREAT_HEURISTICS
 from graph.neo4j_client import Neo4jClient, Neo4jConfig
+from knowledge.index import TechniqueIndex
 from models.schema.risk_model import RiskReport
 from models.schema.threat_model import ThreatReport
 
@@ -162,6 +163,38 @@ class AgentTools:
 
     def lookup_technique(self, technique_id: str) -> ToolResponse:
         technique_id_upper = technique_id.upper()
+
+        # Try the knowledge base first
+        try:
+            index = TechniqueIndex.get()
+            if index.is_populated():
+                tech = index.lookup(technique_id)
+                if tech:
+                    matches = [{
+                        "framework": tech.framework,
+                        "technique_id": tech.technique_id,
+                        "technique_name": tech.name,
+                        "tactic": ", ".join(tech.tactics),
+                        "description": tech.description[:500],
+                        "platforms": list(tech.platforms),
+                        "is_subtechnique": tech.is_subtechnique,
+                        "parent_id": tech.parent_id,
+                        "url": tech.url,
+                        "mitigations": [
+                            {"id": m.mitigation_id, "name": m.name}
+                            for m in index.mitigations_for(tech.technique_id)
+                        ],
+                    }]
+                    return self._ok(
+                        "knowledge-base",
+                        matches,
+                        confidence=0.95,
+                        meta={"query": technique_id, "count": 1, "source": "knowledge-base"},
+                    )
+        except Exception:
+            pass
+
+        # Fallback to curated mappings
         matches = [
             {
                 "rule_id": mapping.rule_id,
@@ -197,15 +230,33 @@ class AgentTools:
                 }
             )
 
-        for mapping in get_all_technique_mappings():
-            corpus.append(
-                {
-                    "source": "technique-mappings",
-                    "id": f"{mapping.rule_id}:{mapping.technique_id}",
-                    "title": mapping.technique_name,
-                    "text": f"{mapping.framework} {mapping.technique_id} {mapping.tactic} {mapping.mapping_rationale}",
-                }
-            )
+        # Use knowledge base if available, otherwise fall back to curated mappings
+        try:
+            index = TechniqueIndex.get()
+            if index.is_populated():
+                kb_results = index.search(query, top_k=top_k)
+                for tech in kb_results:
+                    corpus.append(
+                        {
+                            "source": "knowledge-base",
+                            "id": tech.technique_id,
+                            "title": tech.name,
+                            "text": f"{tech.framework} {tech.technique_id} {' '.join(tech.tactics)} {tech.description[:300]}",
+                        }
+                    )
+        except Exception:
+            pass
+
+        if not any(entry["source"] == "knowledge-base" for entry in corpus):
+            for mapping in get_all_technique_mappings():
+                corpus.append(
+                    {
+                        "source": "technique-mappings",
+                        "id": f"{mapping.rule_id}:{mapping.technique_id}",
+                        "title": mapping.technique_name,
+                        "text": f"{mapping.framework} {mapping.technique_id} {mapping.tactic} {mapping.mapping_rationale}",
+                    }
+                )
 
         scored: list[tuple[int, dict[str, Any]]] = []
         for entry in corpus:
@@ -226,9 +277,10 @@ class AgentTools:
             for score, item in scored[: max(1, top_k)]
         ]
 
+        source_label = "knowledge-base" if any(e["source"] == "knowledge-base" for e in evidence) else "knowledge-stub"
         confidence = 0.85 if evidence else 0.25
         return self._ok(
-            "knowledge-stub",
+            source_label,
             evidence,
             confidence=confidence,
             meta={"query": query, "count": len(evidence)},

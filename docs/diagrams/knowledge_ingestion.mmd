@@ -1,0 +1,39 @@
+%%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#6c8ebf', 'primaryTextColor': '#333333', 'primaryColor': '#dae8fc', 'secondaryColor': '#f5f5f5'}}}%%
+flowchart TB
+    subgraph SYNC["threatforge sync (CLI)"]
+        direction TB
+        GH["GitHub Repos<br/>ATT&CK STIX + ATLAS YAML"]
+        LOCAL["Local files<br/>(--offline)"]
+        FETCH["Fetcher<br/>httpx / file reader"]
+        NORM["Normalizer / ETL<br/>STIX → Technique<br/>YAML → Technique"]
+        DB[("SQLite KB<br/>threatforge_kb.db<br/>techniques, tactics,<br/>mitigations")]
+
+        GH --> FETCH
+        LOCAL --> FETCH
+        FETCH --> NORM
+        NORM --> DB
+    end
+
+    subgraph RUNTIME["Runtime (per process)"]
+        direction TB
+        IDX["TechniqueIndex<br/>in-memory singleton<br/>by_id, by_tactic,<br/>by_platform"]
+        CURATED["Curated Rules<br/>mapping_rules.toml"]
+        ENGINE["Mapping Engine<br/>L1: curated<br/>L2: tactic expansion<br/>L3: context filter"]
+
+        DB --> IDX
+        IDX --> ENGINE
+        CURATED --> ENGINE
+    end
+
+    subgraph CONSUMERS["Consumers"]
+        direction TB
+        THREATS["Threat Engine<br/>technique_mapping.py<br/>threat_outputs.py"]
+        TOOLS["Agent Tools<br/>lookup_technique<br/>search_knowledge"]
+        UI["Streamlit UI<br/>threat details +<br/>mitigation view"]
+    end
+
+    ENGINE --> THREATS
+    ENGINE --> TOOLS
+    IDX --> TOOLS
+    THREATS --> UI
+    TOOLS --> UI

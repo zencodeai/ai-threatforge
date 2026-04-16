@@ -84,6 +84,32 @@ def _cmd_score_risks(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_sync(args: argparse.Namespace) -> int:
+    from knowledge.sync import sync, sync_status
+
+    if args.status:
+        info = sync_status()
+        for key, value in info.items():
+            print(f"  {key}: {value}")
+        return 0
+
+    try:
+        counts = sync(
+            attack_version=args.attack_version,
+            atlas_version=args.atlas_version,
+            offline_dir=args.offline,
+        )
+    except Exception as exc:
+        print(f"FAILED: {exc}")
+        return 1
+
+    print("SYNC COMPLETE")
+    print(f"  tactics:     {counts['tactics']}")
+    print(f"  techniques:  {counts['techniques']}")
+    print(f"  mitigations: {counts['mitigations']}")
+    return 0
+
+
 def _cmd_ui(args: argparse.Namespace) -> int:
     try:
         import streamlit.web.cli as stcli
@@ -126,6 +152,13 @@ def main(argv: list[str] | None = None) -> int:
     # ui
     sub.add_parser("ui", help="Launch the Streamlit analyst interface")
 
+    # sync
+    p_sync = sub.add_parser("sync", help="Sync MITRE ATT&CK and ATLAS knowledge base")
+    p_sync.add_argument("--attack-version", default="latest", help="ATT&CK version to fetch (default: latest)")
+    p_sync.add_argument("--atlas-version", default="latest", help="ATLAS version to fetch (default: latest)")
+    p_sync.add_argument("--offline", type=Path, default=None, help="Directory with local STIX/ATLAS files")
+    p_sync.add_argument("--status", action="store_true", help="Show current sync status")
+
     args = parser.parse_args(argv)
 
     if args.command is None:
@@ -138,6 +171,7 @@ def main(argv: list[str] | None = None) -> int:
         "generate-threats": _cmd_generate_threats,
         "score-risks": _cmd_score_risks,
         "ui": _cmd_ui,
+        "sync": _cmd_sync,
     }
     return dispatch[args.command](args)
 

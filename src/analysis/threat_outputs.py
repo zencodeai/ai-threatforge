@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -46,7 +45,17 @@ def _build_snapshot(queries: GraphQueries) -> dict[str, list[dict[str, Any]]]:
 
 
 def _technique_refs(rule_id: str) -> list[TechniqueReference]:
-    return [TechniqueReference(**asdict(mapping)) for mapping in map_rule_to_techniques(rule_id)]
+    return [
+        TechniqueReference(**{
+            "framework": mapping.framework,
+            "technique_id": mapping.technique_id,
+            "technique_name": mapping.technique_name,
+            "tactic": mapping.tactic,
+            "mapping_rationale": mapping.mapping_rationale,
+            "mapping_type": mapping.mapping_type,
+        })
+        for mapping in map_rule_to_techniques(rule_id)
+    ]
 
 
 def _heuristic(rule_id: str):
