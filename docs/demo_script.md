@@ -21,7 +21,7 @@ Security architects, engineering leaders, and hiring reviewers evaluating AI + s
 - Highlight explainability and traceability.
 
 ### 3. Show the model (2 minutes)
-- Open `src/ui/app.py` in Streamlit, Model Overview page.
+- Navigate to the Model Overview page (launch with `threatforge ui`).
 - Point out domains, modules, workflows, trust boundaries.
 - Explain why this structure matters for security reasoning.
 

@@ -27,7 +27,10 @@ ui = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["models*", "graph*", "analysis*", "agents*", "ui*"]
+include = ["models*", "graph*", "analysis*", "agents*", "ui*", "cli*"]
+
+[project.scripts]
+threatforge = "cli.main:entry_point"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

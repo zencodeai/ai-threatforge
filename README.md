@@ -60,7 +60,7 @@ Analyst questions are routed to tools via deterministic keyword matching, execut
 | `src/analysis/` | Threat generation engine, ATT&CK/ATLAS mapping, risk scoring |
 | `src/agents/` | Tool interfaces, deterministic query workflow, observability tracing |
 | `src/ui/` | Streamlit analyst interface (model overview, threats, risks, chat) |
-| `scripts/` | CLI entry points for each pipeline stage |
+| `src/cli/` | Unified CLI (`threatforge` command) |
 | `tests/` | 49 tests across 13 modules |
 | `docs/` | Architecture narrative, walkthrough, demo script, diagrams |
 
@@ -86,18 +86,18 @@ cp .env.example .env
 ### 3. Run the analysis pipeline
 
 ```bash
-python scripts/validate_model.py --model examples/fintech_ai_platform.toml
+threatforge validate --model examples/fintech_ai_platform.toml
 set -a && source .env && set +a
-python scripts/load_graph.py --model examples/fintech_ai_platform.toml --clear
-python scripts/generate_threats.py --model examples/fintech_ai_platform.toml
-python scripts/score_risks.py
+threatforge load-graph --model examples/fintech_ai_platform.toml --clear
+threatforge generate-threats --model examples/fintech_ai_platform.toml
+threatforge score-risks
 ```
 
 ### 4. Launch the analyst UI
 
 ```bash
 pip install -e '.[ui]'
-streamlit run src/ui/app.py
+threatforge ui
 ```
 
 ---

@@ -1,0 +1,20 @@
+---
+title: ""
+---
+%%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#6c8ebf', 'primaryTextColor': '#6c8ebf', 'titleColor': '#6c8ebf'}}}%%
+graph LR
+    A["TOML Model\nArchitecture as code"]
+    B["Validate\nPydantic schema"]
+    C["Graph\nNeo4j traversal"]
+    D["Threats\nATT&CK / ATLAS"]
+    E["Risks\nWeighted scoring"]
+    F["Analyst UI\nQuery + Observe"]
+
+    A --> B --> C --> D --> E --> F
+
+    style A fill:#dbeafe,stroke:#3b82f6,color:#1e40af
+    style B fill:#e0e7ff,stroke:#6366f1,color:#3730a3
+    style C fill:#e0e7ff,stroke:#6366f1,color:#3730a3
+    style D fill:#fef3c7,stroke:#f59e0b,color:#92400e
+    style E fill:#fee2e2,stroke:#ef4444,color:#991b1b
+    style F fill:#d1fae5,stroke:#10b981,color:#065f46

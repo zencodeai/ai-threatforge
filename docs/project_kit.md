@@ -422,12 +422,9 @@ threat-forge-ai/
 │   │   ├── streamlit_app.py
 │   │   ├── ui_components.py
 │   │   └── api.py
-├── scripts/
-│   ├── validate_model.py
-│   ├── load_graph.py
-│   ├── generate_threats.py
-│   ├── score_risks.py
-│   └── run_demo.py
+│   ├── cli/
+│   │   ├── __init__.py
+│   │   └── main.py
 ├── tests/
 │   ├── test_schema.py
 │   ├── test_graph_loader.py
@@ -1013,8 +1010,8 @@ threat-forge-ai/
 │   ├── knowledge/
 │   ├── analysis/
 │   ├── agents/
-│   └── app/
-├── scripts/
+│   ├── app/
+│   └── cli/
 ├── tests/
 └── notebooks/
 ```

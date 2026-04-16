@@ -1,0 +1,48 @@
+---
+title: Risk Scoring Methodology
+---
+%%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#6c8ebf', 'primaryTextColor': '#6c8ebf', 'titleColor': '#6c8ebf'}}}%%
+graph TD
+    subgraph input ["Input"]
+        TR["Threat Report\nPer-threat records"]
+    end
+
+    subgraph scoring ["Scoring Pipeline"]
+        FE["Factor Extraction\nseverity · exposure · privilege\ndata criticality · exploitability"]
+        WS["Weighted Scoring\nΣ weight × factor\nDeterministic formula"]
+    end
+
+    TR --> FE --> WS
+
+    subgraph weights ["Factor Weights"]
+        W1["Likelihood — 0.25"]
+        W2["Impact — 0.20"]
+        W3["Exposure — 0.15"]
+        W4["Privilege Sensitivity — 0.15"]
+        W5["Data Criticality — 0.15"]
+        W6["Exploitability — 0.10"]
+    end
+
+    subgraph bands ["Priority Bands"]
+        B1["🔴 Critical — score ≥ 0.85"]
+        B2["🟠 High — score ≥ 0.65"]
+        B3["🟡 Medium — score ≥ 0.40"]
+        B4["🟢 Low — score < 0.40"]
+    end
+
+    WS --> OUT["Risk Report JSON"]
+
+    style TR fill:#fef3c7,stroke:#f59e0b,color:#92400e
+    style FE fill:#dbeafe,stroke:#3b82f6,color:#1e40af
+    style WS fill:#fee2e2,stroke:#ef4444,color:#991b1b
+    style OUT fill:#d1fae5,stroke:#10b981,color:#065f46
+    style W1 fill:#dbeafe,stroke:#3b82f6,color:#1e40af
+    style W2 fill:#e0e7ff,stroke:#6366f1,color:#3730a3
+    style W3 fill:#fef3c7,stroke:#f59e0b,color:#92400e
+    style W4 fill:#fef3c7,stroke:#f59e0b,color:#92400e
+    style W5 fill:#fee2e2,stroke:#ef4444,color:#991b1b
+    style W6 fill:#fee2e2,stroke:#ef4444,color:#991b1b
+    style B1 fill:#fecaca,stroke:#ef4444,color:#991b1b
+    style B2 fill:#fed7aa,stroke:#f97316,color:#9a3412
+    style B3 fill:#fde68a,stroke:#f59e0b,color:#92400e
+    style B4 fill:#d1fae5,stroke:#10b981,color:#065f46

@@ -1,0 +1,33 @@
+---
+title: Query Workflow — Route → Execute → Compose
+---
+%%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#6c8ebf', 'primaryTextColor': '#6c8ebf', 'titleColor': '#6c8ebf'}}}%%
+graph TD
+    Q["Analyst Question\nNatural language"]
+    R["Keyword Router\nDeterministic rules"]
+
+    Q --> R
+
+    R --> T1["query_graph\npath / neighbor"]
+    R --> T2["get_threats\nby target / ID"]
+    R --> T3["get_risks\ntop-N ranked"]
+    R --> T4["lookup_technique\nATT&CK / ATLAS"]
+    R --> T5["search_knowledge\nextensible RAG"]
+
+    T1 --> C["Compose Answer\nEvidence + limitations"]
+    T2 --> C
+    T3 --> C
+    T4 --> C
+    T5 --> C
+
+    C --> O["AgentAnswer\ntext · evidence_refs · limitations"]
+
+    style Q fill:#dbeafe,stroke:#3b82f6,color:#1e40af
+    style R fill:#d1fae5,stroke:#10b981,color:#065f46
+    style T1 fill:#fef3c7,stroke:#f59e0b,color:#92400e
+    style T2 fill:#fef3c7,stroke:#f59e0b,color:#92400e
+    style T3 fill:#fef3c7,stroke:#f59e0b,color:#92400e
+    style T4 fill:#fef3c7,stroke:#f59e0b,color:#92400e
+    style T5 fill:#fef3c7,stroke:#f59e0b,color:#92400e
+    style C fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
+    style O fill:#f8fafc,stroke:#94a3b8,color:#334155

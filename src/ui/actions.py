@@ -38,29 +38,29 @@ def _default_executor(command: Sequence[str], cwd: Path) -> ActionResult:
     )
 
 
-def run_script(script_rel_path: str, args: Sequence[str], *, executor: Executor | None = None) -> ActionResult:
-    command = [sys.executable, script_rel_path, *args]
+def run_command(cli_args: list[str], *, executor: Executor | None = None) -> ActionResult:
+    command = [sys.executable, "-m", "cli.main", *cli_args]
     runner = executor or _default_executor
     return runner(command, ROOT)
 
 
 def validate_model(model_path: Path, *, executor: Executor | None = None) -> ActionResult:
-    return run_script("scripts/validate_model.py", ["--model", str(model_path)], executor=executor)
+    return run_command(["validate", "--model", str(model_path)], executor=executor)
 
 
 def load_graph(model_path: Path, *, clear_graph: bool = True, executor: Executor | None = None) -> ActionResult:
-    args = ["--model", str(model_path)]
+    args = ["load-graph", "--model", str(model_path)]
     if clear_graph:
         args.append("--clear")
-    return run_script("scripts/load_graph.py", args, executor=executor)
+    return run_command(args, executor=executor)
 
 
 def generate_threats(model_path: Path, *, executor: Executor | None = None) -> ActionResult:
-    return run_script("scripts/generate_threats.py", ["--model", str(model_path)], executor=executor)
+    return run_command(["generate-threats", "--model", str(model_path)], executor=executor)
 
 
 def score_risks(*, executor: Executor | None = None) -> ActionResult:
-    return run_script("scripts/score_risks.py", [], executor=executor)
+    return run_command(["score-risks"], executor=executor)
 
 
 def rebuild_analysis(

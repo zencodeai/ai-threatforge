@@ -37,4 +37,4 @@ Unique ids are required for:
 
 ## Validation interface
 - Load and validate model with `src/models/schema/canonical_model.py`
-- CLI script: `scripts/validate_model.py --model <path>`
+- CLI: `threatforge validate --model <path>`

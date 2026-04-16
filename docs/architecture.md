@@ -175,7 +175,7 @@ The UI is built with **Streamlit** for rapid prototyping with minimal frontend c
 
 The sidebar provides two interaction modes:
 - **Model selection** — choose from bundled example models or upload a custom TOML file.
-- **Rebuild workflow** — a single button that sequentially runs `validate_model.py` → `load_graph.py --clear` → `generate_threats.py` → `score_risks.py`, with per-step stdout/stderr feedback.
+- **Rebuild workflow** — a single button that sequentially runs `threatforge validate` → `threatforge load-graph --clear` → `threatforge generate-threats` → `threatforge score-risks`, with per-step stdout/stderr feedback.
 
 Data access is handled through `src/ui/data_access.py`, which loads Pydantic-validated models and JSON artifacts, builds summary views, and discovers the latest output files via glob patterns. All data flows are read-only — the UI never mutates analysis artifacts directly.
 
@@ -207,9 +207,20 @@ Data access is handled through `src/ui/data_access.py`, which loads Pydantic-val
 
 ## Diagram sources
 
-| Diagram | File |
-|---|---|
-| Full pipeline | `docs/diagrams/pipeline.svg` |
-| Query workflow | `docs/diagrams/query_workflow.svg` |
-| Risk scoring | `docs/diagrams/risk_scoring.svg` |
-| Project layout | `docs/diagrams/project_structure.svg` |
+Diagrams are maintained as Mermaid source files (`.mmd`) and exported to SVG via `mmdc`.
+
+| Diagram | Source | Export |
+|---|---|---|
+| Full pipeline | `docs/diagrams/pipeline.mmd` | `docs/diagrams/pipeline.svg` |
+| Query workflow | `docs/diagrams/query_workflow.mmd` | `docs/diagrams/query_workflow.svg` |
+| Risk scoring | `docs/diagrams/risk_scoring.mmd` | `docs/diagrams/risk_scoring.svg` |
+| Project layout | `docs/diagrams/project_structure.mmd` | `docs/diagrams/project_structure.svg` |
+| Hero banner | `docs/diagrams/pipeline_hero.mmd` | `docs/diagrams/pipeline_hero.svg` |
+
+To regenerate all SVGs:
+
+```bash
+for f in docs/diagrams/*.mmd; do
+  npx -p @mermaid-js/mermaid-cli mmdc -i "$f" -o "${f%.mmd}.svg" -b transparent
+done
+```

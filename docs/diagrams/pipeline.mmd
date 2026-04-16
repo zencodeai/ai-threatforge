@@ -1,0 +1,55 @@
+---
+title: End-to-End Analysis Pipeline
+---
+%%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#6c8ebf', 'primaryTextColor': '#6c8ebf', 'titleColor': '#6c8ebf'}}}%%
+graph TD
+    subgraph model ["Model & Validation"]
+        A["Canonical Model\nTOML definitions"]
+        B["Schema Validation\nPydantic contracts"]
+    end
+
+    subgraph graph ["Graph"]
+        C["Graph Loader\nNeo4j ingestion"]
+        D["Security Graph\nNodes & relationships"]
+    end
+
+    subgraph threat ["Threat Analysis"]
+        E["Threat Engine\nHeuristics + ATT&CK/ATLAS"]
+        F["Threat Report\nStructured JSON output"]
+    end
+
+    subgraph risk ["Risk Analysis"]
+        G["Risk Engine\nWeighted scoring"]
+        H["Risk Report\nPriority-ranked JSON"]
+    end
+
+    subgraph agent ["Agent & UI"]
+        J["Knowledge Layer\nRules + mappings"]
+        I["Agent Tools\nGraph · Threats · Risks"]
+        K["Query Workflow\nRoute → Execute → Compose"]
+        L["Analyst UI\nStreamlit dashboard"]
+    end
+
+    A --> B --> C --> D
+    D --> E --> F
+    F --> G --> H
+
+    D -.-> I
+    F -.-> I
+    H -.-> I
+    J --> I --> K --> L
+    K --> M["JSONL + LangSmith traces"]
+
+    style A fill:#dbeafe,stroke:#3b82f6,color:#1e40af
+    style B fill:#dbeafe,stroke:#3b82f6,color:#1e40af
+    style C fill:#e0e7ff,stroke:#6366f1,color:#3730a3
+    style D fill:#e0e7ff,stroke:#6366f1,color:#3730a3
+    style E fill:#fef3c7,stroke:#f59e0b,color:#92400e
+    style F fill:#fef3c7,stroke:#f59e0b,color:#92400e
+    style G fill:#fee2e2,stroke:#ef4444,color:#991b1b
+    style H fill:#fee2e2,stroke:#ef4444,color:#991b1b
+    style I fill:#d1fae5,stroke:#10b981,color:#065f46
+    style J fill:#d1fae5,stroke:#10b981,color:#065f46
+    style K fill:#d1fae5,stroke:#10b981,color:#065f46
+    style L fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
+    style M fill:#f1f5f9,stroke:#94a3b8,color:#64748b

@@ -1,0 +1,37 @@
+---
+title: Project Layout
+---
+%%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#6c8ebf', 'primaryTextColor': '#6c8ebf', 'titleColor': '#6c8ebf', 'fontSize': '16px'}}}%%
+block-beta
+    columns 2
+
+    block:rootdir:1
+        columns 1
+        ex["examples/ — TOML model definitions"]
+        outputs["models/outputs/ — threats · risks · traces"]
+        tests["tests/ — 13 modules · 49 tests"]
+        docs["docs/ — architecture · walkthrough · demo"]
+    end
+
+    block:srcdir:1
+        columns 1
+        schema["models/schema/ — canonical · threat · risk"]
+        graphpkg["graph/ — neo4j_client · loader · queries"]
+        analysis["analysis/ — threat_generation · mapping · scoring"]
+        agents["agents/ — tools · workflow · observability"]
+        ui["ui/ — app · actions · pages/"]
+        cli["cli/ — main.py"]
+    end
+
+    style rootdir fill:none,stroke:#64748b,stroke-width:2px
+    style srcdir fill:none,stroke:#64748b,stroke-width:2px
+    style ex fill:#dbeafe,stroke:#3b82f6,color:#1e40af
+    style outputs fill:#f1f5f9,stroke:#94a3b8,color:#475569
+    style tests fill:#f1f5f9,stroke:#94a3b8,color:#475569
+    style docs fill:#f1f5f9,stroke:#94a3b8,color:#475569
+    style schema fill:#eff6ff,stroke:#3b82f6,color:#1e40af
+    style graphpkg fill:#eef2ff,stroke:#6366f1,color:#3730a3
+    style analysis fill:#fefce8,stroke:#f59e0b,color:#92400e
+    style agents fill:#ecfdf5,stroke:#10b981,color:#065f46
+    style ui fill:#f5f3ff,stroke:#8b5cf6,color:#5b21b6
+    style cli fill:#f1f5f9,stroke:#64748b,color:#334155
