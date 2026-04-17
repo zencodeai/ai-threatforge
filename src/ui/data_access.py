@@ -7,9 +7,11 @@ from project_paths import ProjectPaths
 from models.schema.canonical_model import CanonicalModel, load_canonical_model
 from models.schema.risk_model import RiskReport
 from models.schema.threat_model import ThreatReport
+from report_repository import FileReportRepository, ReportRepository
 
 _DEFAULT_PATHS = ProjectPaths.default()
 ROOT = _DEFAULT_PATHS.root
+_DEFAULT_REPO = FileReportRepository(ROOT)
 
 
 def list_example_models(base_dir: Path = ROOT) -> list[Path]:
@@ -50,24 +52,20 @@ def load_threat_report(
     path: str | Path | None = None,
     *,
     base_dir: Path = ROOT,
+    repo: ReportRepository | None = None,
 ) -> tuple[ThreatReport | None, Path | None]:
-    threat_path = Path(path) if path else latest_artifact(base_dir, "models/outputs/threats", "_threats.json")
-    if threat_path is None or not threat_path.exists():
-        return None, None
-    report = ThreatReport.model_validate_json(threat_path.read_text(encoding="utf-8"))
-    return report, threat_path
+    r = repo or (FileReportRepository(base_dir) if base_dir != ROOT else _DEFAULT_REPO)
+    return r.load_threat_report(path)
 
 
 def load_risk_report(
     path: str | Path | None = None,
     *,
     base_dir: Path = ROOT,
+    repo: ReportRepository | None = None,
 ) -> tuple[RiskReport | None, Path | None]:
-    risk_path = Path(path) if path else latest_artifact(base_dir, "models/outputs/risks", "_risks.json")
-    if risk_path is None or not risk_path.exists():
-        return None, None
-    report = RiskReport.model_validate_json(risk_path.read_text(encoding="utf-8"))
-    return report, risk_path
+    r = repo or (FileReportRepository(base_dir) if base_dir != ROOT else _DEFAULT_REPO)
+    return r.load_risk_report(path)
 
 
 def threat_rows(report: ThreatReport, limit: int | None = None) -> list[dict[str, object]]:

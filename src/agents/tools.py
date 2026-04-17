@@ -11,6 +11,7 @@ from graph.neo4j_client import Neo4jClient, Neo4jConfig
 from knowledge.index import TechniqueIndex
 from models.schema.risk_model import RiskReport
 from models.schema.threat_model import ThreatReport
+from report_repository import FileReportRepository, ReportRepository
 
 from .state import ToolError, ToolResponse
 from .tool_protocol import Tool, ToolRegistry
@@ -83,10 +84,12 @@ class AgentTools:
         *,
         base_dir: str | Path = ".",
         graph_runner: GraphRunner | None = None,
+        report_repo: ReportRepository | None = None,
     ):
         self.base_dir = Path(base_dir)
         self._graph_runner = graph_runner
         self._locator = ArtifactLocator(self.base_dir)
+        self._repo = report_repo or FileReportRepository(self.base_dir)
 
     def _ok(
         self,
@@ -155,8 +158,8 @@ class AgentTools:
         top_n: int | None = 10,
         path: str | Path | None = None,
     ) -> ToolResponse:
-        threat_path = Path(path) if path else self._latest_artifact("models/outputs/threats", "_threats.json")
-        if threat_path is None or not threat_path.exists():
+        report, threat_path = self._repo.load_threat_report(path)
+        if report is None or threat_path is None:
             return self._error(
                 "threat-artifacts",
                 "THREATS_NOT_FOUND",
@@ -164,7 +167,6 @@ class AgentTools:
                 details={"search_path": "models/outputs/threats/*_threats.json"},
             )
 
-        report = ThreatReport.model_validate_json(threat_path.read_text(encoding="utf-8"))
         rows = [threat.model_dump() for threat in report.threats]
 
         if filter_by:
@@ -192,8 +194,8 @@ class AgentTools:
         top_n: int | None = 10,
         path: str | Path | None = None,
     ) -> ToolResponse:
-        risk_path = Path(path) if path else self._latest_artifact("models/outputs/risks", "_risks.json")
-        if risk_path is None or not risk_path.exists():
+        report, risk_path = self._repo.load_risk_report(path)
+        if report is None or risk_path is None:
             return self._error(
                 "risk-artifacts",
                 "RISKS_NOT_FOUND",
@@ -201,7 +203,6 @@ class AgentTools:
                 details={"search_path": "models/outputs/risks/*_risks.json"},
             )
 
-        report = RiskReport.model_validate_json(risk_path.read_text(encoding="utf-8"))
         rows = [risk.model_dump() for risk in report.risks]
 
         if filter_by:

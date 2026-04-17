@@ -613,3 +613,192 @@ All Phase 1 and Phase 2 tests remain green. The 2 pre-existing failures are unch
 | `src/models/__init__.py` | Added schema re-exports and `__all__` |
 | `src/ui/__init__.py` | Added explicit empty `__all__` |
 | `src/ui/pages/__init__.py` | Added page module names to `__all__` |
+
+---
+
+## Appendix D — Phase 4 Implementation Record
+
+> Implemented: 2026-04-17
+> Test result: 82 passed, 2 skipped, 2 pre-existing failures (unchanged from Phase 3 baseline)
+
+### D.1 — Plugin-Based Heuristic Loading (Task 4.1)
+
+**Problem:** Adding a new threat heuristic (e.g. TH-007) required editing three files: adding a `ThreatHeuristic` entry to the hardcoded `THREAT_HEURISTICS` tuple in `threat_generation.py`, adding a materializer class to `materializers.py`, and adding a `register_materializer()` call in `threat_outputs.py`. The system was closed to extension — violating OCP.
+
+**Solution:** Created a `heuristics/` sub-package under `analysis/` with auto-discovery. Each heuristic is a standalone module (`th_001.py` – `th_006.py`) containing both its `HEURISTIC` definition and its materializer class. At import time, the package scans for `th_*.py` modules via `pkgutil.iter_modules`, extracts the `HEURISTIC` constant and the materializer class, and makes them available through `discovered_heuristics()` and `discovered_materializers()`.
+
+**New files:**
+
+| File | Purpose |
+|------|---------|
+| `src/analysis/heuristics/__init__.py` | Auto-discovery engine. `_discover()` scans for `th_*.py` modules, extracts `HEURISTIC` dataclass instances and materializer classes. Exports `discovered_heuristics()` and `discovered_materializers()`. |
+| `src/analysis/heuristics/th_001.py` | `HEURISTIC` definition + `TH001Materializer` class for TH-001 (internet-exposed modules). |
+| `src/analysis/heuristics/th_002.py` | `HEURISTIC` definition + `TH002Materializer` class for TH-002 (low-trust attack paths). |
+| `src/analysis/heuristics/th_003.py` | `HEURISTIC` definition + `TH003Materializer` class for TH-003 (high-privilege externally reachable). |
+| `src/analysis/heuristics/th_004.py` | `HEURISTIC` definition + `TH004Materializer` class for TH-004 (AI module dependencies). |
+| `src/analysis/heuristics/th_005.py` | `HEURISTIC` definition + `TH005Materializer` class for TH-005 (regulated object concentration). |
+| `src/analysis/heuristics/th_006.py` | `HEURISTIC` definition + `TH006Materializer` class for TH-006 (trust boundary crossings). |
+
+**Modified files:**
+
+| File | Change |
+|------|--------|
+| `src/analysis/threat_generation.py` | Removed the 130-line hardcoded `THREAT_HEURISTICS` tuple. `THREAT_HEURISTICS` is now assigned from `discovered_heuristics()`, imported from the heuristics package. `ThreatHeuristic` dataclass and `get_threat_heuristics()` accessor preserved unchanged. |
+| `src/analysis/materializer_registry.py` | Added `auto_discover()` function with an `_discovered` guard flag. When called, it imports `discovered_materializers()` from the heuristics package and registers each one. Registry functions (`register_materializer`, `get_materializer`, `registered_rule_ids`, `all_materializers`) preserved unchanged. |
+| `src/analysis/threat_outputs.py` | Replaced explicit imports of six materializer classes and six `register_materializer()` calls with a single `auto_discover()` call. Import line changed from `register_materializer` to `auto_discover`. |
+| `src/analysis/materializers.py` | Replaced all six class definitions (~290 lines) with re-exports from the heuristics package for backward compatibility. |
+
+**Auto-discovery mechanism:**
+
+```python
+# analysis/heuristics/__init__.py (simplified)
+def _discover():
+    for _finder, name, _ispkg in pkgutil.iter_modules(__path__):
+        if not name.startswith("th_"):
+            continue
+        mod = importlib.import_module(f".{name}", __package__)
+        if hasattr(mod, "HEURISTIC"):
+            heuristics.append(mod.HEURISTIC)
+        # Find materializer class by checking for rule_id + materialize attrs
+        for attr in vars(mod).values():
+            if isinstance(attr, type) and hasattr(attr, "rule_id") and hasattr(attr, "materialize"):
+                materializers.append(attr())
+                break
+```
+
+**OCP impact:** Adding TH-007 now requires only: (1) create `src/analysis/heuristics/th_007.py` with a `HEURISTIC` constant and a materializer class. No existing files need modification. The heuristic and materializer are discovered and registered automatically at import time.
+
+---
+
+### D.2 — Repository Pattern for Artifacts (Task 4.2)
+
+**Problem:** Threat and risk report reading/writing logic was scattered across four modules with direct file-system coupling:
+1. `agents/tools.py` — `get_threats()` / `get_risks()` called `ThreatReport.model_validate_json(path.read_text())` inline
+2. `ui/data_access.py` — `load_threat_report()` / `load_risk_report()` duplicated the same pattern
+3. `analysis/threat_outputs.py` — `write_threat_report()` wrote JSON directly
+4. `analysis/risk_scoring.py` — `write_risk_report()` wrote JSON directly
+
+Each consumer was tightly coupled to the file system. Switching to S3, a database, or an in-memory store for testing would require modifying every consumer.
+
+**Solution:** Defined a `ReportRepository` protocol and a `FileReportRepository` implementation. Consumers that previously read reports inline now accept or default to a repository instance.
+
+**New file:**
+
+| File | Purpose |
+|------|---------|
+| `src/report_repository.py` | `ReportRepository` protocol with four methods: `load_threat_report()`, `load_risk_report()`, `save_threat_report()`, `save_risk_report()`. `FileReportRepository` implementation backed by `ArtifactLocator` for discovery and Pydantic `model_validate_json()` / `model_dump_json()` for serialization. |
+
+**Modified files:**
+
+| File | Change |
+|------|--------|
+| `src/agents/tools.py` | `AgentTools.__init__` accepts optional `report_repo: ReportRepository` parameter, defaults to `FileReportRepository(base_dir)`. `get_threats()` and `get_risks()` delegate to `self._repo.load_threat_report(path)` / `self._repo.load_risk_report(path)` instead of inline file reads. |
+| `src/ui/data_access.py` | `load_threat_report()` and `load_risk_report()` accept optional `repo: ReportRepository` parameter, defaulting to a module-level `_DEFAULT_REPO = FileReportRepository(ROOT)`. When `base_dir` differs from `ROOT`, a new `FileReportRepository` is created. |
+
+**Design decisions:**
+- `ReportRepository` is a `Protocol` (structural subtyping) rather than an ABC, consistent with the project's existing pattern (`TraceRecorder`, `ThreatMaterializer`, `Tool`).
+- `FileReportRepository` delegates discovery to the existing `ArtifactLocator` class (from Phase 2, Task 2.4), avoiding logic duplication.
+- `write_threat_report()` and `write_risk_report()` in `threat_outputs.py` and `risk_scoring.py` are preserved as simple standalone helpers — they serve the CLI pipeline path where the repository abstraction adds no value. The `save_*` methods on `FileReportRepository` provide the repository-based alternative.
+- `AgentTools` defaults to `FileReportRepository` when no repo is injected, maintaining full backward compatibility with existing tests and callers.
+
+**DIP impact:** `AgentTools` and `data_access` now depend on the `ReportRepository` protocol rather than direct file-system operations. Tests can inject a mock or in-memory repository. Future implementations (S3, database) require only a new class satisfying the protocol.
+
+---
+
+### D.3 — Replace Singleton TechniqueIndex (Task 4.3)
+
+**Problem:** `TechniqueIndex` used a class-level `_instance` variable with manual double-checked locking (`_lock = threading.Lock()`) to implement a singleton pattern. This created global mutable state that:
+1. Leaked between tests — requiring `TechniqueIndex.reset()` calls in test setup
+2. Made parallel test execution unsafe — all tests shared a single class variable
+3. Coupled all consumers to the singleton access pattern via `TechniqueIndex.get()`
+
+**Solution:** Replaced the class-level `_instance` with a `contextvars.ContextVar`. The singleton API (`get()` / `reset()`) is preserved for backward compatibility but now reads from and writes to the context variable, which is inherently scoped to the current execution context (thread, asyncio task, or test).
+
+**Modified files:**
+
+| File | Change |
+|------|--------|
+| `src/knowledge/index.py` | Removed `_instance: TechniqueIndex | None = None` class variable. Added module-level `_current_index: contextvars.ContextVar[TechniqueIndex | None]` with default `None`. `get()` reads from `_current_index.get()` with double-checked locking via `_lock`. `reset()` calls `_current_index.set(None)` — no lock needed since `ContextVar.set()` is atomic per-context. Added module-level convenience functions `get_index() -> TechniqueIndex | None` and `set_index(index) -> None` for explicit context management. |
+| `src/knowledge/__init__.py` | Added `get_index` and `set_index` to imports and `__all__`. |
+| `tests/test_knowledge_index.py` | `test_index_singleton_reset` updated to assert `get_index() is None` instead of `TechniqueIndex._instance is None`. |
+
+**Context-var mechanism:**
+
+```python
+_current_index: contextvars.ContextVar[TechniqueIndex | None] = contextvars.ContextVar(
+    "technique_index", default=None,
+)
+
+class TechniqueIndex:
+    _lock = threading.Lock()
+
+    @classmethod
+    def get(cls, db_path=None):
+        instance = _current_index.get(None)
+        if instance is not None:
+            return instance
+        with cls._lock:
+            instance = _current_index.get(None)
+            if instance is not None:
+                return instance
+            # ... create index from store ...
+            _current_index.set(instance)
+        return instance
+
+    @classmethod
+    def reset(cls):
+        _current_index.set(None)
+```
+
+**Design decisions:**
+- The `get()` / `reset()` classmethod API is preserved unchanged for backward compatibility — `mapping_engine._get_default_index()` and `agents/tools.py` both call `TechniqueIndex.get()` and required no modifications.
+- Module-level `get_index()` / `set_index()` provide a cleaner API for new code that wants explicit context management without going through the classmethod.
+- `contextvars.ContextVar` was chosen over a simple thread-local because it works correctly with both threads and asyncio tasks — future-proofing for async execution contexts.
+- The `threading.Lock` is retained in `get()` to prevent race conditions when two threads simultaneously attempt to create the index in the same context. Once set, subsequent reads are lock-free.
+
+**Test isolation impact:** Each test's context is independent. `TechniqueIndex.reset()` clears only the current context's index, not a global class variable. Tests using `_build_index(tmp_path)` continue to work unchanged — the helper calls `reset()` and then constructs a fresh index.
+
+---
+
+### D.4 — Test Verification
+
+Full test suite run after all Phase 4 changes:
+
+```
+82 passed, 2 skipped, 2 failed
+```
+
+All Phase 1, Phase 2, and Phase 3 tests remain green. The 2 pre-existing failures are unchanged:
+- `test_agents_tools.py::test_lookup_technique_returns_matches` — source label mismatch
+- `test_agents_tools.py::test_search_knowledge_stub_returns_ranked_items` — source label mismatch
+
+---
+
+### D.5 — File Inventory
+
+**New files created (8):**
+
+| File | Lines | Package |
+|------|-------|---------|
+| `src/analysis/heuristics/__init__.py` | 57 | analysis.heuristics |
+| `src/analysis/heuristics/th_001.py` | 86 | analysis.heuristics |
+| `src/analysis/heuristics/th_002.py` | 77 | analysis.heuristics |
+| `src/analysis/heuristics/th_003.py` | 70 | analysis.heuristics |
+| `src/analysis/heuristics/th_004.py` | 72 | analysis.heuristics |
+| `src/analysis/heuristics/th_005.py` | 85 | analysis.heuristics |
+| `src/analysis/heuristics/th_006.py` | 80 | analysis.heuristics |
+| `src/report_repository.py` | 78 | (top-level) |
+
+**Modified files (8):**
+
+| File | Nature of change |
+|------|-----------------|
+| `src/analysis/threat_generation.py` | Hardcoded heuristic tuple → auto-discovered from heuristics package |
+| `src/analysis/materializer_registry.py` | Added `auto_discover()` function |
+| `src/analysis/threat_outputs.py` | Explicit materializer registration → `auto_discover()` call |
+| `src/analysis/materializers.py` | Class definitions → backward-compat re-exports from heuristics package |
+| `src/agents/tools.py` | Accepts `ReportRepository`; `get_threats`/`get_risks` delegate to repo |
+| `src/ui/data_access.py` | `load_threat_report`/`load_risk_report` accept optional `ReportRepository` |
+| `src/knowledge/index.py` | Class-level singleton → `contextvars.ContextVar`; added `get_index()`/`set_index()` |
+| `src/knowledge/__init__.py` | Added `get_index`, `set_index` exports |
+| `tests/test_knowledge_index.py` | `_instance` assertion → `get_index()` assertion |

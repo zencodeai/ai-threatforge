@@ -27,11 +27,23 @@ class ThreatMaterializer(Protocol):
 
 
 _REGISTRY: dict[str, ThreatMaterializer] = {}
+_discovered = False
 
 
 def register_materializer(materializer: ThreatMaterializer) -> ThreatMaterializer:
     _REGISTRY[materializer.rule_id] = materializer
     return materializer
+
+
+def auto_discover() -> None:
+    """Discover and register all materializers from the heuristics package."""
+    global _discovered
+    if _discovered:
+        return
+    from .heuristics import discovered_materializers
+    for m in discovered_materializers():
+        register_materializer(m)
+    _discovered = True
 
 
 def get_materializer(rule_id: str) -> ThreatMaterializer:

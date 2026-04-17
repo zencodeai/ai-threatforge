@@ -11,26 +11,13 @@ from graph.neo4j_client import Neo4jClient, Neo4jConfig
 from models.schema.canonical_model import CanonicalModel, load_canonical_model
 from models.schema.threat_model import TechniqueReference, ThreatRecord, ThreatReport
 
-from .materializer_registry import all_materializers, register_materializer
-from .materializers import (
-    TH001Materializer,
-    TH002Materializer,
-    TH003Materializer,
-    TH004Materializer,
-    TH005Materializer,
-    TH006Materializer,
-)
+from .materializer_registry import all_materializers, auto_discover
 from .technique_mapping import map_rule_to_techniques
 from .threat_generation import THREAT_HEURISTICS
 
-# ── Register built-in materializers ──────────────────────────────
+# ── Auto-discover and register heuristic plugins ─────────────────
 
-register_materializer(TH001Materializer())
-register_materializer(TH002Materializer())
-register_materializer(TH003Materializer())
-register_materializer(TH004Materializer())
-register_materializer(TH005Materializer())
-register_materializer(TH006Materializer())
+auto_discover()
 
 
 def _timestamp() -> str:

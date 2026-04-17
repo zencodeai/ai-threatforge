@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextvars
 import threading
 from collections import defaultdict
 from pathlib import Path
@@ -7,11 +8,19 @@ from pathlib import Path
 from .models import Mitigation, Tactic, Technique
 from .store import DEFAULT_DB_PATH, TechniqueStore
 
+_current_index: contextvars.ContextVar[TechniqueIndex | None] = contextvars.ContextVar(
+    "technique_index", default=None,
+)
+
 
 class TechniqueIndex:
-    """Read-only in-memory index built from TechniqueStore. Thread-safe singleton."""
+    """Read-only in-memory index built from TechniqueStore.
 
-    _instance: TechniqueIndex | None = None
+    Prefer :func:`get_index` / :func:`set_index` for context-scoped access.
+    The class-level :meth:`get` / :meth:`reset` singleton API is kept for
+    backward compatibility but delegates to the context-var.
+    """
+
     _lock = threading.Lock()
 
     def __init__(self, store: TechniqueStore):
@@ -47,22 +56,27 @@ class TechniqueIndex:
 
     @classmethod
     def get(cls, db_path: Path | None = None) -> TechniqueIndex:
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    path = db_path or DEFAULT_DB_PATH
-                    store = TechniqueStore(path)
-                    try:
-                        cls._instance = cls(store)
-                    finally:
-                        store.close()
-        return cls._instance
+        instance = _current_index.get(None)
+        if instance is not None:
+            return instance
+        with cls._lock:
+            # Double-check after acquiring lock
+            instance = _current_index.get(None)
+            if instance is not None:
+                return instance
+            path = db_path or DEFAULT_DB_PATH
+            store = TechniqueStore(path)
+            try:
+                instance = cls(store)
+            finally:
+                store.close()
+            _current_index.set(instance)
+        return instance
 
     @classmethod
     def reset(cls) -> None:
-        """Clear the singleton — mainly for testing."""
-        with cls._lock:
-            cls._instance = None
+        """Clear the current context's index — mainly for testing."""
+        _current_index.set(None)
 
     def lookup(self, technique_id: str) -> Technique | None:
         return self.by_id.get(technique_id.upper()) or self.by_id.get(technique_id)
@@ -103,3 +117,13 @@ class TechniqueIndex:
 
     def is_populated(self) -> bool:
         return len(self.by_id) > 0
+
+
+def get_index() -> TechniqueIndex | None:
+    """Return the context-scoped index, or ``None`` if not set."""
+    return _current_index.get(None)
+
+
+def set_index(index: TechniqueIndex | None) -> None:
+    """Set (or clear) the context-scoped index."""
+    _current_index.set(index)

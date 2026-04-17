@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from knowledge.index import TechniqueIndex
+from knowledge.index import TechniqueIndex, get_index
 from knowledge.models import Mitigation, Tactic, Technique
 from knowledge.store import TechniqueStore
 
@@ -145,4 +145,4 @@ def test_index_version(tmp_path):
 
 def test_index_singleton_reset(tmp_path):
     TechniqueIndex.reset()
-    assert TechniqueIndex._instance is None
+    assert get_index() is None
