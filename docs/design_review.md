@@ -311,3 +311,171 @@ These failures exist on the pre-refactor baseline and relate to source-label log
 | `src/analysis/technique_mapping.py` | Rewritten as re-export facade |
 | `src/analysis/__init__.py` | `RISK_WEIGHTS` import path updated |
 | `src/agents/workflow.py` | Reduced to slim orchestrator |
+
+---
+
+## Appendix B — Phase 2 Implementation Record
+
+> Implemented: 2026-04-17
+> Test result: 82 passed, 2 skipped, 2 pre-existing failures (unchanged from Phase 1 baseline)
+
+### B.1 — Tool Protocol + Registry (Task 2.1)
+
+**Problem:** `ActionExecutor.run()` dispatched tool calls via a 5-branch if/elif chain on `action.tool_name`. Adding a new tool required editing the executor — violating OCP and DIP.
+
+**Solution:** Introduced a `Tool` protocol and a name-keyed `ToolRegistry`. Each tool is a small wrapper class that delegates to the corresponding `AgentTools` method. `ActionExecutor` now resolves tools via dictionary lookup.
+
+**New file:**
+
+| File | Purpose |
+|------|---------|
+| `src/agents/tool_protocol.py` | `Tool` protocol with `name: str` property and `run(tool_input: dict) -> ToolResponse` method. `ToolRegistry = dict[str, Tool]` type alias. |
+
+**Modified files:**
+
+| File | Change |
+|------|--------|
+| `src/agents/tools.py` | Added five tool wrapper classes (`_QueryGraphTool`, `_GetThreatsTool`, `_GetRisksTool`, `_LookupTechniqueTool`, `_SearchKnowledgeTool`), each satisfying the `Tool` protocol. Added `AgentTools.tool_registry() -> ToolRegistry` method that builds and returns the name→tool mapping. |
+| `src/agents/executor.py` | Replaced the 5-branch if/elif with `self._registry.get(action.tool_name)`. Constructor now calls `tools.tool_registry()` to build the registry once. Reduced from 37 lines to 19 lines. |
+
+**Design decisions:**
+- Tool wrappers are private classes inside `tools.py` (not separate files) since they are thin adapters with no independent logic.
+- The registry is built eagerly in `ActionExecutor.__init__` rather than lazily, ensuring tool availability is validated at construction time.
+- `AgentTools` retains its public methods unchanged, so existing direct callers (tests, UI) are unaffected.
+
+**OCP impact:** Adding a new tool requires: (1) a method on `AgentTools`, (2) a wrapper class, (3) adding it to the `tool_registry()` list. No `ActionExecutor` or `QueryWorkflow` code needs modification.
+
+---
+
+### B.2 — ProjectPaths Config Injection (Task 2.2)
+
+**Problem:** Path resolution was duplicated across the codebase via `ROOT = Path(__file__).resolve().parents[N]` (7 occurrences) and `Path(__file__).resolve().parent.parent.parent / "data" / ...` chains (3 occurrences). Each used a different `parents[N]` depth depending on file location — brittle under restructuring and untestable.
+
+**Solution:** Created a centralized `ProjectPaths` frozen dataclass with a `from_root()` classmethod. All path consumers now use `ProjectPaths.default()` instead of computing paths from `__file__`.
+
+**New file:**
+
+| File | Purpose |
+|------|---------|
+| `src/project_paths.py` | `ProjectPaths` frozen dataclass with fields: `root`, `data_dir`, `examples_dir`, `outputs_dir`, `threats_dir`, `risks_dir`, `mapping_rules`, `mapping_config`, `knowledge_db`. Classmethods: `from_root(root)` derives all paths from a single root, `default()` resolves from the package location. |
+
+**Modified files:**
+
+| File | Change |
+|------|--------|
+| `src/analysis/mapping_loader.py` | Replaced `_MAPPING_RULES_PATH` and `_MAPPING_CONFIG_PATH` module-level `Path(__file__).resolve().parent.parent.parent / ...` with `_DEFAULT_PATHS = ProjectPaths.default()`. `load_curated_mappings()` and `load_expansion_config()` default to `_DEFAULT_PATHS.mapping_rules` / `.mapping_config`. |
+| `src/knowledge/store.py` | Replaced `DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent.parent / ...` with `ProjectPaths.default().knowledge_db`. |
+| `src/ui/data_access.py` | `ROOT = ProjectPaths.default().root` replaces `Path(__file__).resolve().parents[2]`. |
+| `src/ui/actions.py` | Same pattern — `ROOT = ProjectPaths.default().root`. |
+| `src/ui/app.py` | Same pattern. |
+| `src/ui/pages/chat.py` | Same pattern — replaces `parents[3]`. |
+| `src/ui/pages/threats.py` | Same pattern. |
+| `src/ui/pages/risks.py` | Same pattern. |
+| `src/ui/pages/model_overview.py` | Same pattern. |
+
+**Testability impact:** Tests can now call `ProjectPaths.from_root(tmp_path)` to get a fully resolved path set pointing at a temporary directory, without monkey-patching module-level constants.
+
+---
+
+### B.3 — Inject Knowledge Index (Task 2.3)
+
+**Problem:** `mapping_loader._resolve_technique_name()`, `mapping_engine._expand_by_tactic()`, and `mapping_engine._filter_by_context()` all contained hidden `from knowledge.index import TechniqueIndex; index = TechniqueIndex.get()` calls wrapped in bare `except Exception: pass`. This violated DIP (hard dependency on a concrete singleton) and silently swallowed errors including import failures, broken databases, and corrupted data.
+
+**Solution:** All three functions now accept an `index: TechniqueIndex | None` keyword argument. When `None`, the caller decides whether to provide an index or accept fallback behavior. The top-level `map_rule_to_techniques()` provides a `_get_default_index()` helper as a convenience default.
+
+**Modified files:**
+
+| File | Change |
+|------|--------|
+| `src/analysis/mapping_loader.py` | `_resolve_technique_name(technique_id, *, index=None)` — uses the injected index if provided, falls back to legacy name lookup otherwise. Removed `try/except Exception: pass` block. `load_curated_mappings()` gained `index` kwarg, passed through to `_resolve_technique_name()`. |
+| `src/analysis/mapping_engine.py` | `_expand_by_tactic(rule_id, config, *, index=None)` — returns `()` if index is `None` or not populated, instead of catching exceptions. `_filter_by_context(mappings, context, *, index=None)` — returns unfiltered mappings if index is `None`. `map_rule_to_techniques(rule_id, context, *, index=None)` — calls `_get_default_index()` when index is `None`, propagates to all sub-functions. |
+| `src/analysis/technique_mapping.py` | Removed unused `LEGACY_MAPPINGS` import (dead code cleanup). |
+
+**Design decisions:**
+- `_get_default_index()` is a private helper in `mapping_engine.py` that wraps the singleton access with a `try/except` returning `None`. This keeps the convenience behavior at the top level while making the lower layers fully injectable and testable.
+- `TYPE_CHECKING`-guarded imports prevent circular dependency issues — the `TechniqueIndex` type is only needed at type-check time since the runtime parameter is `| None`.
+
+**Error handling impact:** Silent `except Exception: pass` blocks are eliminated from both `mapping_loader.py` and `mapping_engine.py`. When an index is explicitly provided, any errors propagate to the caller. When using the default (`_get_default_index()`), the singleton lookup is the only place that catches exceptions — and that decision is now explicit and isolated.
+
+---
+
+### B.4 — Extract Artifact Resolver (Task 2.4)
+
+**Problem:** The "find latest artifact file by glob pattern" logic was duplicated in three locations with slightly different signatures:
+1. `AgentTools._latest_artifact(self, folder, suffix)` — instance method, uses `self.base_dir`
+2. `data_access.latest_artifact(base_dir, folder, suffix)` — standalone function
+3. `cli/main.py::_default_threat_path()` — hardcoded path, no `base_dir` parameter
+
+All three implemented the same pattern: `sorted(path.glob(f"*{suffix}"))[-1]`.
+
+**Solution:** Created a single `ArtifactLocator` class. All three consumers now delegate to it.
+
+**New file:**
+
+| File | Purpose |
+|------|---------|
+| `src/artifact_locator.py` | `ArtifactLocator` class with `__init__(base_dir)`, `latest(folder, suffix) -> Path | None`, `latest_threats() -> Path | None`, `latest_risks() -> Path | None`. |
+
+**Modified files:**
+
+| File | Change |
+|------|--------|
+| `src/agents/tools.py` | `AgentTools.__init__` creates `self._locator = ArtifactLocator(self.base_dir)`. `_latest_artifact()` delegates to `self._locator.latest()`. |
+| `src/ui/data_access.py` | `latest_artifact()` delegates to `ArtifactLocator(base_dir).latest()`. Function signature preserved for backward compatibility (used by tests). |
+| `src/cli/main.py` | `_default_threat_path()` uses `ArtifactLocator(Path(".")).latest_threats()`. |
+
+**Backward compatibility:** `data_access.latest_artifact()` remains a public function with the same signature — `test_ui_data_access.py` imports and calls it unchanged.
+
+---
+
+### B.5 — Test Verification
+
+Full test suite run after all Phase 2 changes:
+
+```
+82 passed, 2 skipped, 2 failed
+```
+
+**Passed (Phase 2–relevant):**
+- `test_agent_workflow.py` — all tests pass (registry-based executor)
+- `test_technique_mapping.py` — all tests pass (injected index defaults)
+- `test_ui_data_access.py` — all tests pass (`latest_artifact` delegation)
+- `test_ui_actions.py` — all tests pass (`ProjectPaths` ROOT)
+- All Phase 1 tests remain green
+
+**2 pre-existing failures** (unchanged from Phase 1 baseline):
+- `test_agents_tools.py::test_lookup_technique_returns_matches` — source label mismatch
+- `test_agents_tools.py::test_search_knowledge_stub_returns_ranked_items` — source label mismatch
+
+These failures predate both Phase 1 and Phase 2; they relate to `AgentTools` returning `"knowledge-base"` when the knowledge store is populated, while tests expect the fallback labels.
+
+---
+
+### B.6 — File Inventory
+
+**New files created (3):**
+
+| File | Lines | Package |
+|------|-------|---------|
+| `src/agents/tool_protocol.py` | 17 | agents |
+| `src/project_paths.py` | 41 | (top-level) |
+| `src/artifact_locator.py` | 24 | (top-level) |
+
+**Modified files (12):**
+
+| File | Nature of change |
+|------|-----------------|
+| `src/agents/executor.py` | if/elif dispatch → registry lookup |
+| `src/agents/tools.py` | Added 5 tool wrapper classes + `tool_registry()` method + `ArtifactLocator` delegation |
+| `src/analysis/mapping_loader.py` | `ProjectPaths` defaults; `index` injection; removed `except Exception: pass` |
+| `src/analysis/mapping_engine.py` | `index` injection on all functions; `_get_default_index()` helper; removed `except Exception: pass` |
+| `src/analysis/technique_mapping.py` | Removed unused `LEGACY_MAPPINGS` import |
+| `src/knowledge/store.py` | `DEFAULT_DB_PATH` from `ProjectPaths` |
+| `src/ui/data_access.py` | `ROOT` from `ProjectPaths`; `latest_artifact` delegates to `ArtifactLocator` |
+| `src/ui/actions.py` | `ROOT` from `ProjectPaths` |
+| `src/ui/app.py` | `ROOT` from `ProjectPaths` |
+| `src/ui/pages/chat.py` | `ROOT` from `ProjectPaths` |
+| `src/ui/pages/threats.py` | `ROOT` from `ProjectPaths` |
+| `src/ui/pages/risks.py` | `ROOT` from `ProjectPaths` |
+| `src/ui/pages/model_overview.py` | `ROOT` from `ProjectPaths` |
+| `src/cli/main.py` | `_default_threat_path` delegates to `ArtifactLocator` |

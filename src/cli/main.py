@@ -43,13 +43,15 @@ def _cmd_generate_threats(args: argparse.Namespace) -> int:
 
 
 def _default_threat_path() -> Path:
-    candidates = sorted(Path("models/outputs/threats").glob("*_threats.json"))
-    if not candidates:
+    from artifact_locator import ArtifactLocator
+
+    path = ArtifactLocator(Path(".")).latest_threats()
+    if path is None:
         raise FileNotFoundError(
             "No threat artifacts found in models/outputs/threats/. "
             "Run 'threatforge generate-threats' first or pass --threats."
         )
-    return candidates[-1]
+    return path
 
 
 def _cmd_score_risks(args: argparse.Namespace) -> int:

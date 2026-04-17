@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from artifact_locator import ArtifactLocator
+from project_paths import ProjectPaths
 from models.schema.canonical_model import CanonicalModel, load_canonical_model
 from models.schema.risk_model import RiskReport
 from models.schema.threat_model import ThreatReport
 
-ROOT = Path(__file__).resolve().parents[2]
+_DEFAULT_PATHS = ProjectPaths.default()
+ROOT = _DEFAULT_PATHS.root
 
 
 def list_example_models(base_dir: Path = ROOT) -> list[Path]:
@@ -40,11 +43,7 @@ def build_model_overview(model: CanonicalModel) -> dict[str, object]:
 
 
 def latest_artifact(base_dir: Path, folder: str, suffix: str) -> Path | None:
-    target = base_dir / folder
-    if not target.exists():
-        return None
-    candidates = sorted(target.glob(f"*{suffix}"))
-    return candidates[-1] if candidates else None
+    return ArtifactLocator(base_dir).latest(folder, suffix)
 
 
 def load_threat_report(

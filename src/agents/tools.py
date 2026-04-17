@@ -5,14 +5,75 @@ from typing import Any, Callable
 
 from analysis.technique_mapping import get_all_technique_mappings
 from analysis.threat_generation import THREAT_HEURISTICS
+from artifact_locator import ArtifactLocator
 from graph.neo4j_client import Neo4jClient, Neo4jConfig
 from knowledge.index import TechniqueIndex
 from models.schema.risk_model import RiskReport
 from models.schema.threat_model import ThreatReport
 
 from .state import ToolError, ToolResponse
+from .tool_protocol import Tool, ToolRegistry
 
 GraphRunner = Callable[[str, dict[str, Any] | None], list[dict[str, Any]]]
+
+
+class _QueryGraphTool:
+    name = "query_graph"
+
+    def __init__(self, agent_tools: AgentTools) -> None:
+        self._tools = agent_tools
+
+    def run(self, tool_input: dict[str, Any]) -> ToolResponse:
+        return self._tools.query_graph(
+            tool_input["query"],
+            tool_input.get("params"),
+        )
+
+
+class _GetThreatsTool:
+    name = "get_threats"
+
+    def __init__(self, agent_tools: AgentTools) -> None:
+        self._tools = agent_tools
+
+    def run(self, tool_input: dict[str, Any]) -> ToolResponse:
+        return self._tools.get_threats(
+            filter_by=tool_input.get("filter_by"),
+            top_n=tool_input.get("top_n", 5),
+        )
+
+
+class _GetRisksTool:
+    name = "get_risks"
+
+    def __init__(self, agent_tools: AgentTools) -> None:
+        self._tools = agent_tools
+
+    def run(self, tool_input: dict[str, Any]) -> ToolResponse:
+        return self._tools.get_risks(top_n=tool_input.get("top_n", 5))
+
+
+class _LookupTechniqueTool:
+    name = "lookup_technique"
+
+    def __init__(self, agent_tools: AgentTools) -> None:
+        self._tools = agent_tools
+
+    def run(self, tool_input: dict[str, Any]) -> ToolResponse:
+        return self._tools.lookup_technique(tool_input["technique_id"])
+
+
+class _SearchKnowledgeTool:
+    name = "search_knowledge"
+
+    def __init__(self, agent_tools: AgentTools) -> None:
+        self._tools = agent_tools
+
+    def run(self, tool_input: dict[str, Any]) -> ToolResponse:
+        return self._tools.search_knowledge(
+            tool_input["query"],
+            top_k=tool_input.get("top_k", 5),
+        )
 
 
 class AgentTools:
@@ -24,6 +85,7 @@ class AgentTools:
     ):
         self.base_dir = Path(base_dir)
         self._graph_runner = graph_runner
+        self._locator = ArtifactLocator(self.base_dir)
 
     def _ok(
         self,
@@ -57,9 +119,7 @@ class AgentTools:
         )
 
     def _latest_artifact(self, folder: str, suffix: str) -> Path | None:
-        path = self.base_dir / folder
-        candidates = sorted(path.glob(f"*{suffix}")) if path.exists() else []
-        return candidates[-1] if candidates else None
+        return self._locator.latest(folder, suffix)
 
     def _default_graph_runner(self, query: str, params: dict[str, Any] | None) -> list[dict[str, Any]]:
         config = Neo4jConfig.from_env()
@@ -285,3 +345,14 @@ class AgentTools:
             confidence=confidence,
             meta={"query": query, "count": len(evidence)},
         )
+
+    def tool_registry(self) -> ToolRegistry:
+        """Return a name→Tool mapping for all available tools."""
+        tools: list[Tool] = [
+            _QueryGraphTool(self),
+            _GetThreatsTool(self),
+            _GetRisksTool(self),
+            _LookupTechniqueTool(self),
+            _SearchKnowledgeTool(self),
+        ]
+        return {tool.name: tool for tool in tools}

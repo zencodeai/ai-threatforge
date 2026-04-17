@@ -5,8 +5,9 @@ from pathlib import Path
 import streamlit as st
 
 from ui.data_access import build_model_overview, list_example_models, load_model
+from project_paths import ProjectPaths
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = ProjectPaths.default().root
 
 
 def render(model_path: Path) -> None:

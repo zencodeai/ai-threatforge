@@ -5,8 +5,9 @@ from pathlib import Path
 import streamlit as st
 
 from ui.data_access import load_risk_report, risk_rows
+from project_paths import ProjectPaths
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = ProjectPaths.default().root
 
 
 def render(base_dir: Path) -> None:

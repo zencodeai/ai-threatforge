@@ -1,22 +1,26 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from .mapping_loader import load_curated_mappings, load_expansion_config
 from .mapping_types import TechniqueMapping
 from .threat_generation import THREAT_HEURISTICS
 
+if TYPE_CHECKING:
+    from knowledge.index import TechniqueIndex
 
-def _expand_by_tactic(rule_id: str, config: dict) -> tuple[TechniqueMapping, ...]:
+
+def _expand_by_tactic(
+    rule_id: str,
+    config: dict,
+    *,
+    index: TechniqueIndex | None = None,
+) -> tuple[TechniqueMapping, ...]:
     """Layer 2: expand a rule to all techniques in its target tactics."""
     if not config.get("enabled", False):
         return ()
 
-    try:
-        from knowledge.index import TechniqueIndex
-        index = TechniqueIndex.get()
-    except Exception:
-        return ()
-
-    if not index.is_populated():
+    if index is None or not index.is_populated():
         return ()
 
     heuristic = next((h for h in THREAT_HEURISTICS if h.rule_id == rule_id), None)
@@ -62,6 +66,8 @@ def _expand_by_tactic(rule_id: str, config: dict) -> tuple[TechniqueMapping, ...
 def _filter_by_context(
     mappings: tuple[TechniqueMapping, ...],
     context: dict | None,
+    *,
+    index: TechniqueIndex | None = None,
 ) -> tuple[TechniqueMapping, ...]:
     """Layer 3: filter expanded mappings by context (e.g., platform)."""
     if not context or not mappings:
@@ -71,13 +77,10 @@ def _filter_by_context(
     if not platforms:
         return mappings
 
-    platform_set = {p.lower() for p in platforms}
-
-    try:
-        from knowledge.index import TechniqueIndex
-        index = TechniqueIndex.get()
-    except Exception:
+    if index is None:
         return mappings
+
+    platform_set = {p.lower() for p in platforms}
 
     filtered = []
     for m in mappings:
@@ -91,9 +94,20 @@ def _filter_by_context(
     return tuple(filtered)
 
 
+def _get_default_index() -> TechniqueIndex | None:
+    """Try to get the global TechniqueIndex singleton; return None if unavailable."""
+    try:
+        from knowledge.index import TechniqueIndex
+        return TechniqueIndex.get()
+    except Exception:
+        return None
+
+
 def map_rule_to_techniques(
     rule_id: str,
     context: dict | None = None,
+    *,
+    index: TechniqueIndex | None = None,
 ) -> tuple[TechniqueMapping, ...]:
     """Map a rule id to technique references using the layered mapping engine.
 
@@ -101,8 +115,10 @@ def map_rule_to_techniques(
     Layer 2: Tactic-based expansion (opt-in via mapping_config.toml)
     Layer 3: Context-based filtering (when context provides platform info)
     """
-    curated = load_curated_mappings(rule_id)
+    if index is None:
+        index = _get_default_index()
+    curated = load_curated_mappings(rule_id, index=index)
     config = load_expansion_config()
-    expanded = _expand_by_tactic(rule_id, config)
-    filtered = _filter_by_context(expanded, context)
+    expanded = _expand_by_tactic(rule_id, config, index=index)
+    filtered = _filter_by_context(expanded, context, index=index)
     return curated + filtered

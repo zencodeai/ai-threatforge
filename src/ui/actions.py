@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Sequence
 
-ROOT = Path(__file__).resolve().parents[2]
+from project_paths import ProjectPaths
+
+ROOT = ProjectPaths.default().root
 
 
 @dataclass(frozen=True)

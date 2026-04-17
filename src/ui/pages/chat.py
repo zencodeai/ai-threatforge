@@ -6,8 +6,9 @@ import streamlit as st
 
 from agents.tools import AgentTools
 from agents.workflow import QueryWorkflow
+from project_paths import ProjectPaths
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = ProjectPaths.default().root
 
 
 SAMPLE_QUESTIONS = [

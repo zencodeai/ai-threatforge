@@ -60,7 +60,9 @@ CREATE INDEX IF NOT EXISTS idx_techniques_domain ON techniques(domain);
 CREATE INDEX IF NOT EXISTS idx_techniques_parent ON techniques(parent_id);
 """
 
-DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "threat_intel" / "threatforge_kb.db"
+from project_paths import ProjectPaths
+
+DEFAULT_DB_PATH = ProjectPaths.default().knowledge_db
 
 
 class TechniqueStore:

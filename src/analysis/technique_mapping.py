@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .mapping_engine import map_rule_to_techniques
 from .mapping_loader import load_curated_mappings
-from .mapping_types import LEGACY_MAPPINGS, TechniqueMapping
+from .mapping_types import TechniqueMapping
 from .threat_generation import THREAT_HEURISTICS
 
 
