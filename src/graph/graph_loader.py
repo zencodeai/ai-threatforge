@@ -81,286 +81,372 @@ class GraphLoader:
         )
 
     def _merge_domains(self, model: CanonicalModel) -> None:
-        for domain in model.security_domains:
-            self.client.execute_write(
-                """
-                MERGE (d:SecurityDomain {id: $id})
-                SET d.name = $name,
-                    d.trust_level = $trust_level
-                """,
-                {
-                    "id": domain.id,
-                    "name": domain.name,
-                    "trust_level": domain.trust_level,
-                },
-            )
+        if not model.security_domains:
+            return
+        batch = [
+            {"id": d.id, "name": d.name, "trust_level": d.trust_level}
+            for d in model.security_domains
+        ]
+        self.client.execute_write(
+            """
+            UNWIND $batch AS row
+            MERGE (d:SecurityDomain {id: row.id})
+            SET d.name = row.name,
+                d.trust_level = row.trust_level
+            """,
+            {"batch": batch},
+        )
 
     def _merge_privileges(self, model: CanonicalModel) -> None:
-        for privilege in model.privilege_levels:
-            self.client.execute_write(
-                """
-                MERGE (p:PrivilegeLevel {id: $id})
-                SET p.level = $level,
-                    p.description = $description
-                """,
-                {
-                    "id": privilege.id,
-                    "level": privilege.level,
-                    "description": privilege.description,
-                },
-            )
+        if not model.privilege_levels:
+            return
+        batch = [
+            {"id": p.id, "level": p.level, "description": p.description}
+            for p in model.privilege_levels
+        ]
+        self.client.execute_write(
+            """
+            UNWIND $batch AS row
+            MERGE (p:PrivilegeLevel {id: row.id})
+            SET p.level = row.level,
+                p.description = row.description
+            """,
+            {"batch": batch},
+        )
 
     def _merge_modules(self, model: CanonicalModel) -> None:
-        for module in model.modules:
-            self.client.execute_write(
-                """
-                MERGE (m:Module {id: $id})
-                SET m.name = $name,
-                    m.module_type = $module_type,
-                    m.internet_exposed = $internet_exposed,
-                    m.processes_sensitive_data = $processes_sensitive_data,
-                    m.ai_relevant = $ai_relevant,
-                    m.description = $description
-                """,
-                {
-                    "id": module.id,
-                    "name": module.name,
-                    "module_type": module.module_type,
-                    "internet_exposed": module.internet_exposed,
-                    "processes_sensitive_data": module.processes_sensitive_data,
-                    "ai_relevant": module.ai_relevant,
-                    "description": module.description,
-                },
-            )
-            self.client.execute_write(
-                """
-                MATCH (m:Module {id: $module_id}), (d:SecurityDomain {id: $domain_id})
-                MERGE (m)-[:IN_DOMAIN]->(d)
-                """,
-                {"module_id": module.id, "domain_id": module.domain},
-            )
-            self.client.execute_write(
-                """
-                MATCH (m:Module {id: $module_id}), (p:PrivilegeLevel {id: $privilege_id})
-                MERGE (m)-[:HAS_PRIVILEGE]->(p)
-                """,
-                {"module_id": module.id, "privilege_id": module.privilege},
-            )
+        if not model.modules:
+            return
+        batch = [
+            {
+                "id": m.id,
+                "name": m.name,
+                "module_type": m.module_type,
+                "internet_exposed": m.internet_exposed,
+                "processes_sensitive_data": m.processes_sensitive_data,
+                "ai_relevant": m.ai_relevant,
+                "description": m.description,
+                "domain_id": m.domain,
+                "privilege_id": m.privilege,
+            }
+            for m in model.modules
+        ]
+        self.client.execute_write(
+            """
+            UNWIND $batch AS row
+            MERGE (m:Module {id: row.id})
+            SET m.name = row.name,
+                m.module_type = row.module_type,
+                m.internet_exposed = row.internet_exposed,
+                m.processes_sensitive_data = row.processes_sensitive_data,
+                m.ai_relevant = row.ai_relevant,
+                m.description = row.description
+            """,
+            {"batch": batch},
+        )
+        self.client.execute_write(
+            """
+            UNWIND $batch AS row
+            MATCH (m:Module {id: row.id}), (d:SecurityDomain {id: row.domain_id})
+            MERGE (m)-[:IN_DOMAIN]->(d)
+            """,
+            {"batch": batch},
+        )
+        self.client.execute_write(
+            """
+            UNWIND $batch AS row
+            MATCH (m:Module {id: row.id}), (p:PrivilegeLevel {id: row.privilege_id})
+            MERGE (m)-[:HAS_PRIVILEGE]->(p)
+            """,
+            {"batch": batch},
+        )
 
     def _merge_objects(self, model: CanonicalModel) -> None:
-        for obj in model.objects:
-            self.client.execute_write(
-                """
-                MERGE (o:Object {id: $id})
-                SET o.name = $name,
-                    o.object_type = $object_type,
-                    o.classification = $classification,
-                    o.regulated = $regulated,
-                    o.ai_relevant = $ai_relevant
-                """,
-                {
-                    "id": obj.id,
-                    "name": obj.name,
-                    "object_type": obj.object_type,
-                    "classification": obj.classification,
-                    "regulated": obj.regulated,
-                    "ai_relevant": obj.ai_relevant,
-                },
-            )
+        if not model.objects:
+            return
+        batch = [
+            {
+                "id": o.id,
+                "name": o.name,
+                "object_type": o.object_type,
+                "classification": o.classification,
+                "regulated": o.regulated,
+                "ai_relevant": o.ai_relevant,
+            }
+            for o in model.objects
+        ]
+        self.client.execute_write(
+            """
+            UNWIND $batch AS row
+            MERGE (o:Object {id: row.id})
+            SET o.name = row.name,
+                o.object_type = row.object_type,
+                o.classification = row.classification,
+                o.regulated = row.regulated,
+                o.ai_relevant = row.ai_relevant
+            """,
+            {"batch": batch},
+        )
 
     def _merge_datastores(self, model: CanonicalModel) -> None:
-        for store in model.datastores:
+        if not model.datastores:
+            return
+        batch = [
+            {
+                "id": s.id,
+                "name": s.name,
+                "store_type": s.store_type,
+                "ai_relevant": s.ai_relevant,
+                "domain_id": s.domain,
+            }
+            for s in model.datastores
+        ]
+        self.client.execute_write(
+            """
+            UNWIND $batch AS row
+            MERGE (d:DataStore {id: row.id})
+            SET d.name = row.name,
+                d.store_type = row.store_type,
+                d.ai_relevant = row.ai_relevant
+            """,
+            {"batch": batch},
+        )
+        self.client.execute_write(
+            """
+            UNWIND $batch AS row
+            MATCH (ds:DataStore {id: row.id}), (d:SecurityDomain {id: row.domain_id})
+            MERGE (ds)-[:IN_DOMAIN]->(d)
+            """,
+            {"batch": batch},
+        )
+        contains_batch = [
+            {"store_id": s.id, "object_id": oid}
+            for s in model.datastores
+            for oid in s.contains
+        ]
+        if contains_batch:
             self.client.execute_write(
                 """
-                MERGE (d:DataStore {id: $id})
-                SET d.name = $name,
-                    d.store_type = $store_type,
-                    d.ai_relevant = $ai_relevant
+                UNWIND $batch AS row
+                MATCH (ds:DataStore {id: row.store_id}), (o:Object {id: row.object_id})
+                MERGE (ds)-[:STORES]->(o)
                 """,
-                {
-                    "id": store.id,
-                    "name": store.name,
-                    "store_type": store.store_type,
-                    "ai_relevant": store.ai_relevant,
-                },
+                {"batch": contains_batch},
             )
-            self.client.execute_write(
-                """
-                MATCH (ds:DataStore {id: $store_id}), (d:SecurityDomain {id: $domain_id})
-                MERGE (ds)-[:IN_DOMAIN]->(d)
-                """,
-                {"store_id": store.id, "domain_id": store.domain},
-            )
-            for object_id in store.contains:
-                self.client.execute_write(
-                    """
-                    MATCH (ds:DataStore {id: $store_id}), (o:Object {id: $object_id})
-                    MERGE (ds)-[:STORES]->(o)
-                    """,
-                    {"store_id": store.id, "object_id": object_id},
-                )
 
     def _merge_external_actors(self, model: CanonicalModel) -> None:
-        for actor in model.external_actors:
-            self.client.execute_write(
-                """
-                MERGE (a:ExternalActor {id: $id})
-                SET a.name = $name,
-                    a.actor_type = $actor_type
-                """,
-                {
-                    "id": actor.id,
-                    "name": actor.name,
-                    "actor_type": actor.actor_type,
-                },
-            )
+        if not model.external_actors:
+            return
+        batch = [
+            {"id": a.id, "name": a.name, "actor_type": a.actor_type}
+            for a in model.external_actors
+        ]
+        self.client.execute_write(
+            """
+            UNWIND $batch AS row
+            MERGE (a:ExternalActor {id: row.id})
+            SET a.name = row.name,
+                a.actor_type = row.actor_type
+            """,
+            {"batch": batch},
+        )
 
     def _merge_workflows(self, model: CanonicalModel) -> None:
-        for workflow in model.workflows:
+        if not model.workflows:
+            return
+        batch = [
+            {
+                "id": w.id,
+                "name": w.name,
+                "description": w.description,
+                "steps": w.steps,
+            }
+            for w in model.workflows
+        ]
+        self.client.execute_write(
+            """
+            UNWIND $batch AS row
+            MERGE (w:Workflow {id: row.id})
+            SET w.name = row.name,
+                w.description = row.description,
+                w.steps = row.steps
+            """,
+            {"batch": batch},
+        )
+        module_batch = [
+            {"workflow_id": w.id, "module_id": mid}
+            for w in model.workflows
+            for mid in w.modules
+        ]
+        if module_batch:
             self.client.execute_write(
                 """
-                MERGE (w:Workflow {id: $id})
-                SET w.name = $name,
-                    w.description = $description,
-                    w.steps = $steps
+                UNWIND $batch AS row
+                MATCH (w:Workflow {id: row.workflow_id}), (m:Module {id: row.module_id})
+                MERGE (w)-[:INVOLVES_MODULE]->(m)
                 """,
-                {
-                    "id": workflow.id,
-                    "name": workflow.name,
-                    "description": workflow.description,
-                    "steps": workflow.steps,
-                },
+                {"batch": module_batch},
             )
-            for module_id in workflow.modules:
-                self.client.execute_write(
-                    """
-                    MATCH (w:Workflow {id: $workflow_id}), (m:Module {id: $module_id})
-                    MERGE (w)-[:INVOLVES_MODULE]->(m)
-                    """,
-                    {"workflow_id": workflow.id, "module_id": module_id},
-                )
-            for object_id in workflow.objects:
-                self.client.execute_write(
-                    """
-                    MATCH (w:Workflow {id: $workflow_id}), (o:Object {id: $object_id})
-                    MERGE (w)-[:INVOLVES_OBJECT]->(o)
-                    """,
-                    {"workflow_id": workflow.id, "object_id": object_id},
-                )
+        object_batch = [
+            {"workflow_id": w.id, "object_id": oid}
+            for w in model.workflows
+            for oid in w.objects
+        ]
+        if object_batch:
+            self.client.execute_write(
+                """
+                UNWIND $batch AS row
+                MATCH (w:Workflow {id: row.workflow_id}), (o:Object {id: row.object_id})
+                MERGE (w)-[:INVOLVES_OBJECT]->(o)
+                """,
+                {"batch": object_batch},
+            )
 
     def _merge_trust_boundaries(self, model: CanonicalModel) -> None:
-        for boundary in model.trust_boundaries:
-            self.client.execute_write(
-                """
-                MERGE (t:TrustBoundary {id: $id})
-                SET t.name = $name
-                """,
-                {
-                    "id": boundary.id,
-                    "name": boundary.name,
-                },
-            )
-            self.client.execute_write(
-                """
-                MATCH (t:TrustBoundary {id: $boundary_id}), (d:SecurityDomain {id: $domain_id})
-                MERGE (t)-[:CROSSES_FROM]->(d)
-                """,
-                {"boundary_id": boundary.id, "domain_id": boundary.from_domain},
-            )
-            self.client.execute_write(
-                """
-                MATCH (t:TrustBoundary {id: $boundary_id}), (d:SecurityDomain {id: $domain_id})
-                MERGE (t)-[:CROSSES_TO]->(d)
-                """,
-                {"boundary_id": boundary.id, "domain_id": boundary.to_domain},
-            )
+        if not model.trust_boundaries:
+            return
+        batch = [
+            {
+                "id": b.id,
+                "name": b.name,
+                "from_domain": b.from_domain,
+                "to_domain": b.to_domain,
+            }
+            for b in model.trust_boundaries
+        ]
+        self.client.execute_write(
+            """
+            UNWIND $batch AS row
+            MERGE (t:TrustBoundary {id: row.id})
+            SET t.name = row.name
+            """,
+            {"batch": batch},
+        )
+        self.client.execute_write(
+            """
+            UNWIND $batch AS row
+            MATCH (t:TrustBoundary {id: row.id}), (d:SecurityDomain {id: row.from_domain})
+            MERGE (t)-[:CROSSES_FROM]->(d)
+            """,
+            {"batch": batch},
+        )
+        self.client.execute_write(
+            """
+            UNWIND $batch AS row
+            MATCH (t:TrustBoundary {id: row.id}), (d:SecurityDomain {id: row.to_domain})
+            MERGE (t)-[:CROSSES_TO]->(d)
+            """,
+            {"batch": batch},
+        )
 
     def _merge_dependencies(self, model: CanonicalModel) -> None:
-        for dependency in model.dependencies:
-            self.client.execute_write(
-                """
-                MATCH (source:Module {id: $source}),
-                      (target {id: $target})
-                WHERE target:Module OR target:DataStore
-                MERGE (source)-[r:DEPENDS_ON {relationship: $relationship}]->(target)
-                """,
-                {
-                    "source": dependency.source,
-                    "target": dependency.target,
-                    "relationship": dependency.relationship,
-                },
-            )
+        if not model.dependencies:
+            return
+        batch = [
+            {
+                "source": d.source,
+                "target": d.target,
+                "relationship": d.relationship,
+            }
+            for d in model.dependencies
+        ]
+        self.client.execute_write(
+            """
+            UNWIND $batch AS row
+            MATCH (source:Module {id: row.source}),
+                  (target {id: row.target})
+            WHERE target:Module OR target:DataStore
+            MERGE (source)-[r:DEPENDS_ON {relationship: row.relationship}]->(target)
+            """,
+            {"batch": batch},
+        )
 
     def _link_system(self, model: CanonicalModel) -> None:
         system_id = model.meta.model_id
 
-        for domain in model.security_domains:
+        if model.security_domains:
+            batch = [{"system_id": system_id, "id": d.id} for d in model.security_domains]
             self.client.execute_write(
                 """
-                MATCH (s:System {id: $system_id}), (d:SecurityDomain {id: $domain_id})
+                UNWIND $batch AS row
+                MATCH (s:System {id: row.system_id}), (d:SecurityDomain {id: row.id})
                 MERGE (s)-[:HAS_DOMAIN]->(d)
                 """,
-                {"system_id": system_id, "domain_id": domain.id},
+                {"batch": batch},
             )
 
-        for module in model.modules:
+        if model.modules:
+            batch = [{"system_id": system_id, "id": m.id} for m in model.modules]
             self.client.execute_write(
                 """
-                MATCH (s:System {id: $system_id}), (m:Module {id: $module_id})
+                UNWIND $batch AS row
+                MATCH (s:System {id: row.system_id}), (m:Module {id: row.id})
                 MERGE (s)-[:HAS_MODULE]->(m)
                 """,
-                {"system_id": system_id, "module_id": module.id},
+                {"batch": batch},
             )
 
-        for store in model.datastores:
+        if model.datastores:
+            batch = [{"system_id": system_id, "id": s.id} for s in model.datastores]
             self.client.execute_write(
                 """
-                MATCH (s:System {id: $system_id}), (d:DataStore {id: $store_id})
+                UNWIND $batch AS row
+                MATCH (s:System {id: row.system_id}), (d:DataStore {id: row.id})
                 MERGE (s)-[:HAS_DATASTORE]->(d)
                 """,
-                {"system_id": system_id, "store_id": store.id},
+                {"batch": batch},
             )
 
-        for obj in model.objects:
+        if model.objects:
+            batch = [{"system_id": system_id, "id": o.id} for o in model.objects]
             self.client.execute_write(
                 """
-                MATCH (s:System {id: $system_id}), (o:Object {id: $object_id})
+                UNWIND $batch AS row
+                MATCH (s:System {id: row.system_id}), (o:Object {id: row.id})
                 MERGE (s)-[:HAS_OBJECT]->(o)
                 """,
-                {"system_id": system_id, "object_id": obj.id},
+                {"batch": batch},
             )
 
-        for workflow in model.workflows:
+        if model.workflows:
+            batch = [{"system_id": system_id, "id": w.id} for w in model.workflows]
             self.client.execute_write(
                 """
-                MATCH (s:System {id: $system_id}), (w:Workflow {id: $workflow_id})
+                UNWIND $batch AS row
+                MATCH (s:System {id: row.system_id}), (w:Workflow {id: row.id})
                 MERGE (s)-[:HAS_WORKFLOW]->(w)
                 """,
-                {"system_id": system_id, "workflow_id": workflow.id},
+                {"batch": batch},
             )
 
-        for boundary in model.trust_boundaries:
+        if model.trust_boundaries:
+            batch = [{"system_id": system_id, "id": b.id} for b in model.trust_boundaries]
             self.client.execute_write(
                 """
-                MATCH (s:System {id: $system_id}), (t:TrustBoundary {id: $boundary_id})
+                UNWIND $batch AS row
+                MATCH (s:System {id: row.system_id}), (t:TrustBoundary {id: row.id})
                 MERGE (s)-[:HAS_BOUNDARY]->(t)
                 """,
-                {"system_id": system_id, "boundary_id": boundary.id},
+                {"batch": batch},
             )
 
     def _link_actor_workflows(self, model: CanonicalModel) -> None:
         actor_ids = {actor.id for actor in model.external_actors}
-        for workflow in model.workflows:
-            for step in workflow.steps:
-                source = step.split("->", 1)[0].strip()
-                if source in actor_ids:
-                    self.client.execute_write(
-                        """
-                        MATCH (a:ExternalActor {id: $actor_id}), (w:Workflow {id: $workflow_id})
-                        MERGE (a)-[:PARTICIPATES_IN]->(w)
-                        """,
-                        {"actor_id": source, "workflow_id": workflow.id},
-                    )
+        pairs = [
+            {"actor_id": step.split("->", 1)[0].strip(), "workflow_id": w.id}
+            for w in model.workflows
+            for step in w.steps
+            if step.split("->", 1)[0].strip() in actor_ids
+        ]
+        if pairs:
+            self.client.execute_write(
+                """
+                UNWIND $batch AS row
+                MATCH (a:ExternalActor {id: row.actor_id}), (w:Workflow {id: row.workflow_id})
+                MERGE (a)-[:PARTICIPATES_IN]->(w)
+                """,
+                {"batch": pairs},
+            )
 
 
 def load_model_into_graph(

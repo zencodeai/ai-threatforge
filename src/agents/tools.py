@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, Callable
 
@@ -252,7 +253,9 @@ class AgentTools:
                         meta={"query": technique_id, "count": 1, "source": "knowledge-base"},
                     )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug(
+                "Knowledge index unavailable for technique lookup", exc_info=True,
+            )
 
         # Fallback to curated mappings
         matches = [
@@ -305,7 +308,9 @@ class AgentTools:
                         }
                     )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug(
+                "Knowledge index unavailable for knowledge search", exc_info=True,
+            )
 
         if not any(entry["source"] == "knowledge-base" for entry in corpus):
             for mapping in get_all_technique_mappings():

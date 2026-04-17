@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -169,8 +170,10 @@ def create_trace_recorder(base_dir: str | Path = ".") -> TraceRecorder:
     try:
         project = os.getenv("LANGSMITH_PROJECT", "threat-forge-ai")
         langsmith_recorder = LangSmithTraceRecorder(project=project)
-    except Exception:
-        # Do not block local observability if optional LangSmith dependency/config is missing.
+    except (ImportError, ValueError, RuntimeError):
+        logging.getLogger(__name__).warning(
+            "LangSmith recorder unavailable; using local tracing only", exc_info=True,
+        )
         return local
 
     return CompositeTraceRecorder([local, langsmith_recorder])

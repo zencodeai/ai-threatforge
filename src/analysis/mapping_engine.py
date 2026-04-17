@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from .mapping_loader import load_curated_mappings, load_expansion_config
@@ -100,6 +101,9 @@ def _get_default_index() -> TechniqueIndex | None:
         from knowledge.index import TechniqueIndex
         return TechniqueIndex.get()
     except Exception:
+        logging.getLogger(__name__).debug(
+            "TechniqueIndex singleton unavailable", exc_info=True,
+        )
         return None
 
 

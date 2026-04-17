@@ -479,3 +479,137 @@ These failures predate both Phase 1 and Phase 2; they relate to `AgentTools` ret
 | `src/ui/pages/risks.py` | `ROOT` from `ProjectPaths` |
 | `src/ui/pages/model_overview.py` | `ROOT` from `ProjectPaths` |
 | `src/cli/main.py` | `_default_threat_path` delegates to `ArtifactLocator` |
+
+---
+
+## Appendix C — Phase 3 Implementation Record
+
+> Implemented: 2026-04-17
+> Test result: 82 passed, 2 skipped, 2 pre-existing failures (unchanged from Phase 2 baseline)
+
+### C.1 — Batch Graph Writes (Task 3.1)
+
+**Problem:** `GraphLoader` issued one `execute_write` call per entity and per relationship. Each call opened a new Neo4j session and transaction. A model with 6 domains, 10 modules, 5 datastores, 4 workflows, and 3 trust boundaries generated 60+ individual round-trips to the database.
+
+**Solution:** Replaced every per-entity loop with an `UNWIND $batch AS row` pattern. Each `_merge_*` and `_link_*` method now builds a list of parameter dicts and issues a single `execute_write` per Cypher statement type.
+
+**Modified file:**
+
+| File | Change |
+|------|--------|
+| `src/graph/graph_loader.py` | All 10 `_merge_*` / `_link_*` methods rewritten to use `UNWIND` batches. `_merge_system` is unchanged (single entity). |
+
+**Method-by-method changes:**
+
+| Method | Before | After |
+|--------|--------|-------|
+| `_merge_domains` | 1 call per domain | 1 call total |
+| `_merge_privileges` | 1 call per privilege | 1 call total |
+| `_merge_modules` | 3 calls per module (node + IN_DOMAIN + HAS_PRIVILEGE) | 3 calls total |
+| `_merge_objects` | 1 call per object | 1 call total |
+| `_merge_datastores` | 2 calls per store + 1 per contained object | 3 calls total (nodes + domains + contains) |
+| `_merge_external_actors` | 1 call per actor | 1 call total |
+| `_merge_workflows` | 1 per workflow + 1 per module ref + 1 per object ref | 3 calls total (nodes + modules + objects) |
+| `_merge_trust_boundaries` | 3 calls per boundary (node + CROSSES_FROM + CROSSES_TO) | 3 calls total |
+| `_merge_dependencies` | 1 call per dependency | 1 call total |
+| `_link_system` | 1 call per domain/module/datastore/object/workflow/boundary | Up to 6 calls total (1 per entity type) |
+| `_link_actor_workflows` | 1 call per matching actor-step pair | 1 call total |
+
+**Total round-trips:** Reduced from ~60+ to ~25 (varies by model size; the count is now fixed per entity type, not per entity instance).
+
+**Design decisions:**
+- Each method guards with `if not model.<collection>: return` to avoid issuing empty `UNWIND` statements.
+- Relationship batches (e.g., datastore→contains, workflow→modules) are built as separate flat lists and only issued when non-empty.
+- The `UNWIND $batch AS row` pattern is idiomatic Neo4j for bulk operations and maintains MERGE idempotency.
+
+**Test compatibility:** Existing test assertions check for MERGE pattern strings via `in` operator (e.g., `"MERGE (m)-[:IN_DOMAIN]->(d)" in q`). These patterns still appear within the `UNWIND` queries, so `test_graph_loader.py` passes unchanged.
+
+---
+
+### C.2 — Replace Bare `except Exception: pass` (Task 3.2)
+
+**Problem:** Five locations in the codebase used bare `except Exception: pass` or `except Exception:` with no logging, silently swallowing errors including import failures, database corruption, and misconfiguration.
+
+**Solution:** Each site now either (a) logs with `exc_info=True` at an appropriate level, or (b) narrows the exception type to the specific failures expected.
+
+**Modified files:**
+
+| File | Site | Before | After |
+|------|------|--------|-------|
+| `src/agents/tools.py` | `lookup_technique()` — knowledge index access | `except Exception: pass` | `except Exception:` + `logging.debug("Knowledge index unavailable for technique lookup", exc_info=True)` |
+| `src/agents/tools.py` | `search_knowledge()` — knowledge index access | `except Exception: pass` | `except Exception:` + `logging.debug("Knowledge index unavailable for knowledge search", exc_info=True)` |
+| `src/analysis/mapping_engine.py` | `_get_default_index()` — singleton lookup | `except Exception: return None` | `except Exception:` + `logging.debug("TechniqueIndex singleton unavailable", exc_info=True)` then `return None` |
+| `src/agents/observability.py` | `create_trace_recorder()` — LangSmith init | `except Exception:` (broad) | `except (ImportError, ValueError, RuntimeError):` + `logging.warning("LangSmith recorder unavailable; using local tracing only", exc_info=True)` |
+
+**Preserved intentionally (not modified):**
+
+| File | Site | Reason |
+|------|------|--------|
+| `src/cli/main.py` (4 sites) | `except Exception as exc: print(f"FAILED: {exc}")` | These are CLI top-level error handlers that already report the error to the user via `print`. They catch broadly by design to produce user-friendly output rather than tracebacks. |
+| `src/ui/pages/model_overview.py` | `except Exception as exc: st.error(...)` | UI error handler — displays error in Streamlit. Same rationale as CLI. |
+
+**Design decisions:**
+- `tools.py` uses `DEBUG` level because the knowledge index being unavailable is a normal degraded-mode path (falls back to curated mappings). Logging at higher levels would produce noise in environments without a populated knowledge base.
+- `observability.py` uses `WARNING` because a user explicitly opted into LangSmith tracing (via `LANGSMITH_TRACING=true`) but it failed — this warrants operator attention.
+- `observability.py` narrows to `(ImportError, ValueError, RuntimeError)` — the three concrete failure modes: missing `langsmith` package, invalid config, or runtime initialization failure.
+
+---
+
+### C.3 — Add `__all__` to Package `__init__.py` Files (Task 3.3)
+
+**Problem:** Five packages had empty or docstring-only `__init__.py` files with no explicit `__all__`. The public API surface was implicit — tooling, documentation generators, and `from package import *` had no contract to follow.
+
+**Solution:** Added `__all__` declarations and, where appropriate, re-exports of the public API.
+
+**Modified files:**
+
+| File | `__all__` contents | Additional changes |
+|------|-------------------|-------------------|
+| `src/knowledge/__init__.py` | `["Mitigation", "Tactic", "Technique", "TechniqueIndex", "TechniqueStore", "sync", "sync_status"]` | Added imports from `.index`, `.models`, `.store`, `.sync` |
+| `src/cli/__init__.py` | `["main"]` | Added import from `.main` and docstring |
+| `src/models/__init__.py` | `["CanonicalModel", "RiskRecord", "RiskReport", "ThreatRecord", "ThreatReport", "load_canonical_model"]` | Added re-exports from `.schema` and docstring |
+| `src/ui/__init__.py` | `[]` (empty list) | Explicit empty — UI package has no public re-exports (consumers import from submodules directly) |
+| `src/ui/pages/__init__.py` | `["chat", "model_overview", "risks", "threats"]` | Module-level names (page modules, not symbols) |
+
+**Already had `__all__` (unchanged):**
+
+| File | Status |
+|------|--------|
+| `src/agents/__init__.py` | Already declares `__all__` with 9 exports |
+| `src/analysis/__init__.py` | Already declares `__all__` with 14 exports |
+| `src/graph/__init__.py` | Already declares `__all__` with 5 exports |
+| `src/models/schema/__init__.py` | Already declares `__all__` with 6 exports |
+
+---
+
+### C.4 — Test Verification
+
+Full test suite run after all Phase 3 changes:
+
+```
+82 passed, 2 skipped, 2 failed
+```
+
+All Phase 1 and Phase 2 tests remain green. The 2 pre-existing failures are unchanged:
+- `test_agents_tools.py::test_lookup_technique_returns_matches` — source label mismatch
+- `test_agents_tools.py::test_search_knowledge_stub_returns_ranked_items` — source label mismatch
+
+---
+
+### C.5 — File Inventory
+
+**New files created:** None.
+
+**Modified files (8):**
+
+| File | Nature of change |
+|------|-----------------|
+| `src/graph/graph_loader.py` | All `_merge_*` / `_link_*` methods converted to `UNWIND` batch patterns |
+| `src/agents/tools.py` | Two `except Exception: pass` → `DEBUG` logging |
+| `src/agents/observability.py` | `except Exception` narrowed to `(ImportError, ValueError, RuntimeError)` + `WARNING` logging |
+| `src/analysis/mapping_engine.py` | `_get_default_index()` `except Exception` → `DEBUG` logging |
+| `src/knowledge/__init__.py` | Added re-exports and `__all__` |
+| `src/cli/__init__.py` | Added `main` re-export and `__all__` |
+| `src/models/__init__.py` | Added schema re-exports and `__all__` |
+| `src/ui/__init__.py` | Added explicit empty `__all__` |
+| `src/ui/pages/__init__.py` | Added page module names to `__all__` |
