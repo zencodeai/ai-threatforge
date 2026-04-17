@@ -7,15 +7,7 @@ from pathlib import Path
 from models.schema.risk_model import RiskDriver, RiskFactors, RiskRecord, RiskReport
 from models.schema.threat_model import ThreatRecord, ThreatReport
 
-
-RISK_WEIGHTS: dict[str, float] = {
-    "likelihood": 0.25,
-    "impact": 0.20,
-    "exposure": 0.15,
-    "privilege_sensitivity": 0.15,
-    "data_criticality": 0.15,
-    "exploitability": 0.10,
-}
+from .risk_factors import FACTOR_REGISTRY, RISK_WEIGHTS
 
 
 SEVERITY_BASE: dict[str, float] = {
@@ -49,94 +41,10 @@ def priority_from_score(score: float) -> str:
     return "low"
 
 
-def _likelihood(threat: ThreatRecord) -> float:
-    score = SEVERITY_BASE[threat.severity_hint]
-    if threat.evidence.get("internet_exposed") is True:
-        score += 0.15
-    if threat.affected_workflows:
-        score += min(0.10, 0.03 * len(threat.affected_workflows))
-    if threat.rule_id == "TH-002":
-        score += 0.10
-    return _clamp(score)
-
-
-def _impact(threat: ThreatRecord) -> float:
-    score = SEVERITY_BASE[threat.severity_hint]
-    target_boost = {
-        "system": 0.15,
-        "workflow": 0.12,
-        "object": 0.10,
-        "datastore": 0.08,
-        "module": 0.05,
-    }
-    score += target_boost.get(threat.target_type, 0.0)
-    if threat.affected_objects:
-        score += min(0.10, 0.02 * len(threat.affected_objects))
-    if threat.rule_id == "TH-005":
-        score += 0.10
-    return _clamp(score)
-
-
-def _exposure(threat: ThreatRecord) -> float:
-    score = 0.30
-    if threat.evidence.get("internet_exposed") is True:
-        score += 0.30
-    if "trust_boundaries" in threat.evidence:
-        boundaries = threat.evidence.get("trust_boundaries") or []
-        score += min(0.20, 0.05 * len(boundaries))
-    if threat.affected_workflows:
-        score += min(0.20, 0.05 * len(threat.affected_workflows))
-    hops = threat.evidence.get("hops")
-    if isinstance(hops, (int, float)):
-        score += min(0.10, float(hops) * 0.02)
-    return _clamp(score)
-
-
-def _privilege_sensitivity(threat: ThreatRecord) -> float:
-    score = 0.20
-    privilege_level = threat.evidence.get("privilege_level")
-    if isinstance(privilege_level, (int, float)):
-        score += min(0.60, float(privilege_level) / 3.0)
-    if threat.rule_id in {"TH-003", "TH-006"}:
-        score += 0.15
-    return _clamp(score)
-
-
-def _data_criticality(threat: ThreatRecord) -> float:
-    score = 0.25
-    if threat.target_type == "object":
-        score += 0.25
-    if threat.affected_objects:
-        score += min(0.30, 0.08 * len(threat.affected_objects))
-    if threat.rule_id in {"TH-002", "TH-005"}:
-        score += 0.20
-    return _clamp(score)
-
-
-def _exploitability(threat: ThreatRecord) -> float:
-    score = 0.30
-    if threat.framework_mappings:
-        score += min(0.20, 0.05 * len(threat.framework_mappings))
-
-    tactics = {mapping.tactic.lower() for mapping in threat.framework_mappings}
-    if "initial access" in tactics:
-        score += 0.20
-    if "lateral movement" in tactics:
-        score += 0.15
-    if "privilege escalation" in tactics:
-        score += 0.10
-    return _clamp(score)
-
-
 def score_threat(threat: ThreatRecord, *, created_at: str | None = None) -> RiskRecord:
-    factors = RiskFactors(
-        likelihood=_likelihood(threat),
-        impact=_impact(threat),
-        exposure=_exposure(threat),
-        privilege_sensitivity=_privilege_sensitivity(threat),
-        data_criticality=_data_criticality(threat),
-        exploitability=_exploitability(threat),
-    )
+    computed = {name: fn(threat) for name, fn in FACTOR_REGISTRY.items()}
+
+    factors = RiskFactors(**computed)
 
     weighted = {
         key: getattr(factors, key) * weight

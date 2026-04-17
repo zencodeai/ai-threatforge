@@ -6,8 +6,8 @@ from .threat_outputs import (
     generate_threat_report,
     write_threat_report,
 )
+from .risk_factors import RISK_WEIGHTS
 from .risk_scoring import (
-    RISK_WEIGHTS,
     build_risk_report,
     generate_risk_report_from_file,
     priority_from_score,
