@@ -64,12 +64,12 @@ Custom Cypher queries can also be executed directly through the agent tool layer
 
 | Attribute | Detail |
 |---|---|
-| **Source** | `src/analysis/threat_generation.py`, `src/analysis/technique_mapping.py`, `src/analysis/threat_outputs.py` |
+| **Source** | `src/analysis/threat_generation.py`, `src/analysis/threat_outputs.py`, `src/analysis/materializer_registry.py`, `src/analysis/heuristics/` (auto-discovered plugins `th_001`–`th_006`), `src/analysis/mapping_engine.py`, `src/analysis/mapping_loader.py`, `src/analysis/mapping_types.py` (facade: `src/analysis/technique_mapping.py`) |
 | **Output** | `models/outputs/threats/*_threats.json` |
 | **Mapping** | MITRE ATT&CK (enterprise techniques) and MITRE ATLAS (AI/ML techniques) |
 | **Responsibility** | Apply heuristic rules against graph patterns to generate structured, mapped threat candidates with rationale text explaining *why* each threat applies. |
 
-The threat engine runs **six deterministic heuristics** (TH-001 through TH-006), each defined as a `ThreatHeuristic` dataclass specifying a graph pattern, target type, severity hint, and applicable frameworks:
+The threat engine runs **six deterministic heuristics** (TH-001 through TH-006), each defined as a `ThreatHeuristic` dataclass specifying a graph pattern, target type, severity hint, and applicable frameworks. Heuristics are **auto-discovered** from the `src/analysis/heuristics/` package — each `th_*.py` module exports a `HEURISTIC` definition and a `ThreatMaterializer` class, registered automatically at import time via `pkgutil.iter_modules`. Adding a new heuristic requires only creating a new module — no existing files need modification.
 
 | Rule | Threat Pattern | Severity | Framework |
 |---|---|---|---|
@@ -82,7 +82,7 @@ The threat engine runs **six deterministic heuristics** (TH-001 through TH-006),
 
 Each heuristic is executed as a Cypher query against the Neo4j graph. Matched patterns are expanded into `ThreatRecord` objects with structured evidence (affected modules, objects, workflows, paths) and human-readable rationale.
 
-**MITRE ATT&CK / ATLAS mapping** is handled by a dedicated mapping catalog in `technique_mapping.py`. Each `rule_id` maps to one or more `TechniqueMapping` entries containing the technique ID (e.g., `T1190`, `AML.T0016`), tactic category (e.g., Initial Access, Defense Evasion), and a rationale explaining the alignment. Coverage validation ensures every heuristic has at least one technique mapping. Example mappings:
+**MITRE ATT&CK / ATLAS mapping** is handled by a layered mapping engine split across three modules: `mapping_types.py` (data model and legacy fallbacks), `mapping_loader.py` (TOML I/O and knowledge-base name resolution), and `mapping_engine.py` (curated + tactic-expansion + context-filtering pipeline). The original `technique_mapping.py` remains as a backward-compatible facade re-exporting the public API. Each `rule_id` maps to one or more `TechniqueMapping` entries containing the technique ID (e.g., `T1190`, `AML.T0016`), tactic category (e.g., Initial Access, Defense Evasion), and a rationale explaining the alignment. Coverage validation ensures every heuristic has at least one technique mapping. Example mappings:
 
 - TH-001 → T1190 (Exploit Public-Facing Application), T1078 (Valid Accounts)
 - TH-004 → AML.T0016 (Obtain Capabilities — Data Poisoning), AML.T0040 (ML Model Evasion)
@@ -96,7 +96,7 @@ Each heuristic is executed as a Cypher query against the Neo4j graph. Matched pa
 
 | Attribute | Detail |
 |---|---|
-| **Source** | `src/analysis/risk_scoring.py` |
+| **Source** | `src/analysis/risk_scoring.py`, `src/analysis/risk_factors.py` |
 | **Output** | `models/outputs/risks/*_risks.json` |
 | **Formula** | Weighted sum across six factors: likelihood (0.25), impact (0.20), exposure (0.15), privilege sensitivity (0.15), data criticality (0.15), exploitability (0.10) |
 | **Responsibility** | Convert each threat into a deterministic risk score with priority band (critical / high / medium / low) and human-readable driver explanations. |
@@ -120,11 +120,15 @@ The final score is a weighted sum clamped to `[0.0, 1.0]`. Each `RiskRecord` inc
 
 | Attribute | Detail |
 |---|---|
-| **Source** | `src/agents/tools.py`, `src/agents/workflow.py`, `src/agents/state.py` |
+| **Source** | `src/agents/tools.py`, `src/agents/workflow.py`, `src/agents/state.py`, `src/agents/router.py`, `src/agents/executor.py`, `src/agents/composer.py`, `src/agents/tool_protocol.py` |
 | **Tools** | `query_graph`, `get_threats`, `get_risks`, `lookup_technique`, `search_knowledge` |
 | **Responsibility** | Accept analyst questions, route them to the correct tool(s) via deterministic keyword matching, execute grounded lookups, and compose an `AgentAnswer` with evidence references and stated limitations. |
 
 The query workflow is intentionally **deterministic — no LLM calls** are made during routing or answer composition. This is a deliberate design choice: the agent layer adds value through structured presentation and tool orchestration, not through generative inference.
+
+The workflow is split into three single-responsibility modules: **`QueryRouter`** (`router.py`) handles question → action mapping, **`ActionExecutor`** (`executor.py`) dispatches actions to tools via a `ToolRegistry`, and **`AnswerComposer`** (`composer.py`) aggregates results into the final answer. `QueryWorkflow` (`workflow.py`) is a slim orchestrator that delegates to all three.
+
+Each tool implements a **`Tool` protocol** (defined in `tool_protocol.py`) with a `name` property and a `run(input) -> ToolResponse` method. Tools are registered in a name-keyed `ToolRegistry` built at startup, replacing the earlier if/elif dispatch chain.
 
 **Routing** uses a two-stage pattern matcher:
 1. **Regex match** — technique IDs like `T1190` or `AML.T0016` trigger `lookup_technique` immediately.

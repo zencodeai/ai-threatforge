@@ -353,6 +353,7 @@ threat-forge-ai/
 │   ├── architecture.md
 │   ├── demo_script.md
 │   ├── design_attack_atlas_ingestion.md
+│   ├── design_review.md
 │   ├── domain_model.md
 │   ├── graph_schema.md
 │   ├── project_kit.md
@@ -368,6 +369,9 @@ threat-forge-ai/
 │       ├── risks/
 │       └── traces/
 ├── src/
+│   ├── project_paths.py                # ProjectPaths config (centralised path resolution)
+│   ├── artifact_locator.py             # ArtifactLocator (latest artifact discovery)
+│   ├── report_repository.py            # ReportRepository protocol + FileReportRepository
 │   ├── models/
 │   │   └── schema/
 │   │       ├── canonical_model.py
@@ -375,7 +379,7 @@ threat-forge-ai/
 │   │       └── risk_model.py
 │   ├── graph/
 │   │   ├── neo4j_client.py
-│   │   ├── graph_loader.py
+│   │   ├── graph_loader.py             # UNWIND-batched graph loading
 │   │   ├── graph_queries.py
 │   │   └── cypher/
 │   │       ├── constraints.cypher
@@ -384,20 +388,38 @@ threat-forge-ai/
 │   ├── knowledge/
 │   │   ├── models.py                   # Tactic, Technique, Mitigation dataclasses
 │   │   ├── store.py                    # SQLite persistence layer
-│   │   ├── index.py                    # In-memory TechniqueIndex singleton
+│   │   ├── index.py                    # In-memory TechniqueIndex (context-var scoped)
 │   │   ├── sync_attack.py              # ATT&CK STIX 2.1 parser + fetcher
 │   │   ├── sync_atlas.py               # ATLAS YAML parser + fetcher
 │   │   └── sync.py                     # Orchestrates full sync across domains
 │   ├── analysis/
-│   │   ├── threat_generation.py
-│   │   ├── technique_mapping.py        # Layered mapping engine (curated + expansion)
-│   │   ├── risk_scoring.py
-│   │   └── threat_outputs.py
+│   │   ├── threat_generation.py        # ThreatHeuristic dataclass + auto-discovered catalog
+│   │   ├── technique_mapping.py        # Mapping facade (re-exports from mapping_engine/loader/types)
+│   │   ├── mapping_types.py            # TechniqueMapping dataclass + legacy fallbacks
+│   │   ├── mapping_loader.py           # TOML I/O + knowledge-base name resolution
+│   │   ├── mapping_engine.py           # Layered mapping: curated + tactic expansion + filtering
+│   │   ├── materializer_registry.py    # ThreatMaterializer protocol + registry
+│   │   ├── materializers.py            # Backward-compat re-exports from heuristics package
+│   │   ├── risk_scoring.py             # Risk score computation + report generation
+│   │   ├── risk_factors.py             # Factor functions + FACTOR_REGISTRY + RISK_WEIGHTS
+│   │   ├── threat_outputs.py           # Threat report orchestration (delegates to materializers)
+│   │   └── heuristics/                 # Auto-discovered heuristic plugins
+│   │       ├── __init__.py             # pkgutil-based discovery engine
+│   │       ├── th_001.py               # Internet-exposed module + sensitive data
+│   │       ├── th_002.py               # Low-trust to high-value attack path
+│   │       ├── th_003.py               # High-privilege externally reachable
+│   │       ├── th_004.py               # AI-relevant module dependency
+│   │       ├── th_005.py               # Regulated object concentration
+│   │       └── th_006.py               # Trust boundary crossing
 │   ├── agents/
-│   │   ├── state.py
-│   │   ├── tools.py
-│   │   ├── workflow.py
-│   │   └── observability.py
+│   │   ├── state.py                    # AgentState, ToolResponse, AgentAnswer
+│   │   ├── tool_protocol.py            # Tool protocol + ToolRegistry type
+│   │   ├── tools.py                    # AgentTools (5 tools) + tool wrapper classes
+│   │   ├── router.py                   # QueryRouter (keyword + regex routing)
+│   │   ├── executor.py                 # ActionExecutor (registry-based dispatch)
+│   │   ├── composer.py                 # AnswerComposer (result aggregation)
+│   │   ├── workflow.py                 # QueryWorkflow (slim orchestrator)
+│   │   └── observability.py            # TraceRecorder protocol + implementations
 │   ├── ui/
 │   │   ├── app.py
 │   │   ├── actions.py

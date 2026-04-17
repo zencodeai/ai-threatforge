@@ -109,5 +109,6 @@ Threat objects generated from these heuristics should include at minimum:
 - `evidence`
 
 ## Implementation notes
-- Technique mapping is implemented in `src/analysis/technique_mapping.py`, binding each `rule_id` to ATT&CK/ATLAS technique IDs and names.
-- Structured threat generation is implemented in `src/analysis/threat_outputs.py` and persists outputs to `models/outputs/threats/`.
+- Each heuristic is defined as a standalone module in `src/analysis/heuristics/` (e.g., `th_001.py`), containing both the `ThreatHeuristic` dataclass definition (`HEURISTIC`) and a `ThreatMaterializer` class. Heuristics are auto-discovered at import time via `pkgutil.iter_modules` — adding a new heuristic requires only a new `th_*.py` module.
+- Technique mapping is exposed through the facade `src/analysis/technique_mapping.py`, which delegates to `mapping_engine.py` (curated + tactic-expansion + context-filtering pipeline), `mapping_loader.py` (TOML I/O and name resolution), and `mapping_types.py` (data model). Each `rule_id` is bound to ATT&CK/ATLAS technique IDs and names.
+- Structured threat generation is orchestrated by `src/analysis/threat_outputs.py`, which iterates auto-discovered materializers via `materializer_registry.py` and persists outputs to `models/outputs/threats/`.

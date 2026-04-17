@@ -267,11 +267,19 @@ CREATE INDEX idx_techniques_parent ON techniques(parent_id);
 
 ### 5.3 In-memory index (`index.py`)
 
-```python
-class TechniqueIndex:
-    """Read-only in-memory index built from TechniqueStore. Singleton per process."""
+> **Implementation note:** The class-level `_instance` singleton shown below was replaced with a `contextvars.ContextVar` in Phase 4.3 (see [design_review.md Appendix D.3](design_review.md#d3--replace-singleton-techniqueindex-task-43)). The public API (`get()`, `reset()`, `lookup()`, `search()`) is unchanged, but instance storage is now context-scoped rather than process-global.
 
-    _instance: TechniqueIndex | None = None
+```python
+import contextvars
+
+_current_index: contextvars.ContextVar[TechniqueIndex | None] = contextvars.ContextVar(
+    "technique_index", default=None,
+)
+
+class TechniqueIndex:
+    """Read-only in-memory index built from TechniqueStore. Context-var scoped."""
+
+    _lock = threading.Lock()
 
     def __init__(self, store: TechniqueStore):
         rows = store.load_all_techniques()
@@ -283,10 +291,21 @@ class TechniqueIndex:
 
     @classmethod
     def get(cls, db_path: Path | None = None) -> TechniqueIndex:
-        if cls._instance is None:
+        instance = _current_index.get(None)
+        if instance is not None:
+            return instance
+        with cls._lock:
+            instance = _current_index.get(None)
+            if instance is not None:
+                return instance
             store = TechniqueStore(db_path or DEFAULT_DB_PATH)
-            cls._instance = cls(store)
-        return cls._instance
+            instance = cls(store)
+            _current_index.set(instance)
+        return instance
+
+    @classmethod
+    def reset(cls):
+        _current_index.set(None)
 
     def lookup(self, technique_id: str) -> Technique | None: ...
     def techniques_for_tactic(self, tactic_shortname: str) -> list[Technique]: ...
@@ -294,6 +313,8 @@ class TechniqueIndex:
     def search(self, query: str, *, top_k: int = 10) -> list[Technique]: ...
     def mitigations_for(self, technique_id: str) -> list[Mitigation]: ...
 ```
+
+Module-level convenience functions `get_index()` and `set_index()` provide explicit context management for code that prefers not to use the classmethod API.
 
 **Memory budget**: ~800 techniques × ~500 bytes/technique ≈ 400 KB for the technique dicts, plus tactic/platform cross-indexes. Total < 8 MB including description text. Well within acceptable bounds for a CLI/Streamlit application.
 

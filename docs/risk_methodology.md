@@ -74,4 +74,5 @@ Expected storage path (Phase 4):
 
 ## Notes
 - Methodology and schema are defined in `src/models/schema/risk_model.py`.
-- Scoring logic is implemented in `src/analysis/risk_scoring.py`, including deterministic scoring, priority banding, explanation drivers, and risk report output helpers.
+- Factor functions (likelihood, impact, exposure, privilege sensitivity, data criticality, exploitability) and their weight constants are defined in `src/analysis/risk_factors.py`, organized in a `FACTOR_REGISTRY` mapping. Rule-specific scoring adjustments use data-driven lookup dicts rather than hardcoded `if` branches.
+- Scoring logic, priority banding, explanation drivers, and risk report output helpers are implemented in `src/analysis/risk_scoring.py`, which delegates factor computation to the registry.
