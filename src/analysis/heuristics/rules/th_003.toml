@@ -1,0 +1,32 @@
+[heuristic]
+rule_id = "TH-003"
+name = "High-privilege module externally reachable"
+description = """Flag modules with service/admin privilege that are internet-exposed or \
+reachable through workflows involving external actors."""
+graph_pattern = """(m:Module)-[:HAS_PRIVILEGE]->(p:PrivilegeLevel {level>=2}) AND \
+(m.internet_exposed=true OR EXISTS external actor workflow path)"""
+target_type = "module"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- module.id",
+    "privilege_level <- privilege.level",
+    "external_reachability <- internet_exposed|workflow_actor_path",
+    "rationale <- privilege + exposure combination",
+]
+
+[materializer]
+primary = "high_priv_modules"
+sort_by = ["module_id"]
+skip_if_empty = "module_id"
+target_id_field = "module_id"
+id_fields = ["module_id"]
+rationale = "High-privilege module is externally reachable."
+
+[materializer.evidence]
+privilege_level = "row.privilege_level"
+internet_exposed = "row.internet_exposed"
+
+[materializer.affected]
+workflows = []
+objects = []

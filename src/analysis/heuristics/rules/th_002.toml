@@ -1,0 +1,33 @@
+[heuristic]
+rule_id = "TH-002"
+name = "Low-trust to high-value object dependency path"
+description = """Identify dependency chains beginning in low-trust domains and ending at \
+confidential, secret, or regulated objects through datastores."""
+graph_pattern = """(src:Module)-[:IN_DOMAIN]->(:SecurityDomain {trust_level:'low'}), \
+path via [:DEPENDS_ON*] to (:DataStore)-[:STORES]->(o:Object high-value)"""
+target_type = "object"
+severity_hint = "critical"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- object.id",
+    "target_type <- 'object'",
+    "exposure_path <- dependency path",
+    "affected_modules <- entry and pivot modules",
+    "rationale <- low-trust reachability to high-value data",
+]
+
+[materializer]
+primary = "attack_paths"
+sort_by = ["entry_module", "target_object"]
+skip_if_empty = "target_object"
+target_id_field = "target_object"
+id_fields = ["target_object", "entry_module"]
+rationale = "Low-trust dependency path reaches high-value object."
+
+[materializer.evidence]
+entry_module = "row.entry_module"
+hops = "row.hops"
+
+[materializer.affected]
+workflows = []
+objects = ["row.target_object"]

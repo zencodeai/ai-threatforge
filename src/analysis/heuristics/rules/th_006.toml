@@ -1,0 +1,42 @@
+[heuristic]
+rule_id = "TH-006"
+name = "Trust boundary crossing with privileged dependency"
+description = """Detect dependencies that traverse defined trust boundaries and terminate \
+in privileged backend or datastore components."""
+graph_pattern = """(tb:TrustBoundary)-[:CROSSES_FROM]->(from), (tb)-[:CROSSES_TO]->(to), \
+(src)-[:IN_DOMAIN]->(from), (src)-[:DEPENDS_ON]->(dst)-[:IN_DOMAIN]->(to), \
+dst privilege >= service or datastore with sensitive objects"""
+target_type = "module"
+severity_hint = "medium"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- destination module/datastore id",
+    "trust_boundary <- trust boundary id",
+    "dependency_relationship <- DEPENDS_ON.relationship",
+    "rationale <- boundary crossing into privileged/sensitive zone",
+]
+
+[materializer]
+primary = "dependency_edges"
+sort_by = ["source", "target"]
+skip_if_empty = "source"
+target_id_field = "source"
+id_fields = ["source", "target"]
+rationale = "Dependency can cross trust boundary into privileged/sensitive zone."
+
+[materializer.filter]
+field = "relationship"
+in = ["calls", "reads_writes", "writes"]
+
+[materializer.collect.boundaries]
+source = "trust_boundaries"
+unique_field = "trust_boundary"
+
+[materializer.evidence]
+dependency_target = "row.target"
+dependency_relationship = "row.relationship"
+trust_boundaries = "$boundaries.unique_values"
+
+[materializer.affected]
+workflows = []
+objects = []

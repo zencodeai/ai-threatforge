@@ -1,0 +1,40 @@
+[heuristic]
+rule_id = "TH-001"
+name = "Internet exposed module handling sensitive workflow data"
+description = """Detect modules reachable from the internet that participate in workflows \
+handling confidential, secret, or regulated objects."""
+graph_pattern = """(m:Module {internet_exposed:true})<-[:INVOLVES_MODULE]-(w:Workflow)-\
+[:INVOLVES_OBJECT]->(o:Object) WHERE o.classification IN ['confidential','secret'] \
+OR o.regulated=true"""
+target_type = "module"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- module.id",
+    "target_type <- 'module'",
+    "affected_workflows <- workflow.id",
+    "affected_objects <- object.id",
+    "rationale <- internet exposure + sensitive data handling",
+]
+
+[materializer]
+primary = "internet_modules"
+sort_by = ["module_id"]
+skip_if_empty = "module_id"
+target_id_field = "module_id"
+id_fields = ["module_id"]
+rationale = "Internet-exposed module intersects with sensitive workflow context."
+
+[materializer.collect.sensitive_data]
+source = "sensitive_workflows"
+unique_field = "workflow_id"
+flatten_field = "sensitive_objects"
+
+[materializer.evidence]
+module_name = "row.module_name"
+module_type = "row.module_type"
+sensitive_workflow_count = "$sensitive_data.unique_count"
+
+[materializer.affected]
+workflows = "$sensitive_data.unique_values"
+objects = "$sensitive_data.flattened_values"

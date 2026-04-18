@@ -109,6 +109,9 @@ Threat objects generated from these heuristics should include at minimum:
 - `evidence`
 
 ## Implementation notes
-- Each heuristic is defined as a standalone module in `src/analysis/heuristics/` (e.g., `th_001.py`), containing both the `ThreatHeuristic` dataclass definition (`HEURISTIC`) and a `ThreatMaterializer` class. Heuristics are auto-discovered at import time via `pkgutil.iter_modules` — adding a new heuristic requires only a new `th_*.py` module.
+- Each heuristic can be defined in one of two formats, both auto-discovered at import time:
+  - **TOML** (`src/analysis/heuristics/rules/th_*.toml`) — a config-driven format with `[heuristic]` and `[materializer]` sections. The `GenericMaterializer` class interprets the materializer config at runtime, supporting primary-key iteration, filtering, cross-reference collection, and per-row joins. This is the preferred format for new heuristics that follow standard patterns.
+  - **Python** (`src/analysis/heuristics/th_*.py`) — a standalone module containing both the `ThreatHeuristic` dataclass definition (`HEURISTIC`) and a `ThreatMaterializer` class. Use this format for heuristics requiring complex logic that cannot be expressed declaratively.
+  - Python modules take precedence when both formats define the same `rule_id`. Discovery uses `pkgutil.iter_modules` for Python and `pathlib.glob` for TOML.
 - Technique mapping is exposed through the facade `src/analysis/technique_mapping.py`, which delegates to `mapping_engine.py` (curated + tactic-expansion + context-filtering pipeline), `mapping_loader.py` (TOML I/O and name resolution), and `mapping_types.py` (data model). Each `rule_id` is bound to ATT&CK/ATLAS technique IDs and names.
 - Structured threat generation is orchestrated by `src/analysis/threat_outputs.py`, which iterates auto-discovered materializers via `materializer_registry.py` and persists outputs to `models/outputs/threats/`.

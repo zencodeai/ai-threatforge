@@ -803,3 +803,115 @@ All Phase 1, Phase 2, and Phase 3 tests remain green. The 2 pre-existing failure
 | `src/knowledge/index.py` | Class-level singleton → `contextvars.ContextVar`; added `get_index()`/`set_index()` |
 | `src/knowledge/__init__.py` | Added `get_index`, `set_index` exports |
 | `tests/test_knowledge_index.py` | `_instance` assertion → `get_index()` assertion |
+
+---
+
+## Appendix E — Config-Driven TOML Heuristic Loading
+
+> Implemented: 2026-04-18
+> Test result: 103 passed, 2 skipped, 2 pre-existing failures (21 new tests added)
+
+### E.1 — Dynamic TOML-Based Heuristic Loading
+
+**Problem:** While Phase 4.1 introduced plugin-based auto-discovery from Python modules (`th_*.py`), adding a new heuristic still required writing Python code — a `ThreatHeuristic` dataclass, a materializer class, and boilerplate imports. For heuristics that follow standard patterns (iterate snapshot rows, filter, collect cross-references, produce `ThreatRecord` objects), the Python code was largely formulaic. The design review's Phase 4.1 noted this as a "Large" effort item; the TOML-driven approach reduces it to zero-code for standard patterns.
+
+**Solution:** Extended the discovery engine to load heuristic definitions from TOML files (`rules/th_*.toml`). A `GenericMaterializer` class interprets the `[materializer]` section at runtime, satisfying the same `ThreatMaterializer` protocol as hand-coded Python materializers.
+
+### E.2 — New Files
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `src/analysis/heuristics/generic_materializer.py` | ~220 | `GenericMaterializer` class — config-driven materializer that interprets TOML `[materializer]` sections. Handles primary iteration, skip/filter, cross-reference collection, per-row joins, evidence resolution, and affected-list resolution. Satisfies the `ThreatMaterializer` protocol. |
+| `src/analysis/heuristics/rules/th_001.toml` | 34 | TOML definition for TH-001 (internet-exposed modules + sensitive workflows). Demonstrates `collect` for cross-reference aggregation. |
+| `src/analysis/heuristics/rules/th_002.toml` | 27 | TOML definition for TH-002 (low-trust attack paths). Simple iteration with composite ID. |
+| `src/analysis/heuristics/rules/th_003.toml` | 25 | TOML definition for TH-003 (high-privilege externally reachable). Simplest pattern — direct iteration. |
+| `src/analysis/heuristics/rules/th_004.toml` | 25 | TOML definition for TH-004 (AI module dependencies). Composite ID with two sort fields. |
+| `src/analysis/heuristics/rules/th_005.toml` | 27 | TOML definition for TH-005 (regulated object concentration). Demonstrates `join` for per-row cross-reference matching. |
+| `src/analysis/heuristics/rules/th_006.toml` | 30 | TOML definition for TH-006 (trust boundary crossings). Demonstrates `filter` + `collect`. |
+| `tests/test_generic_materializer.py` | ~210 | 21 tests: protocol compliance, TOML parsing (6 parametrized), parity with Python materializers (6 parametrized), edge cases (4), discovery integration (3). |
+
+### E.3 — Modified Files
+
+| File | Change |
+|------|--------|
+| `src/analysis/heuristics/__init__.py` | Extended `_discover()` to scan `rules/th_*.toml` files before Python modules. TOML files are loaded via `tomllib` (stdlib 3.11+). `_heuristic_from_toml()` constructs a `ThreatHeuristic` dataclass, `_materializer_from_toml()` creates a `GenericMaterializer` instance. Python modules override TOML when both define the same `rule_id`. Added `__all__` declaration per Phase 3.3 requirements. |
+| `src/analysis/materializers.py` | Added `GenericMaterializer` to backward-compatible re-exports and `__all__`. |
+
+### E.4 — TOML Materializer Config Schema
+
+The `[materializer]` section supports the following keys:
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `primary` | string | Yes | Snapshot dict key to iterate |
+| `sort_by` | list[string] | Yes | Row fields for deterministic ordering |
+| `skip_if_empty` | string | No | Skip rows where this field is falsy |
+| `target_id_field` | string | Yes | Row field used as `ThreatRecord.target_id` |
+| `id_fields` | list[string] | Yes | Row fields combined for stable threat ID generation |
+| `rationale` | string | Yes | Human-readable rationale text |
+| `evidence` | dict[string, string] | No | Evidence mapping; values use `row.*` or `$name.attr` references |
+| `affected.workflows` | string or list | No | Affected workflow list; supports `$name.attr` or `["row.field"]` |
+| `affected.objects` | string or list | No | Affected object list; same reference syntax |
+
+Optional sub-tables:
+
+| Sub-table | Purpose |
+|-----------|---------|
+| `[materializer.filter]` | Row-level whitelist filter: `field` + `in` (list of allowed values) |
+| `[materializer.collect.<name>]` | Pre-aggregate a secondary snapshot key: `source`, `unique_field`, `flatten_field` |
+| `[materializer.join.<name>]` | Per-row join against secondary data: `source`, `match_value_field`, `match_in`, `collect` |
+
+### E.5 — Reference Resolution
+
+Evidence values and affected-list entries use a simple reference syntax:
+
+| Prefix | Resolves to | Example |
+|--------|-------------|---------|
+| `row.<field>` | Value from the current primary row | `row.module_name` → `"API Gateway"` |
+| `$<name>.<attr>` | Attribute from a named `collect` or `join` result | `$sensitive_data.unique_count` → `1` |
+| (literal) | Passed through unchanged | `"static_value"` → `"static_value"` |
+
+Collected data exposes three attributes: `unique_values` (deduplicated sorted list), `flattened_values` (flattened + deduplicated list from nested arrays), `unique_count` (integer count of unique values). Joined data exposes `matched_keys` (sorted list of matched values).
+
+### E.6 — Discovery Precedence
+
+The discovery engine loads sources in this order:
+
+1. **TOML rules** (`rules/th_*.toml`) — loaded first, sorted by filename
+2. **Python modules** (`th_*.py`) — loaded second, override TOML for the same `rule_id`
+
+This means:
+- All 6 existing heuristics currently have both Python and TOML definitions
+- Python materializers are used at runtime (they take precedence)
+- TOML definitions serve as machine-readable documentation and as a validation baseline
+- New TOML-only heuristics (TH-007+) are fully functional without any Python code
+
+### E.7 — Parity Verification
+
+The test suite includes 6 parametrized parity tests that verify each TOML-driven materializer produces **identical output** to its Python counterpart for the same snapshot data. Assertions cover: `threat_id`, `rule_id`, `target_id`, `target_type`, `severity_hint`, `rationale`, `evidence`, `affected_workflows`, and `affected_objects`.
+
+### E.8 — Test Verification
+
+Full test suite run after all changes:
+
+```
+103 passed, 2 skipped, 2 failed
+```
+
+- 21 new tests added in `test_generic_materializer.py`
+- All 82 pre-existing tests remain green
+- The 2 pre-existing failures are unchanged:
+  - `test_agents_tools.py::test_lookup_technique_returns_matches` — source label mismatch
+  - `test_agents_tools.py::test_search_knowledge_stub_returns_ranked_items` — source label mismatch
+
+### E.9 — OCP Impact
+
+Adding a new heuristic now supports three paths:
+
+| Path | Files to create | Files to modify | Python required |
+|------|----------------|-----------------|-----------------|
+| TOML-only | `rules/th_007.toml` | `mapping_rules.toml` (technique bindings) | No |
+| Python-only | `th_007.py` | `mapping_rules.toml` | Yes |
+| Hybrid (TOML + Python override) | Both | `mapping_rules.toml` | Yes |
+
+The TOML-only path is the zero-code extension point envisioned in design review Section 4.1.

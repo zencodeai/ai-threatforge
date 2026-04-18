@@ -1,0 +1,31 @@
+[heuristic]
+rule_id = "TH-004"
+name = "AI-relevant module dependency and model service exposure"
+description = """Detect modules that depend on AI-relevant services and can influence model \
+inputs, feature stores, or inference surfaces."""
+graph_pattern = """(m:Module)-[:DEPENDS_ON]->(ai:Module {ai_relevant:true}) OR \
+workflow path to ai_relevant datastore/object"""
+target_type = "module"
+severity_hint = "high"
+frameworks = ["ATLAS", "ATTACK"]
+output_field_mapping = [
+    "target_id <- ai module.id",
+    "target_type <- 'module'",
+    "ai_surface <- model/feature data path",
+    "rationale <- AI service dependency with potential manipulation",
+]
+
+[materializer]
+primary = "ai_dependencies"
+sort_by = ["module_id", "ai_module_id"]
+skip_if_empty = "ai_module_id"
+target_id_field = "ai_module_id"
+id_fields = ["ai_module_id", "module_id"]
+rationale = "Module dependency exposes AI-relevant service surface."
+
+[materializer.evidence]
+dependent_module = "row.module_id"
+
+[materializer.affected]
+workflows = []
+objects = []

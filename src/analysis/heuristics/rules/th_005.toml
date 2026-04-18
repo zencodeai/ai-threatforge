@@ -1,0 +1,38 @@
+[heuristic]
+rule_id = "TH-005"
+name = "Regulated object concentration in critical workflows"
+description = """Highlight workflows in high or critical systems that involve multiple \
+regulated objects and privileged modules."""
+graph_pattern = """(s:System {criticality in ['high','critical']})-[:HAS_WORKFLOW]->(w)-\
+[:INVOLVES_OBJECT]->(o:Object {regulated:true}) and workflow privileged modules"""
+target_type = "workflow"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- workflow.id",
+    "affected_objects <- regulated object ids",
+    "affected_modules <- privileged module ids",
+    "system_criticality <- system.criticality",
+    "rationale <- regulated data in critical workflow",
+]
+
+[materializer]
+primary = "critical_workflows"
+sort_by = ["workflow_id"]
+skip_if_empty = "workflow_id"
+target_id_field = "workflow_id"
+id_fields = ["workflow_id"]
+rationale = "Critical workflow aggregates regulated data and privileged modules."
+
+[materializer.join.regulated]
+source = "regulated_data"
+match_value_field = "workflow_id"
+match_in = "workflows"
+collect = "regulated_object"
+
+[materializer.evidence]
+system_criticality = "row.system_criticality"
+
+[materializer.affected]
+workflows = ["row.workflow_id"]
+objects = "$regulated.matched_keys"

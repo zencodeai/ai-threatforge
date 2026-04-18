@@ -64,12 +64,17 @@ Custom Cypher queries can also be executed directly through the agent tool layer
 
 | Attribute | Detail |
 |---|---|
-| **Source** | `src/analysis/threat_generation.py`, `src/analysis/threat_outputs.py`, `src/analysis/materializer_registry.py`, `src/analysis/heuristics/` (auto-discovered plugins `th_001`–`th_006`), `src/analysis/mapping_engine.py`, `src/analysis/mapping_loader.py`, `src/analysis/mapping_types.py` (facade: `src/analysis/technique_mapping.py`) |
+| **Source** | `src/analysis/threat_generation.py`, `src/analysis/threat_outputs.py`, `src/analysis/materializer_registry.py`, `src/analysis/heuristics/` (auto-discovered plugins `th_001`–`th_006` as Python modules, plus `rules/th_*.toml` for config-driven rules), `src/analysis/heuristics/generic_materializer.py`, `src/analysis/mapping_engine.py`, `src/analysis/mapping_loader.py`, `src/analysis/mapping_types.py` (facade: `src/analysis/technique_mapping.py`) |
 | **Output** | `models/outputs/threats/*_threats.json` |
 | **Mapping** | MITRE ATT&CK (enterprise techniques) and MITRE ATLAS (AI/ML techniques) |
 | **Responsibility** | Apply heuristic rules against graph patterns to generate structured, mapped threat candidates with rationale text explaining *why* each threat applies. |
 
-The threat engine runs **six deterministic heuristics** (TH-001 through TH-006), each defined as a `ThreatHeuristic` dataclass specifying a graph pattern, target type, severity hint, and applicable frameworks. Heuristics are **auto-discovered** from the `src/analysis/heuristics/` package — each `th_*.py` module exports a `HEURISTIC` definition and a `ThreatMaterializer` class, registered automatically at import time via `pkgutil.iter_modules`. Adding a new heuristic requires only creating a new module — no existing files need modification.
+The threat engine runs **six deterministic heuristics** (TH-001 through TH-006), each defined as a `ThreatHeuristic` dataclass specifying a graph pattern, target type, severity hint, and applicable frameworks. Heuristics are **auto-discovered** from the `src/analysis/heuristics/` package via two mechanisms:
+
+1. **TOML rules** — drop a `th_*.toml` file into `src/analysis/heuristics/rules/`. Each file defines a `[heuristic]` section (rule metadata) and a `[materializer]` section (data-driven threat generation config). The `GenericMaterializer` class interprets the TOML at runtime, supporting iteration, filtering, cross-reference collection, and per-row joins — all without writing Python.
+2. **Python modules** — each `th_*.py` module exports a `HEURISTIC` definition and a `ThreatMaterializer` class. Python modules take precedence when both formats define the same `rule_id`.
+
+Both formats are registered automatically at import time. Adding a new heuristic requires only creating a new file — no existing files need modification.
 
 | Rule | Threat Pattern | Severity | Framework |
 |---|---|---|---|
