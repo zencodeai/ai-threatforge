@@ -101,6 +101,10 @@ def _cmd_sync(args: argparse.Namespace) -> int:
             atlas_version=args.atlas_version,
             offline_dir=args.offline,
             embed=args.embed,
+            map_heuristics=args.map_heuristics,
+            map_threshold=args.map_threshold,
+            map_top_k=args.map_top_k,
+            map_output=args.map_output,
         )
     except Exception as exc:
         print(f"FAILED: {exc}")
@@ -112,6 +116,8 @@ def _cmd_sync(args: argparse.Namespace) -> int:
     print(f"  mitigations: {counts['mitigations']}")
     if "embedded" in counts:
         print(f"  embedded:    {counts['embedded']}")
+    if "suggestions" in counts:
+        print(f"  suggestions: {counts['suggestions']}")
     return 0
 
 
@@ -261,6 +267,10 @@ def main(argv: list[str] | None = None) -> int:
     p_sync.add_argument("--offline", type=Path, default=None, help="Directory with local STIX/ATLAS files")
     p_sync.add_argument("--status", action="store_true", help="Show current sync status")
     p_sync.add_argument("--embed", action="store_true", help="Generate technique embeddings after sync")
+    p_sync.add_argument("--map-heuristics", action="store_true", help="Generate suggested technique mappings for all heuristics")
+    p_sync.add_argument("--map-threshold", type=float, default=0.40, help="Min composite score for suggestions (default: 0.40)")
+    p_sync.add_argument("--map-top-k", type=int, default=10, help="Max suggestions per heuristic (default: 10)")
+    p_sync.add_argument("--map-output", type=Path, default=None, help="Output path for suggestions TOML")
 
     # suggest-mappings
     p_sg = sub.add_parser("suggest-mappings", help="Suggest technique mappings for a heuristic using vector similarity")

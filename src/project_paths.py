@@ -16,6 +16,7 @@ class ProjectPaths:
     risks_dir: Path
     mapping_rules: Path
     mapping_config: Path
+    mapping_suggestions: Path
     knowledge_db: Path
 
     @classmethod
@@ -32,6 +33,7 @@ class ProjectPaths:
             risks_dir=outputs / "risks",
             mapping_rules=data / "mapping_rules.toml",
             mapping_config=data / "mapping_config.toml",
+            mapping_suggestions=data / "mapping_suggestions.toml",
             knowledge_db=data / "threatforge_kb.db",
         )
 

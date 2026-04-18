@@ -82,6 +82,10 @@ def sync(
     db_path: Path | str = DEFAULT_DB_PATH,
     attack_domains: tuple[str, ...] = ATTACK_DOMAINS,
     embed: bool = False,
+    map_heuristics: bool = False,
+    map_threshold: float = 0.40,
+    map_top_k: int = 10,
+    map_output: Path | None = None,
 ) -> dict[str, Any]:
     all_tactics: list[Tactic] = []
     all_techniques: list[Technique] = []
@@ -131,11 +135,24 @@ def sync(
         store.set_meta("last_sync_utc", datetime.now(UTC).isoformat())
         store.set_meta("technique_count", str(counts["techniques"]))
 
-        if embed:
+        # map_heuristics implies embed
+        if map_heuristics or embed:
             from .embedder import embed_techniques
 
             embedded = embed_techniques(store)
             counts["embedded"] = embedded
+
+        if map_heuristics:
+            from analysis.mapping_writer import generate_mapping_suggestions
+
+            suggestion_counts = generate_mapping_suggestions(
+                store,
+                threshold=map_threshold,
+                top_k=map_top_k,
+                output_path=map_output,
+            )
+            counts["suggestions"] = suggestion_counts["_total"]
+            counts["suggestion_counts"] = suggestion_counts
 
     return counts
 
@@ -145,6 +162,18 @@ def sync_status(db_path: Path | str = DEFAULT_DB_PATH) -> dict[str, str]:
     if not path.exists():
         return {"status": "not synced", "db_path": str(path)}
 
+    from project_paths import ProjectPaths
+
+    defaults = ProjectPaths.default()
+    suggestions_path = defaults.data_dir / "mapping_suggestions.toml"
+    suggestion_count = 0
+    if suggestions_path.exists():
+        import tomllib
+
+        with open(suggestions_path, "rb") as f:
+            data = tomllib.load(f)
+        suggestion_count = len(data.get("mappings", []))
+
     with TechniqueStore(path) as store:
         return {
             "status": "synced" if store.is_populated() else "empty",
@@ -153,5 +182,6 @@ def sync_status(db_path: Path | str = DEFAULT_DB_PATH) -> dict[str, str]:
             "last_sync_utc": store.get_meta("last_sync_utc", "never"),
             "technique_count": store.get_meta("technique_count", "0"),
             "embedding_count": str(store.embedding_count("technique")),
+            "suggestion_count": str(suggestion_count),
             "db_path": str(path),
         }

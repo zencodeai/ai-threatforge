@@ -529,7 +529,11 @@ The `_technique_refs(rule_id)` function continues to call `map_rule_to_technique
 threatforge sync                          # fetch latest ATT&CK + ATLAS
 threatforge sync --attack-version 18.1    # pin specific version
 threatforge sync --offline ./stix-files/  # use local files
-threatforge sync --status                 # show current versions
+threatforge sync --embed                  # also generate technique embeddings
+threatforge sync --map-heuristics         # embed + batch-generate suggested mappings
+threatforge sync --map-threshold 0.35     # custom composite score threshold
+threatforge sync --map-top-k 15           # max suggestions per heuristic
+threatforge sync --status                 # show current versions + suggestion count
 ```
 
 ### 7.5 `pyproject.toml` — new dependencies

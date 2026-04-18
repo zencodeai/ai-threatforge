@@ -1025,3 +1025,97 @@ Full test suite run after all changes:
 - 25 new tests added across 3 test files
 - All 103 pre-existing passing tests remain green
 - The 2 pre-existing failures are unchanged (source label mismatch in `test_agents_tools.py`)
+
+---
+
+## Appendix G — Sync-Time Heuristic Mapping Generation
+
+> Implemented: 2026-04-18
+> Test result: 141 passed, 2 skipped, 2 pre-existing failures (13 new tests added)
+
+### G.1 — Problem
+
+Writing curated technique mappings for heuristics required running `suggest-mappings` one rule at a time, then manually copying output into `mapping_rules.toml`. There was no batch workflow and no way to regenerate all suggestions when the knowledge base was refreshed via `sync`.
+
+### G.2 — Solution
+
+Extended `threatforge sync` with `--map-heuristics` to batch-generate technique suggestions for all discovered heuristics as part of the sync lifecycle. Suggestions are written to a separate `mapping_suggestions.toml` file, keeping human-curated mappings untouched.
+
+### G.3 — New CLI Flags
+
+```
+threatforge sync [existing flags]
+    --map-heuristics           Generate suggested technique mappings for all heuristics
+    --map-threshold FLOAT      Min composite score to accept (default: 0.40)
+    --map-top-k INT            Max suggestions per heuristic (default: 10)
+    --map-output PATH          Output path (default: data/threat_intel/mapping_suggestions.toml)
+```
+
+`--map-heuristics` implies `--embed` — embeddings are generated automatically if not already present.
+
+### G.4 — New Files
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `src/analysis/mapping_writer.py` | ~120 | `generate_mapping_suggestions()` — batch scores all discovered heuristics using the suggestion scorer, writes `mapping_suggestions.toml`. `_write_suggestions_toml()` serializes suggestions as TOML with metadata header. |
+| `tests/test_mapping_writer.py` | ~290 | 13 tests: TOML round-trip (3), generation end-to-end (4), loader integration (3), sync integration (1), config loading (2). |
+
+### G.5 — Modified Files
+
+| File | Change |
+|------|--------|
+| `src/knowledge/sync.py` | Added `map_heuristics`, `map_threshold`, `map_top_k`, `map_output` parameters to `sync()`. When `map_heuristics=True`, forces `embed=True` and calls `generate_mapping_suggestions()` after embedding. `sync_status()` now reports `suggestion_count` from the suggestions file. |
+| `src/cli/main.py` | Added `--map-heuristics`, `--map-threshold`, `--map-top-k`, `--map-output` arguments to `sync` subcommand. `_cmd_sync()` passes new params to `sync()` and prints suggestion count. |
+| `src/analysis/mapping_loader.py` | Added `load_suggestions_config()` — reads `[suggestions]` section from `mapping_config.toml`. Added `load_suggested_mappings()` — loads auto-generated mappings from `mapping_suggestions.toml` with optional `rule_id` filtering. |
+| `data/threat_intel/mapping_config.toml` | Added `[suggestions]` section with `include_suggested = false` and `suggestions_path`. |
+| `src/project_paths.py` | Added `mapping_suggestions` field to `ProjectPaths` dataclass. |
+
+### G.6 — Separation of Concerns
+
+| File | Ownership | Lifecycle | `mapping_type` |
+|------|-----------|-----------|----------------|
+| `mapping_rules.toml` | Human-curated | Version-controlled, never auto-overwritten | `"curated"` |
+| `mapping_suggestions.toml` | Machine-generated | Regenerated each `sync --map-heuristics` | `"suggested"` |
+
+Suggested mappings do not flow into threat generation unless `include_suggested = true` is set in `mapping_config.toml`. Users review `mapping_suggestions.toml` and promote entries to `mapping_rules.toml` manually.
+
+### G.7 — Execution Flow
+
+```
+sync()
+  ├─ 1. Fetch ATT&CK + ATLAS bundles
+  ├─ 2. Store tactics/techniques/mitigations
+  ├─ 3. embed_techniques()          ← forced when map_heuristics=True
+  └─ 4. generate_mapping_suggestions()
+         ├─ Build VectorIndex + TechniqueIndex from fresh store
+         ├─ For each discovered heuristic:
+         │     ├─ Load curated mappings (excluded from candidates)
+         │     ├─ score_suggestions() with composite scoring
+         │     └─ Filter by threshold
+         ├─ Write mapping_suggestions.toml
+         └─ Return {rule_id: count, "_total": N}
+```
+
+### G.8 — Layer Integration
+
+```
+Layer 0 (vector suggestions) ──→ mapping_suggestions.toml (staging)
+                                         │
+                          user review / promote
+                                         ▼
+Layer 1 (curated)          ──→ mapping_rules.toml
+Layer 2 (tactic expansion) ──→ mapping_config.toml [expansion]
+Layer 3 (context filter)   ──→ runtime platform filter
+```
+
+### G.9 — Test Verification
+
+Full test suite run after all changes:
+
+```
+141 passed, 2 skipped, 2 failed
+```
+
+- 13 new tests added in `test_mapping_writer.py`
+- All 128 pre-existing passing tests remain green
+- The 2 pre-existing failures are unchanged (source label mismatch in `test_agents_tools.py`)

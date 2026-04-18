@@ -16,3 +16,10 @@ max_techniques_per_tactic = 20
 # ATT&CK domains to include in expansion.
 # Options: "enterprise", "mobile", "ics"
 domains = ["enterprise"]
+
+[suggestions]
+# Include auto-suggested mappings alongside curated ones at analysis time.
+include_suggested = false
+
+# Path to the auto-generated suggestions file (relative to project root).
+suggestions_path = "data/threat_intel/mapping_suggestions.toml"

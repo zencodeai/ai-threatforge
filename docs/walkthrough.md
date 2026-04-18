@@ -55,6 +55,16 @@ Expected outcome:
 - Ranked technique suggestions are displayed with composite scores.
 - Use `--format toml` to produce ready-to-paste `[[mappings]]` entries.
 
+### Step 4c. (Optional) Batch-generate mapping suggestions at sync time
+```bash
+threatforge sync --map-heuristics --map-threshold 0.35
+```
+Expected outcome:
+- Embeddings are generated automatically (implied by `--map-heuristics`).
+- All discovered heuristics are scored against the technique corpus.
+- Results are written to `data/threat_intel/mapping_suggestions.toml`.
+- Curated `mapping_rules.toml` is never overwritten — review and promote manually.
+
 ### Step 5. Ask analyst questions
 ```bash
 threatforge ui

@@ -62,8 +62,8 @@ Analyst questions are routed to tools via deterministic keyword matching, execut
 | `src/agents/` | Tool interfaces, deterministic query workflow, observability tracing |
 | `src/ui/` | Streamlit analyst interface (model overview, threats, risks, chat) |
 | `src/cli/` | Unified CLI (`threatforge` command) |
-| `data/threat_intel/` | Curated mapping rules, expansion config, knowledge-base SQLite |
-| `tests/` | 82 tests across 16 modules |
+| `data/threat_intel/` | Curated mapping rules, expansion config, auto-generated suggestions, knowledge-base SQLite |
+| `tests/` | 141 tests across 19 modules |
 | `docs/` | Architecture narrative, walkthrough, demo script, diagrams |
 
 ---
@@ -89,6 +89,8 @@ cp .env.example .env
 
 ```bash
 threatforge sync                   # fetch ATT&CK + ATLAS techniques
+threatforge sync --embed           # also generate technique embeddings
+threatforge sync --map-heuristics  # embed + generate suggested technique mappings
 threatforge sync --status          # check current sync state
 ```
 
@@ -155,7 +157,7 @@ No code changes are needed — the factory function `create_trace_recorder()` au
 pytest -q
 ```
 
-82 tests across schema validation, graph operations, threat generation, technique mapping, risk scoring, knowledge ingestion, agent workflow, observability, and UI layers.
+141 tests across schema validation, graph operations, threat generation, technique mapping, risk scoring, knowledge ingestion, vector suggestion, mapping generation, agent workflow, observability, and UI layers.
 
 ---
 
@@ -184,11 +186,11 @@ pytest -q
 | Graph database | Neo4j ≥ 5.20 | Property graph for attack-path traversal and dependency analysis |
 | Graph protocol | Bolt (official `neo4j` driver) | Parameterised Cypher queries with connection pooling |
 | Knowledge base | MITRE ATT&CK + ATLAS | STIX 2.1 / YAML ingestion into SQLite with in-memory index for technique lookup |
-| Threat mapping | MITRE ATT&CK + ATLAS | Layered mapping: curated TOML rules, opt-in tactic expansion, context filtering |
+| Threat mapping | MITRE ATT&CK + ATLAS | Layered mapping: curated TOML rules, opt-in tactic expansion, context filtering, vector-based sync-time suggestion generation |
 | UI | Streamlit ≥ 1.35 | Multipage analyst dashboard with sidebar controls and one-click rebuild |
 | Observability | JSONL local traces | Structured event log for every workflow invocation |
 | Observability (opt.) | LangSmith | Cloud trace export with parent-child run relationships |
-| Testing | pytest ≥ 8.0 | 82 tests across 16 modules — schema, graph, analysis, knowledge, agents, UI |
+| Testing | pytest ≥ 8.0 | 141 tests across 19 modules — schema, graph, analysis, knowledge, agents, UI |
 
 ### Why these choices
 

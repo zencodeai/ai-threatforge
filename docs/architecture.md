@@ -91,6 +91,8 @@ Each heuristic is executed as a Cypher query against the Neo4j graph. Matched pa
 
 **Vector-based technique suggestion** (Layer 0) complements the curated mapping pipeline with a dense-vector similarity search. Technique descriptions are encoded at sync time into 384-dimensional embeddings (`all-MiniLM-L6-v2`) and stored in the SQLite knowledge base. A `VectorIndex` provides brute-force cosine similarity search over ~830 technique embeddings. The `SuggestionScorer` (`src/analysis/suggestion_scorer.py`) blends vector similarity (60%) with tactic-overlap bonuses (25%) and framework-match bonuses (15%) to produce ranked `ScoredSuggestion` candidates. This is an offline advisory layer — suggestions are reviewed by a human and promoted to curated mappings in `mapping_rules.toml` via `threatforge suggest-mappings`.
 
+**Sync-time mapping generation** extends the sync lifecycle with `--map-heuristics`, which batch-scores all discovered heuristics and writes results to `mapping_suggestions.toml` — a separate file from the human-curated `mapping_rules.toml`. The `MappingWriter` (`src/analysis/mapping_writer.py`) orchestrates the batch flow: build vector and technique indexes from the freshly synced store, iterate all heuristics, call `score_suggestions()` per rule with configurable threshold and top-k, and serialize results as TOML. Suggested mappings carry `mapping_type = "suggested"` and do not flow into threat generation unless `include_suggested = true` is set in `mapping_config.toml`.
+
 Example mappings:
 
 - TH-001 → T1190 (Exploit Public-Facing Application), T1078 (Valid Accounts)
@@ -213,6 +215,7 @@ Data access is handled through `src/ui/data_access.py`, which loads Pydantic-val
 | Extension | Description |
 |---|---|
 | **Vector-based technique suggestion** | Use `threatforge suggest-mappings` to find candidate technique bindings for new heuristics via dense-vector similarity + composite scoring. Requires `.[suggest]` extra. |
+| **Sync-time mapping generation** | Use `threatforge sync --map-heuristics` to batch-generate suggested technique mappings for all discovered heuristics during sync. Writes `mapping_suggestions.toml` (separate from curated `mapping_rules.toml`). |
 | **RAG-backed knowledge search** | Replace the stub `search_knowledge` tool with a retriever-backed connector (e.g., vector store over internal security policies). |
 | **Additional ingestion channels** | Ingest SBOMs, IaC definitions, or code metadata alongside TOML models. |
 | **Mitigation generation** | Map threats to control frameworks and generate recommended mitigations with coverage scores. |
