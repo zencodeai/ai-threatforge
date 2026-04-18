@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
 from artifact_locator import ArtifactLocator
@@ -104,3 +105,212 @@ def risk_rows(report: RiskReport, limit: int | None = None) -> list[dict[str, ob
     if limit is None:
         return rows
     return rows[: max(0, limit)]
+
+
+# ── Mapping / Sync helpers ───────────────────────────────────────
+
+
+def load_sync_status(
+    *,
+    paths: ProjectPaths | None = None,
+) -> dict[str, str]:
+    """Return knowledge-base sync status as a flat dict for the sidebar."""
+    from knowledge.sync import sync_status
+
+    p = paths or _DEFAULT_PATHS
+    return sync_status(db_path=p.knowledge_db)
+
+
+def curated_mapping_rows(
+    rule_id: str | None = None,
+    *,
+    rules_path: Path | None = None,
+) -> list[dict[str, str]]:
+    """Load curated mappings from ``mapping_rules.toml`` as flat dicts."""
+    rules_path = rules_path or _DEFAULT_PATHS.mapping_rules
+    if not rules_path.exists():
+        return []
+    with open(rules_path, "rb") as f:
+        data = tomllib.load(f)
+    rows: list[dict[str, str]] = []
+    for entry in data.get("mappings", []):
+        if rule_id is not None and entry["rule_id"] != rule_id:
+            continue
+        rows.append({
+            "rule_id": entry["rule_id"],
+            "technique_id": entry["technique_id"],
+            "framework": entry["framework"],
+            "tactic": entry["tactic"],
+            "rationale": entry.get("rationale", ""),
+        })
+    return rows
+
+
+def suggested_mapping_rows(
+    rule_id: str | None = None,
+    *,
+    suggestions_path: Path | None = None,
+) -> list[dict[str, object]]:
+    """Load suggested mappings from ``mapping_suggestions.toml`` as flat dicts."""
+    if suggestions_path is None:
+        suggestions_path = _DEFAULT_PATHS.mapping_suggestions
+    if not suggestions_path.exists():
+        return []
+    with open(suggestions_path, "rb") as f:
+        data = tomllib.load(f)
+    rows: list[dict[str, object]] = []
+    for entry in data.get("mappings", []):
+        if rule_id is not None and entry["rule_id"] != rule_id:
+            continue
+        rows.append({
+            "rule_id": entry["rule_id"],
+            "technique_id": entry["technique_id"],
+            "framework": entry["framework"],
+            "tactic": entry["tactic"],
+            "rationale": entry.get("rationale", ""),
+            "mapping_type": entry.get("mapping_type", "suggested"),
+            "composite_score": entry.get("composite_score", 0.0),
+        })
+    return rows
+
+
+def heuristic_rows() -> list[dict[str, str]]:
+    """Return discovered heuristics as flat dicts for display."""
+    from analysis.heuristics import discovered_heuristics
+
+    rows: list[dict[str, str]] = []
+    for h in discovered_heuristics():
+        rows.append({
+            "rule_id": h.rule_id,
+            "name": h.name,
+            "description": h.description,
+            "frameworks": ", ".join(h.frameworks),
+            "severity": h.severity_hint,
+            "target_type": h.target_type,
+        })
+    return rows
+
+
+def load_mapping_config(
+    *,
+    config_path: Path | None = None,
+) -> dict[str, object]:
+    """Load ``mapping_config.toml`` as a dict."""
+    config_path = config_path or _DEFAULT_PATHS.mapping_config
+    if not config_path.exists():
+        return {
+            "expansion": {"enabled": False},
+            "suggestions": {"include_suggested": False},
+        }
+    with open(config_path, "rb") as f:
+        return tomllib.load(f)
+
+
+def save_mapping_config(
+    config: dict[str, object],
+    *,
+    config_path: Path | None = None,
+) -> None:
+    """Write ``mapping_config.toml`` from a config dict."""
+    config_path = config_path or _DEFAULT_PATHS.mapping_config
+    expansion = config.get("expansion", {})
+    suggestions = config.get("suggestions", {})
+
+    domains_list = expansion.get("domains", ["enterprise"])
+    domains_str = ", ".join(f'"{d}"' for d in domains_list)
+
+    lines = [
+        "# Technique mapping expansion configuration.",
+        "#",
+        "# Controls how threat heuristics are expanded beyond curated mappings.",
+        "",
+        "[expansion]",
+        "# Enable tactic-based expansion (Layer 2).",
+        "# When true, heuristics are auto-expanded to all techniques in their target tactics.",
+        f"enabled = {str(expansion.get('enabled', False)).lower()}",
+        "",
+        "# Include sub-techniques in expansion results.",
+        f"include_subtechniques = {str(expansion.get('include_subtechniques', True)).lower()}",
+        "",
+        "# Maximum techniques per tactic to include (prevents output bloat).",
+        f"max_techniques_per_tactic = {expansion.get('max_techniques_per_tactic', 20)}",
+        "",
+        '# ATT&CK domains to include in expansion.',
+        '# Options: "enterprise", "mobile", "ics"',
+        f"domains = [{domains_str}]",
+        "",
+        "[suggestions]",
+        "# Include auto-suggested mappings alongside curated ones at analysis time.",
+        f"include_suggested = {str(suggestions.get('include_suggested', False)).lower()}",
+        "",
+        "# Path to the auto-generated suggestions file (relative to project root).",
+        f'suggestions_path = "{suggestions.get("suggestions_path", "data/threat_intel/mapping_suggestions.toml")}"',
+    ]
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def promote_suggestion(
+    rule_id: str,
+    technique_id: str,
+    *,
+    rules_path: Path | None = None,
+    suggestions_path: Path | None = None,
+) -> bool:
+    """Move a suggested mapping to the curated rules file.
+
+    Returns True on success, False if the suggestion was not found.
+    """
+    rules_path = rules_path or _DEFAULT_PATHS.mapping_rules
+    suggestions_path = suggestions_path or _DEFAULT_PATHS.mapping_suggestions
+
+    # ── Find and remove from suggestions ─────────────────────────
+    if not suggestions_path.exists():
+        return False
+    with open(suggestions_path, "rb") as f:
+        data = tomllib.load(f)
+    mappings = data.get("mappings", [])
+    target = None
+    remaining: list[dict] = []
+    for entry in mappings:
+        if entry["rule_id"] == rule_id and entry["technique_id"] == technique_id:
+            target = entry
+        else:
+            remaining.append(entry)
+    if target is None:
+        return False
+
+    # Rewrite suggestions file without the promoted entry
+    header_lines = [
+        "# Auto-generated by: threatforge sync --map-heuristics",
+        "# Modified by promote action",
+        "",
+    ]
+    suggestion_lines = list(header_lines)
+    for entry in remaining:
+        suggestion_lines.append("[[mappings]]")
+        suggestion_lines.append(f'rule_id = "{entry["rule_id"]}"')
+        suggestion_lines.append(f'technique_id = "{entry["technique_id"]}"')
+        suggestion_lines.append(f'framework = "{entry["framework"]}"')
+        suggestion_lines.append(f'tactic = "{entry["tactic"]}"')
+        suggestion_lines.append(f'rationale = "{entry.get("rationale", "")}"')
+        suggestion_lines.append(f'mapping_type = "{entry.get("mapping_type", "suggested")}"')
+        if "composite_score" in entry:
+            suggestion_lines.append(f"composite_score = {entry['composite_score']:.4f}")
+        suggestion_lines.append("")
+    suggestions_path.write_text("\n".join(suggestion_lines), encoding="utf-8")
+
+    # ── Append to curated rules ──────────────────────────────────
+    block = "\n".join([
+        "",
+        "[[mappings]]",
+        f'rule_id = "{target["rule_id"]}"',
+        f'technique_id = "{target["technique_id"]}"',
+        f'framework = "{target["framework"]}"',
+        f'tactic = "{target["tactic"]}"',
+        f'rationale = "{target.get("rationale", "Promoted from suggested mappings.")}"',
+        "",
+    ])
+    with open(rules_path, "a", encoding="utf-8") as f:
+        f.write(block)
+    return True

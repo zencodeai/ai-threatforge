@@ -87,3 +87,35 @@ def rebuild_analysis(
             break
 
     return steps
+
+
+def sync_knowledge(
+    *,
+    attack_version: str = "latest",
+    atlas_version: str = "latest",
+    embed: bool = False,
+    map_heuristics: bool = False,
+    map_threshold: float = 0.40,
+    map_top_k: int = 10,
+    executor: Executor | None = None,
+) -> ActionResult:
+    """Run ``threatforge sync`` with the given options."""
+    args = [
+        "sync",
+        "--attack-version", attack_version,
+        "--atlas-version", atlas_version,
+    ]
+    if embed or map_heuristics:
+        args.append("--embed")
+    if map_heuristics:
+        args.extend([
+            "--map-heuristics",
+            "--map-threshold", str(map_threshold),
+            "--map-top-k", str(map_top_k),
+        ])
+    return run_command(args, executor=executor)
+
+
+def get_sync_status(*, executor: Executor | None = None) -> ActionResult:
+    """Run ``threatforge sync --status``."""
+    return run_command(["sync", "--status"], executor=executor)

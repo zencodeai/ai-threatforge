@@ -48,8 +48,8 @@ class ScoringWeights:
     framework: float = 0.15
 
 
-_TACTIC_BONUS = 0.15
-_FRAMEWORK_BONUS = 0.10
+_TACTIC_BONUS = 1.0
+_FRAMEWORK_BONUS = 1.0
 
 
 def score_suggestions(
