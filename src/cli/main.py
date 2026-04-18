@@ -100,6 +100,7 @@ def _cmd_sync(args: argparse.Namespace) -> int:
             attack_version=args.attack_version,
             atlas_version=args.atlas_version,
             offline_dir=args.offline,
+            embed=args.embed,
         )
     except Exception as exc:
         print(f"FAILED: {exc}")
@@ -109,6 +110,8 @@ def _cmd_sync(args: argparse.Namespace) -> int:
     print(f"  tactics:     {counts['tactics']}")
     print(f"  techniques:  {counts['techniques']}")
     print(f"  mitigations: {counts['mitigations']}")
+    if "embedded" in counts:
+        print(f"  embedded:    {counts['embedded']}")
     return 0
 
 
@@ -122,6 +125,103 @@ def _cmd_ui(args: argparse.Namespace) -> int:
     app_path = str(Path(__file__).resolve().parent.parent / "ui" / "app.py")
     sys.argv = ["streamlit", "run", app_path, "--server.headless=true"]
     stcli.main()
+    return 0
+
+
+def _cmd_suggest_mappings(args: argparse.Namespace) -> int:
+    from analysis.heuristics import discovered_heuristics
+    from analysis.mapping_loader import load_curated_mappings
+    from analysis.suggestion_scorer import ScoredSuggestion, score_suggestions
+    from knowledge.index import TechniqueIndex
+    from knowledge.store import TechniqueStore
+    from knowledge.vector_index import VectorIndex
+
+    try:
+        from knowledge.embedder import SentenceTransformerEmbedder
+    except ImportError:
+        print("sentence-transformers is required. Install with: pip install -e '.[suggest]'")
+        return 1
+
+    store = TechniqueStore()
+    embedder = SentenceTransformerEmbedder()
+    vec_idx = VectorIndex(store, embedder.model_name)
+
+    if not vec_idx.is_populated:
+        print("No embeddings found. Run 'threatforge sync --embed' first.")
+        store.close()
+        return 1
+
+    tech_idx = TechniqueIndex(store)
+
+    if args.rule_id:
+        heuristics = discovered_heuristics()
+        heuristic = next(
+            (h for h in heuristics if h.rule_id == args.rule_id), None,
+        )
+        if not heuristic:
+            print(f"Unknown rule_id: {args.rule_id}")
+            store.close()
+            return 1
+        query_text = f"{heuristic.name}. {heuristic.description}"
+        curated = load_curated_mappings(args.rule_id, index=tech_idx)
+        target_frameworks = heuristic.frameworks
+    else:
+        query_text = args.description
+        curated = ()
+        target_frameworks = ()
+
+    suggestions = score_suggestions(
+        rule_id=args.rule_id or "AD-HOC",
+        heuristic_text=query_text,
+        embedder=embedder,
+        vector_index=vec_idx,
+        technique_index=tech_idx,
+        curated_mappings=curated,
+        target_frameworks=target_frameworks,
+        top_k=args.top_k,
+    )
+    suggestions = [s for s in suggestions if s.composite_score >= args.threshold]
+    store.close()
+
+    if not suggestions:
+        print("No suggestions above threshold.")
+        return 0
+
+    if args.format == "json":
+        import json
+
+        print(json.dumps(
+            [{
+                "technique_id": s.technique_id,
+                "technique_name": s.technique_name,
+                "framework": s.framework,
+                "tactic": s.tactic,
+                "composite_score": round(s.composite_score, 4),
+                "vector_score": round(s.vector_score, 4),
+                "explanation": s.explanation,
+            } for s in suggestions],
+            indent=2,
+        ))
+    elif args.format == "toml":
+        for s in suggestions:
+            print(f'[[mappings]]')
+            print(f'rule_id = "{args.rule_id or "AD-HOC"}"')
+            print(f'technique_id = "{s.technique_id}"')
+            print(f'framework = "{s.framework}"')
+            print(f'tactic = "{s.tactic}"')
+            print(f'rationale = "{s.explanation}"')
+            print()
+    else:
+        header = f"{'Rank':<5} {'ID':<14} {'Name':<40} {'Tactic':<25} {'Score':>6}"
+        print(header)
+        print("-" * len(header))
+        for rank, s in enumerate(suggestions, 1):
+            name = s.technique_name[:38]
+            print(
+                f"{rank:<5} {s.technique_id:<14} {name:<40} "
+                f"{s.tactic:<25} {s.composite_score:>6.3f}"
+            )
+
     return 0
 
 
@@ -160,6 +260,16 @@ def main(argv: list[str] | None = None) -> int:
     p_sync.add_argument("--atlas-version", default="latest", help="ATLAS version to fetch (default: latest)")
     p_sync.add_argument("--offline", type=Path, default=None, help="Directory with local STIX/ATLAS files")
     p_sync.add_argument("--status", action="store_true", help="Show current sync status")
+    p_sync.add_argument("--embed", action="store_true", help="Generate technique embeddings after sync")
+
+    # suggest-mappings
+    p_sg = sub.add_parser("suggest-mappings", help="Suggest technique mappings for a heuristic using vector similarity")
+    p_sg_group = p_sg.add_mutually_exclusive_group(required=True)
+    p_sg_group.add_argument("--rule-id", type=str, help="Heuristic rule ID (e.g. TH-007)")
+    p_sg_group.add_argument("--description", type=str, help="Freeform heuristic description")
+    p_sg.add_argument("--top-k", type=int, default=15, help="Max suggestions (default: 15)")
+    p_sg.add_argument("--threshold", type=float, default=0.30, help="Min composite score (default: 0.30)")
+    p_sg.add_argument("--format", choices=["table", "json", "toml"], default="table", help="Output format")
 
     args = parser.parse_args(argv)
 
@@ -174,6 +284,7 @@ def main(argv: list[str] | None = None) -> int:
         "score-risks": _cmd_score_risks,
         "ui": _cmd_ui,
         "sync": _cmd_sync,
+        "suggest-mappings": _cmd_suggest_mappings,
     }
     return dispatch[args.command](args)
 

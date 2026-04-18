@@ -81,6 +81,7 @@ def sync(
     offline_dir: str | Path | None = None,
     db_path: Path | str = DEFAULT_DB_PATH,
     attack_domains: tuple[str, ...] = ATTACK_DOMAINS,
+    embed: bool = False,
 ) -> dict[str, Any]:
     all_tactics: list[Tactic] = []
     all_techniques: list[Technique] = []
@@ -130,6 +131,12 @@ def sync(
         store.set_meta("last_sync_utc", datetime.now(UTC).isoformat())
         store.set_meta("technique_count", str(counts["techniques"]))
 
+        if embed:
+            from .embedder import embed_techniques
+
+            embedded = embed_techniques(store)
+            counts["embedded"] = embedded
+
     return counts
 
 
@@ -145,5 +152,6 @@ def sync_status(db_path: Path | str = DEFAULT_DB_PATH) -> dict[str, str]:
             "atlas_version": store.get_meta("atlas_version", "unknown"),
             "last_sync_utc": store.get_meta("last_sync_utc", "never"),
             "technique_count": store.get_meta("technique_count", "0"),
+            "embedding_count": str(store.embedding_count("technique")),
             "db_path": str(path),
         }

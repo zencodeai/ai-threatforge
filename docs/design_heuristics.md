@@ -236,10 +236,13 @@ Expanded heuristics connect to ATT&CK/ATLAS through the existing layered mapping
 
 ```
 STRIDE-per-element heuristic
+    → vector-based suggestion (Layer 0: candidate retrieval)
     → curated technique mappings (Layer 1: TOML rules)
     → tactic-based expansion (Layer 2: TechniqueIndex)
     → context filtering (Layer 3: model metadata)
 ```
+
+**Layer 0 — Vector-based technique suggestion** (implemented) uses dense-vector similarity to discover candidate technique bindings for heuristics. At sync time (`threatforge sync --embed`), technique descriptions are encoded into 384-dimensional embeddings and stored in the knowledge base. The `SuggestionScorer` (`src/analysis/suggestion_scorer.py`) blends cosine similarity (60%) with tactic-overlap bonuses (25%) and framework-match bonuses (15%) to rank candidates. This is an offline advisory layer — candidates are surfaced via `threatforge suggest-mappings` for human review and promotion to curated mappings.
 
 Precondition clustering at sync time would make Layer 2 smarter by grouping techniques by architectural precondition signature rather than by tactic alone.
 
@@ -254,6 +257,7 @@ Precondition clustering at sync time would make Layer 2 smarter by grouping tech
 | Model enrichment | ~15–20 per property | Schema extension | Large (per property) |
 | NIST 800-53 control gaps | ~15–20 | Control annotations | Large |
 | ATT&CK precondition clustering | Improves mapping quality | None | Medium |
+| **Vector-based technique suggestion** | **Improves mapping discovery** | **None** | **Done** |
 
 The bottleneck is the model, not the heuristics. STRIDE-per-element is the highest-value next step — it provides a structured audit of "which element × threat combinations can we detect?" and produces a clear gap analysis for subsequent model enrichment.
 

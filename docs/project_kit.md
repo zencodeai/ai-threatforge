@@ -387,17 +387,20 @@ threat-forge-ai/
 │   │       └── sample_queries.cypher
 │   ├── knowledge/
 │   │   ├── models.py                   # Tactic, Technique, Mitigation dataclasses
-│   │   ├── store.py                    # SQLite persistence layer
+│   │   ├── store.py                    # SQLite persistence layer (incl. embeddings table)
 │   │   ├── index.py                    # In-memory TechniqueIndex (context-var scoped)
+│   │   ├── embedder.py                 # TextEmbedder protocol + SentenceTransformerEmbedder
+│   │   ├── vector_index.py             # In-memory VectorIndex for cosine similarity search
 │   │   ├── sync_attack.py              # ATT&CK STIX 2.1 parser + fetcher
 │   │   ├── sync_atlas.py               # ATLAS YAML parser + fetcher
-│   │   └── sync.py                     # Orchestrates full sync across domains
+│   │   └── sync.py                     # Orchestrates full sync across domains (+ --embed)
 │   ├── analysis/
 │   │   ├── threat_generation.py        # ThreatHeuristic dataclass + auto-discovered catalog
 │   │   ├── technique_mapping.py        # Mapping facade (re-exports from mapping_engine/loader/types)
 │   │   ├── mapping_types.py            # TechniqueMapping dataclass + legacy fallbacks
 │   │   ├── mapping_loader.py           # TOML I/O + knowledge-base name resolution
 │   │   ├── mapping_engine.py           # Layered mapping: curated + tactic expansion + filtering
+│   │   ├── suggestion_scorer.py        # Vector-based technique suggestion (Layer 0 composite scoring)
 │   │   ├── materializer_registry.py    # ThreatMaterializer protocol + registry
 │   │   ├── materializers.py            # Backward-compat re-exports from heuristics package
 │   │   ├── risk_scoring.py             # Risk score computation + report generation

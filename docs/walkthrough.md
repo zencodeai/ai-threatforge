@@ -45,6 +45,16 @@ Expected outcome:
 - Prioritized risks saved under `models/outputs/risks/`.
 - Each risk includes weighted score drivers and explanation text.
 
+### Step 4b. (Optional) Generate embeddings and suggest mappings
+```bash
+threatforge sync --embed
+threatforge suggest-mappings --rule-id TH-001 --top-k 10
+```
+Expected outcome:
+- Technique embeddings are stored in the knowledge base.
+- Ranked technique suggestions are displayed with composite scores.
+- Use `--format toml` to produce ready-to-paste `[[mappings]]` entries.
+
 ### Step 5. Ask analyst questions
 ```bash
 threatforge ui

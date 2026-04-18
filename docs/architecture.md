@@ -87,7 +87,11 @@ Both formats are registered automatically at import time. Adding a new heuristic
 
 Each heuristic is executed as a Cypher query against the Neo4j graph. Matched patterns are expanded into `ThreatRecord` objects with structured evidence (affected modules, objects, workflows, paths) and human-readable rationale.
 
-**MITRE ATT&CK / ATLAS mapping** is handled by a layered mapping engine split across three modules: `mapping_types.py` (data model and legacy fallbacks), `mapping_loader.py` (TOML I/O and knowledge-base name resolution), and `mapping_engine.py` (curated + tactic-expansion + context-filtering pipeline). The original `technique_mapping.py` remains as a backward-compatible facade re-exporting the public API. Each `rule_id` maps to one or more `TechniqueMapping` entries containing the technique ID (e.g., `T1190`, `AML.T0016`), tactic category (e.g., Initial Access, Defense Evasion), and a rationale explaining the alignment. Coverage validation ensures every heuristic has at least one technique mapping. Example mappings:
+**MITRE ATT&CK / ATLAS mapping** is handled by a layered mapping engine split across three modules: `mapping_types.py` (data model and legacy fallbacks), `mapping_loader.py` (TOML I/O and knowledge-base name resolution), and `mapping_engine.py` (curated + tactic-expansion + context-filtering pipeline). The original `technique_mapping.py` remains as a backward-compatible facade re-exporting the public API. Each `rule_id` maps to one or more `TechniqueMapping` entries containing the technique ID (e.g., `T1190`, `AML.T0016`), tactic category (e.g., Initial Access, Defense Evasion), and a rationale explaining the alignment. Coverage validation ensures every heuristic has at least one technique mapping.
+
+**Vector-based technique suggestion** (Layer 0) complements the curated mapping pipeline with a dense-vector similarity search. Technique descriptions are encoded at sync time into 384-dimensional embeddings (`all-MiniLM-L6-v2`) and stored in the SQLite knowledge base. A `VectorIndex` provides brute-force cosine similarity search over ~830 technique embeddings. The `SuggestionScorer` (`src/analysis/suggestion_scorer.py`) blends vector similarity (60%) with tactic-overlap bonuses (25%) and framework-match bonuses (15%) to produce ranked `ScoredSuggestion` candidates. This is an offline advisory layer — suggestions are reviewed by a human and promoted to curated mappings in `mapping_rules.toml` via `threatforge suggest-mappings`.
+
+Example mappings:
 
 - TH-001 → T1190 (Exploit Public-Facing Application), T1078 (Valid Accounts)
 - TH-004 → AML.T0016 (Obtain Capabilities — Data Poisoning), AML.T0040 (ML Model Evasion)
@@ -152,6 +156,8 @@ The five tools cover the full analysis surface:
 | `lookup_technique` | In-memory mapping catalog | ATT&CK/ATLAS technique details |
 | `search_knowledge` | Heuristic + mapping corpus | Full-text matches across rules and mappings |
 
+**Knowledge base.** The knowledge layer (`src/knowledge/`) provides a SQLite-backed store for MITRE ATT&CK and ATLAS technique data, synced via `threatforge sync`. The `TechniqueStore` holds tactics, techniques, mitigations, and (optionally) dense vector embeddings. The `TechniqueIndex` provides an in-memory read-only index for fast lookups by ID, tactic, platform, and framework. The `VectorIndex` (`src/knowledge/vector_index.py`) loads pre-computed embeddings for cosine similarity search. Embedding generation is performed by the `TextEmbedder` protocol (`src/knowledge/embedder.py`), with `SentenceTransformerEmbedder` as the default implementation (optional `.[suggest]` dependency).
+
 ### 6. Observability layer
 
 | Attribute | Detail |
@@ -206,6 +212,7 @@ Data access is handled through `src/ui/data_access.py`, which loads Pydantic-val
 
 | Extension | Description |
 |---|---|
+| **Vector-based technique suggestion** | Use `threatforge suggest-mappings` to find candidate technique bindings for new heuristics via dense-vector similarity + composite scoring. Requires `.[suggest]` extra. |
 | **RAG-backed knowledge search** | Replace the stub `search_knowledge` tool with a retriever-backed connector (e.g., vector store over internal security policies). |
 | **Additional ingestion channels** | Ingest SBOMs, IaC definitions, or code metadata alongside TOML models. |
 | **Mitigation generation** | Map threats to control frameworks and generate recommended mitigations with coverage scores. |

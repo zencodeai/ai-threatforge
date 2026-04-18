@@ -3,7 +3,10 @@ from __future__ import annotations
 import json
 import sqlite3
 from pathlib import Path
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
+
+if TYPE_CHECKING:
+    import numpy as np
 
 from .models import Mitigation, Tactic, Technique
 
@@ -53,6 +56,15 @@ CREATE TABLE IF NOT EXISTS technique_mitigations (
     technique_id  TEXT NOT NULL REFERENCES techniques(technique_id),
     mitigation_id TEXT NOT NULL REFERENCES mitigations(mitigation_id),
     PRIMARY KEY (technique_id, mitigation_id)
+);
+
+CREATE TABLE IF NOT EXISTS embeddings (
+    entity_id    TEXT NOT NULL,
+    entity_type  TEXT NOT NULL,
+    model_name   TEXT NOT NULL,
+    vector       BLOB NOT NULL,
+    text_hash    TEXT NOT NULL,
+    PRIMARY KEY (entity_id, entity_type, model_name)
 );
 
 CREATE INDEX IF NOT EXISTS idx_techniques_framework ON techniques(framework);
@@ -239,3 +251,64 @@ class TechniqueStore:
 
     def is_populated(self) -> bool:
         return self.technique_count() > 0
+
+    # ── Embeddings ───────────────────────────────────────────────────
+
+    def upsert_embeddings(
+        self,
+        *,
+        entity_ids: Sequence[str],
+        entity_type: str,
+        model_name: str,
+        vectors: np.ndarray,
+        text_hashes: Sequence[str],
+    ) -> None:
+        cur = self._conn.cursor()
+        for eid, vec, th in zip(entity_ids, vectors, text_hashes):
+            cur.execute(
+                "INSERT OR REPLACE INTO embeddings "
+                "(entity_id, entity_type, model_name, vector, text_hash) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (eid, entity_type, model_name, vec.tobytes(), th),
+            )
+        self._conn.commit()
+
+    def get_embedding_hash(
+        self,
+        entity_id: str,
+        entity_type: str,
+        model_name: str,
+    ) -> str | None:
+        row = self._conn.execute(
+            "SELECT text_hash FROM embeddings "
+            "WHERE entity_id = ? AND entity_type = ? AND model_name = ?",
+            (entity_id, entity_type, model_name),
+        ).fetchone()
+        return row[0] if row else None
+
+    def load_all_embeddings(
+        self,
+        entity_type: str,
+        model_name: str,
+    ) -> tuple[list[str], list[bytes]]:
+        """Return ``(entity_ids, raw_vectors)`` for the given type and model."""
+        rows = self._conn.execute(
+            "SELECT entity_id, vector FROM embeddings "
+            "WHERE entity_type = ? AND model_name = ? ORDER BY entity_id",
+            (entity_type, model_name),
+        ).fetchall()
+        if not rows:
+            return [], []
+        ids = [r[0] for r in rows]
+        blobs = [r[1] for r in rows]
+        return ids, blobs
+
+    def embedding_count(self, entity_type: str | None = None) -> int:
+        if entity_type:
+            row = self._conn.execute(
+                "SELECT COUNT(*) FROM embeddings WHERE entity_type = ?",
+                (entity_type,),
+            ).fetchone()
+        else:
+            row = self._conn.execute("SELECT COUNT(*) FROM embeddings").fetchone()
+        return row[0] if row else 0

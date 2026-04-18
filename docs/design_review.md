@@ -915,3 +915,113 @@ Adding a new heuristic now supports three paths:
 | Hybrid (TOML + Python override) | Both | `mapping_rules.toml` | Yes |
 
 The TOML-only path is the zero-code extension point envisioned in design review Section 4.1.
+
+---
+
+## Appendix F — Vector-Based Technique Suggestion Engine
+
+> Implemented: 2026-04-18
+> Test result: 128 passed, 2 skipped, 2 pre-existing failures (25 new tests added)
+
+### F.1 — Problem
+
+Writing curated technique mappings for new heuristics requires manually searching through ~830 ATT&CK/ATLAS techniques to find relevant bindings. The mapping engine's Layer 2 (tactic expansion) broadens coverage but only within tactics already present in curated mappings. There was no automated way to discover candidate technique bindings — especially cross-tactic matches where the relationship is causal rather than topical.
+
+### F.2 — Solution
+
+Added a **Layer 0 (candidate retrieval)** to the mapping pipeline using dense-vector similarity search with composite scoring. Technique descriptions are embedded at sync time into 384-dimensional vectors and stored in the existing SQLite knowledge base. A composite scorer blends vector similarity with structured metadata signals to rank candidates for human review.
+
+### F.3 — New Files
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `src/knowledge/embedder.py` | ~120 | `TextEmbedder` protocol + `SentenceTransformerEmbedder` implementation (lazy-loaded, `all-MiniLM-L6-v2`). `embed_techniques()` function generates/updates embeddings at sync time with SHA-256 hash-based change detection for idempotency. |
+| `src/knowledge/vector_index.py` | ~65 | `VectorIndex` — in-memory brute-force cosine similarity search via `numpy.matmul`. Loads pre-computed embeddings from `TechniqueStore`. |
+| `src/analysis/suggestion_scorer.py` | ~130 | `ScoredSuggestion` dataclass, `ScoringWeights` config, `score_suggestions()` function. Composite scoring: vector similarity (60%) + tactic-overlap bonus (25%) + framework-match bonus (15%). |
+| `tests/test_embedder.py` | ~150 | 11 tests: protocol compliance, embed/skip/re-embed logic, SQLite round-trip, import guard. |
+| `tests/test_vector_index.py` | ~110 | 6 tests: empty index, ranking, top-k, exclude, edge cases. |
+| `tests/test_suggestion_scorer.py` | ~260 | 8 tests: basic ranking, curated exclusion, tactic bonus, framework bonus, empty index, top-k, explanations, custom weights. |
+
+### F.4 — Modified Files
+
+| File | Change |
+|------|--------|
+| `src/knowledge/store.py` | Added `embeddings` table to schema (entity_id, entity_type, model_name, vector BLOB, text_hash). Added methods: `upsert_embeddings()`, `get_embedding_hash()`, `load_all_embeddings()`, `embedding_count()`. |
+| `src/knowledge/sync.py` | Added `embed: bool = False` parameter to `sync()`. When true, calls `embed_techniques()` after storing technique data. Added `embedding_count` to `sync_status()` output. |
+| `src/cli/main.py` | Added `--embed` flag to `sync` subcommand. Added `suggest-mappings` subcommand with `--rule-id`, `--description`, `--top-k`, `--threshold`, `--format` (table/json/toml). |
+| `pyproject.toml` | Added `[suggest]` optional dependency group: `sentence-transformers>=2.2`, `numpy>=1.24`. |
+
+### F.5 — Composite Scoring Algorithm
+
+The scorer blends three signals:
+
+$$s = w_v \cdot s_\text{vec} + w_t \cdot b_\text{tactic} + w_f \cdot b_\text{framework}$$
+
+| Signal | Weight | Value | Trigger |
+|--------|--------|-------|---------|
+| Vector similarity | 0.60 | Cosine similarity [0, 1] | Always |
+| Tactic overlap | 0.25 | 0.15 fixed bonus | Technique shares a tactic with any curated mapping for the rule |
+| Framework match | 0.15 | 0.10 fixed bonus | Technique framework matches heuristic's `frameworks` field |
+
+The tactic bonus rescues causal-but-topically-distant mappings. For example, TH-002 (lateral movement paths) maps to T1485 (Data Destruction) because path access implies impact — the tactic bonus compensates for low vector similarity.
+
+### F.6 — Pipeline Integration
+
+```
+                       ┌──────────────────────────┐
+CLI / UI               │  suggest-mappings TH-007  │
+                       └──────────┬───────────────┘
+                                  │
+             ┌────────────────────▼───────────────────────┐
+Layer 0      │  score_suggestions()                       │
+(NEW)        │  embed heuristic → vector search → score   │
+             │  → ranked ScoredSuggestion list            │
+             └────────────────────┬───────────────────────┘
+                                  │  (human reviews, promotes to TOML)
+                                  ▼
+             ┌────────────────────────────────────────────┐
+Layer 1      │  load_curated_mappings()    (unchanged)    │
+Layer 2      │  _expand_by_tactic()        (unchanged)    │
+Layer 3      │  _filter_by_context()       (unchanged)    │
+             └────────────────────────────────────────────┘
+```
+
+Layer 0 is **offline/advisory** — it does not inject results into the threat generation pipeline. Suggestions are reviewed by a human operator who decides which candidates to promote into `mapping_rules.toml`.
+
+### F.7 — CLI Usage
+
+```bash
+# Sync with embedding generation
+threatforge sync --embed
+
+# Suggest mappings for an existing heuristic
+threatforge suggest-mappings --rule-id TH-001 --top-k 10
+
+# Suggest from freeform description
+threatforge suggest-mappings --description "AI model receives unvalidated user input"
+
+# Output as ready-to-paste TOML
+threatforge suggest-mappings --rule-id TH-007 --format toml --threshold 0.35
+```
+
+### F.8 — Dependencies
+
+| Package | Version | Purpose | Required |
+|---------|---------|---------|----------|
+| `sentence-transformers` | ≥2.2 | Text embedding | Optional (`.[suggest]`) |
+| `numpy` | ≥1.24 | Vector operations | Optional (`.[suggest]`) |
+| `torch` | ≥2.0 | ST backend | Pulled by sentence-transformers |
+
+All vector functionality is guarded behind `ImportError` checks with clear installation instructions.
+
+### F.9 — Test Verification
+
+Full test suite run after all changes:
+
+```
+128 passed, 2 skipped, 2 failed
+```
+
+- 25 new tests added across 3 test files
+- All 103 pre-existing passing tests remain green
+- The 2 pre-existing failures are unchanged (source label mismatch in `test_agents_tools.py`)
