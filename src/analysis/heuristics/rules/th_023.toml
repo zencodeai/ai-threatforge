@@ -1,0 +1,38 @@
+[heuristic]
+rule_id = "TH-023"
+name = "Dependency chain crossing three distinct security domains"
+description = """Detect dependency chains that traverse three distinct security domains \
+(A in D1 -> B in D2 -> C in D3), amplifying manipulation risk through multi-boundary \
+traversal."""
+graph_pattern = """(a)-[:IN_DOMAIN]->(d1), (a)-[:DEPENDS_ON]->(b)-[:IN_DOMAIN]->(d2), \
+(b)-[:DEPENDS_ON]->(c)-[:IN_DOMAIN]->(d3) WHERE d1 <> d2 <> d3 <> d1"""
+target_type = "module"
+severity_hint = "medium"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- target.id",
+    "target_type <- 'module'",
+    "source_module <- first module in chain",
+    "intermediate <- middle module in chain",
+    "domains <- three distinct security domains traversed",
+    "rationale <- dependency chain crosses multiple security boundaries",
+]
+
+[materializer]
+primary = "multi_domain_chain"
+sort_by = ["source_module", "target"]
+skip_if_empty = "target"
+target_id_field = "target"
+id_fields = ["source_module", "intermediate", "target"]
+rationale = "Dependency chain crosses three distinct security domains, amplifying risk."
+
+[materializer.evidence]
+source_module = "row.source_module"
+source_domain = "row.source_domain"
+intermediate = "row.intermediate"
+intermediate_domain = "row.intermediate_domain"
+target_domain = "row.target_domain"
+
+[materializer.affected]
+workflows = []
+objects = []

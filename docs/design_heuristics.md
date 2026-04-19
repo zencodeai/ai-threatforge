@@ -385,3 +385,78 @@ All 6 existing heuristics have both Python and TOML definitions. The test suite 
 1. Create `src/analysis/heuristics/rules/th_007.toml` with `[heuristic]` and `[materializer]` sections
 2. Add technique mappings in `data/threat_intel/mapping_rules.toml`
 3. No Python code changes required — the heuristic and materializer are discovered automatically
+
+---
+
+## 8. Phase 2 — CAPEC Meta/Standard Gap Fill
+
+> Implemented: 2026-04-19
+
+Phase 2 uses CAPEC Meta/Standard entries to fill gaps where STRIDE identifies a threat category but does not specify the architectural pattern shape. This adds 10 heuristics (TH-015 through TH-024) covering three focus areas: **privilege escalation paths**, **communication channel patterns**, and **supply-chain dependency risks**.
+
+### New heuristics
+
+| Rule | CAPEC | Name | Target | Severity | Detection Signal |
+|---|---|---|---|---|---|
+| TH-015 | CAPEC-233 | Transitive privilege escalation through dependency chain | module | critical | A→B→C with increasing privilege at each hop |
+| TH-016 | CAPEC-69 | External actor workflow path to privileged module | module | high | Actor→Workflow→Module with privilege ≥ service |
+| TH-017 | CAPEC-122 | Low-trust module writes to higher-trust datastore | datastore | high | Low-trust Module →{writes}→ DataStore in higher-trust domain |
+| TH-018 | CAPEC-560 | Credential object exposed in low-trust workflow | object | critical | Credential object in workflow with low-trust module |
+| TH-019 | CAPEC-176 | High fan-in dependency target | module | medium | Module/DataStore with ≥3 incoming dependencies |
+| TH-020 | CAPEC-216 | Workflow spanning disparate trust levels | workflow | high | Low + high trust modules in same workflow |
+| TH-021 | CAPEC-113 | External actor accessing workflow with regulated data | workflow | high | Actor in workflow with regulated objects |
+| TH-022 | CAPEC-438 | AI datastore accessible from low-trust module | datastore | high | Low-trust module → AI-relevant DataStore |
+| TH-023 | CAPEC-439 | Dependency chain crossing three distinct security domains | module | medium | A(D1)→B(D2)→C(D3) through 3 distinct domains |
+| TH-024 | CAPEC-212 | Internet-exposed module with transitive sensitive datastore access | module | high | Exposed module→chain→sensitive DataStore |
+
+### CAPEC coverage mapping
+
+Each heuristic maps a CAPEC architectural precondition to a detectable graph pattern:
+
+- **Privilege escalation paths** (CAPEC-233, CAPEC-69, CAPEC-122): TH-015 extends TH-011's direct privilege gap to multi-hop chains. TH-016 traces the full actor-to-privilege path. TH-017 detects cross-trust write access.
+- **Communication channel patterns** (CAPEC-216, CAPEC-113, CAPEC-560): TH-020 detects workflows bridging the widest trust gap. TH-021 catches external access to regulated data. TH-018 catches credential exposure in low-trust workflows.
+- **Supply-chain dependency risks** (CAPEC-438, CAPEC-439, CAPEC-176, CAPEC-212): TH-022 protects AI datastores from untrusted access. TH-023 detects multi-domain traversal. TH-019 identifies high-value manipulation targets. TH-024 traces deep exposure paths from internet-facing modules.
+
+### Implementation details
+
+All 10 heuristics are TOML-only — no Python modules required. Each adds:
+
+1. A **Cypher query** in `graph_queries.py` (10 new methods under the `CAPEC expansion queries` section)
+2. A **snapshot key** in `threat_outputs._build_snapshot()` (10 new entries)
+3. A **TOML rule file** in `src/analysis/heuristics/rules/` (th_015.toml – th_024.toml)
+4. **Curated technique mappings** in `data/threat_intel/mapping_rules.toml` (20 new entries, 2 per heuristic)
+
+### Technique mapping summary
+
+| Rule | Techniques | Frameworks |
+|---|---|---|
+| TH-015 | T1068, T1548 | ATT&CK |
+| TH-016 | T1078, T1068 | ATT&CK |
+| TH-017 | T1565, T1485 | ATT&CK |
+| TH-018 | T1552, T1078 | ATT&CK |
+| TH-019 | T1195, T1574 | ATT&CK |
+| TH-020 | T1557, T1021 | ATT&CK |
+| TH-021 | T1530, T1020 | ATT&CK |
+| TH-022 | AML.T0016, AML.T0040 | ATLAS |
+| TH-023 | T1570, T1090 | ATT&CK |
+| TH-024 | T1005, T1190 | ATT&CK |
+
+### Test coverage
+
+The test suite (`test_generic_materializer.py`) adds 29 new tests:
+
+- **10 TOML parsing tests** — verify each rule parses with correct rule_id, name, target_type, severity, and frameworks
+- **10 materializer output tests** — verify each rule produces the expected number of threats from synthetic snapshot data
+- **5 field-level tests** — verify evidence, affected_workflows, and affected_objects for representative heuristics (TH-015, TH-016, TH-018, TH-020, TH-021)
+- **1 empty snapshot test** — verify all 10 heuristics produce 0 threats from empty snapshot
+- **3 discovery integration tests** — verify all 10 rules are discovered, registered, and the total count reaches 24
+
+Full test suite result: **188 passed**, 3 pre-existing failures (unchanged from Phase 1 baseline).
+
+### Heuristic count progression
+
+| Phase | Heuristics | Total |
+|---|---|---|
+| Phase 0 (original) | TH-001 – TH-006 | 6 |
+| Phase 1 (STRIDE) | TH-007 – TH-014 | 14 |
+| Phase 2 (CAPEC) | TH-015 – TH-024 | **24** |

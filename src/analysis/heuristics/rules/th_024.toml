@@ -1,0 +1,37 @@
+[heuristic]
+rule_id = "TH-024"
+name = "Internet-exposed module with transitive sensitive datastore access"
+description = """Detect internet-exposed modules that can reach datastores containing \
+confidential, secret, or regulated objects through transitive dependency chains, \
+creating deep data exposure paths."""
+graph_pattern = """(m:Module {internet_exposed:true})-[:DEPENDS_ON*1..3]->(ds:DataStore)\
+-[:STORES]->(o:Object) WHERE o.classification IN ['confidential','secret'] \
+OR o.regulated=true"""
+target_type = "module"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- exposed_module.id",
+    "target_type <- 'module'",
+    "datastore <- reachable datastore with sensitive data",
+    "sensitive_objects <- classified or regulated objects in datastore",
+    "rationale <- deep exposure path from internet to sensitive datastore",
+]
+
+[materializer]
+primary = "exposed_transitive_stores"
+sort_by = ["exposed_module", "datastore_id"]
+skip_if_empty = "exposed_module"
+target_id_field = "exposed_module"
+id_fields = ["exposed_module", "datastore_id"]
+rationale = "Internet-exposed module has transitive dependency path to sensitive datastore."
+
+[materializer.evidence]
+exposed_name = "row.exposed_name"
+datastore_id = "row.datastore_id"
+datastore_name = "row.datastore_name"
+sensitive_objects = "row.sensitive_objects"
+
+[materializer.affected]
+workflows = []
+objects = []

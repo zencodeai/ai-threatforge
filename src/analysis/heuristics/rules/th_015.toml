@@ -1,0 +1,39 @@
+[heuristic]
+rule_id = "TH-015"
+name = "Transitive privilege escalation through dependency chain"
+description = """Detect dependency chains where privilege level increases at each hop \
+(A->B->C with A.priv < B.priv < C.priv), enabling transitive privilege escalation \
+deeper than a single dependency step."""
+graph_pattern = """(a:Module)-[:DEPENDS_ON]->(b:Module)-[:DEPENDS_ON]->(c:Module) \
+WHERE a.privilege < b.privilege < c.privilege"""
+target_type = "module"
+severity_hint = "critical"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- target_module.id",
+    "target_type <- 'module'",
+    "source_module <- lowest privilege module in chain",
+    "intermediate_module <- middle module in chain",
+    "total_privilege_gap <- privilege difference across full chain",
+    "rationale <- transitive privilege escalation path",
+]
+
+[materializer]
+primary = "transitive_priv_escalation"
+sort_by = ["source_module", "target_module"]
+skip_if_empty = "target_module"
+target_id_field = "target_module"
+id_fields = ["source_module", "intermediate_module", "target_module"]
+rationale = "Dependency chain enables transitive privilege escalation across multiple hops."
+
+[materializer.evidence]
+source_module = "row.source_module"
+source_privilege = "row.source_privilege"
+intermediate_module = "row.intermediate_module"
+intermediate_privilege = "row.intermediate_privilege"
+target_privilege = "row.target_privilege"
+total_privilege_gap = "row.total_privilege_gap"
+
+[materializer.affected]
+workflows = []
+objects = []

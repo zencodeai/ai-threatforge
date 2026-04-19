@@ -1,0 +1,35 @@
+[heuristic]
+rule_id = "TH-022"
+name = "AI datastore accessible from low-trust module"
+description = """Detect AI-relevant datastores that are directly depended upon by modules \
+in low-trust security domains, creating supply-chain risk to ML model data through \
+untrusted access paths."""
+graph_pattern = """(m:Module)-[:DEPENDS_ON]->(ds:DataStore {ai_relevant:true}), \
+(m)-[:IN_DOMAIN]->(d {trust_level:'low'})"""
+target_type = "datastore"
+severity_hint = "high"
+frameworks = ["ATLAS", "ATTACK"]
+output_field_mapping = [
+    "target_id <- datastore.id",
+    "target_type <- 'datastore'",
+    "untrusted_module <- module in low-trust domain",
+    "rationale <- AI datastore accessible from untrusted zone",
+]
+
+[materializer]
+primary = "untrusted_ai_store"
+sort_by = ["module_id", "datastore_id"]
+skip_if_empty = "datastore_id"
+target_id_field = "datastore_id"
+id_fields = ["module_id", "datastore_id"]
+rationale = "AI-relevant datastore is accessible from module in low-trust domain."
+
+[materializer.evidence]
+module_id = "row.module_id"
+module_name = "row.module_name"
+module_trust = "row.module_trust"
+datastore_name = "row.datastore_name"
+
+[materializer.affected]
+workflows = []
+objects = []

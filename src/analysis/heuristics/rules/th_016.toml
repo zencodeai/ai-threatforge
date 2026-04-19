@@ -1,0 +1,40 @@
+[heuristic]
+rule_id = "TH-016"
+name = "External actor workflow path to privileged module"
+description = """Detect workflows where an external actor participates and the workflow \
+involves a module with service-level or higher privilege, enabling direct actor-to-privilege \
+exploitation."""
+graph_pattern = """(a:ExternalActor)-[:PARTICIPATES_IN]->(w:Workflow)-[:INVOLVES_MODULE]->\
+(m:Module)-[:HAS_PRIVILEGE]->(p:PrivilegeLevel) WHERE p.level >= 2"""
+target_type = "module"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- module.id",
+    "target_type <- 'module'",
+    "actor <- external actor accessing workflow",
+    "workflow <- workflow connecting actor to module",
+    "privilege_level <- module privilege level",
+    "rationale <- external actor path to privileged module",
+]
+
+[materializer]
+primary = "actor_privileged_modules"
+sort_by = ["actor_id", "module_id"]
+skip_if_empty = "module_id"
+target_id_field = "module_id"
+id_fields = ["actor_id", "module_id"]
+rationale = "External actor has workflow path to module with elevated privileges."
+
+[materializer.evidence]
+actor_id = "row.actor_id"
+actor_name = "row.actor_name"
+actor_type = "row.actor_type"
+workflow_id = "row.workflow_id"
+workflow_name = "row.workflow_name"
+module_name = "row.module_name"
+privilege_level = "row.privilege_level"
+
+[materializer.affected]
+workflows = ["row.workflow_id"]
+objects = []

@@ -1,0 +1,35 @@
+[heuristic]
+rule_id = "TH-019"
+name = "High fan-in dependency target"
+description = """Detect modules or datastores that are depended upon by 3 or more other \
+modules, making them high-value targets for configuration manipulation or environment \
+poisoning."""
+graph_pattern = """(src:Module)-[:DEPENDS_ON]->(tgt) WHERE count(DISTINCT src) >= 3"""
+target_type = "module"
+severity_hint = "medium"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- target.id",
+    "target_type <- target label (module or datastore)",
+    "fan_in <- number of dependent modules",
+    "dependent_modules <- list of depending modules",
+    "rationale <- high-value manipulation target due to many dependents",
+]
+
+[materializer]
+primary = "high_fan_in"
+sort_by = ["target_id"]
+skip_if_empty = "target_id"
+target_id_field = "target_id"
+id_fields = ["target_id"]
+rationale = "Component is depended upon by many modules, making it a high-value manipulation target."
+
+[materializer.evidence]
+target_name = "row.target_name"
+target_label = "row.target_label"
+fan_in = "row.fan_in"
+dependent_modules = "row.dependent_modules"
+
+[materializer.affected]
+workflows = []
+objects = []

@@ -285,3 +285,248 @@ class TestDiscoveryIntegration:
         mats = {m.rule_id: m for m in discovered_materializers()}
         # TH-003 has both Python and TOML; the Python class should win
         assert not isinstance(mats["TH-003"], GenericMaterializer)
+
+
+# ── CAPEC Phase 2 heuristics (TH-015 – TH-024) ──────────────────
+
+
+def _capec_snapshot() -> dict[str, list[dict[str, Any]]]:
+    """Snapshot data covering all Phase 2 CAPEC heuristic queries."""
+    return {
+        "transitive_priv_escalation": [
+            {
+                "source_module": "mobile_app",
+                "source_privilege": 1,
+                "intermediate_module": "api_gateway",
+                "intermediate_privilege": 2,
+                "target_module": "payment_service",
+                "target_privilege": 3,
+                "total_privilege_gap": 2,
+            },
+        ],
+        "actor_privileged_modules": [
+            {
+                "actor_id": "customer",
+                "actor_name": "Customer",
+                "actor_type": "end_user",
+                "workflow_id": "payment_execution",
+                "workflow_name": "Payment Execution",
+                "module_id": "payment_service",
+                "module_name": "Payment Service",
+                "privilege_level": 2,
+            },
+        ],
+        "cross_trust_writes": [
+            {
+                "module_id": "edge_writer",
+                "module_name": "Edge Writer",
+                "module_trust": "low",
+                "datastore_id": "txn_db",
+                "datastore_name": "Transaction Database",
+                "datastore_trust": "high",
+                "relationship": "writes",
+            },
+        ],
+        "credential_low_trust": [
+            {
+                "object_id": "user_credentials",
+                "object_name": "User Credentials",
+                "workflow_id": "user_login",
+                "workflow_name": "User Login",
+                "module_id": "mobile_app",
+                "module_name": "Mobile App",
+                "domain_id": "client",
+            },
+        ],
+        "high_fan_in": [
+            {
+                "target_id": "api_gateway",
+                "target_name": "API Gateway",
+                "target_label": "Module",
+                "fan_in": 3,
+                "dependent_modules": ["mobile_app", "admin_panel", "monitoring"],
+            },
+        ],
+        "workflow_trust_span": [
+            {
+                "workflow_id": "payment_execution",
+                "workflow_name": "Payment Execution",
+                "trust_levels": ["low", "medium", "high"],
+                "domains": ["client", "edge", "backend"],
+            },
+        ],
+        "actor_regulated_access": [
+            {
+                "actor_id": "customer",
+                "actor_name": "Customer",
+                "actor_type": "end_user",
+                "workflow_id": "payment_execution",
+                "workflow_name": "Payment Execution",
+                "object_id": "payment_instruction",
+                "object_name": "Payment Instruction",
+            },
+        ],
+        "untrusted_ai_store": [
+            {
+                "module_id": "data_collector",
+                "module_name": "Data Collector",
+                "module_trust": "low",
+                "datastore_id": "feature_store",
+                "datastore_name": "Feature Store",
+            },
+        ],
+        "multi_domain_chain": [
+            {
+                "source_module": "mobile_app",
+                "source_domain": "client",
+                "intermediate": "api_gateway",
+                "intermediate_domain": "edge",
+                "target": "payment_service",
+                "target_domain": "backend",
+            },
+        ],
+        "exposed_transitive_stores": [
+            {
+                "exposed_module": "api_gateway",
+                "exposed_name": "API Gateway",
+                "datastore_id": "txn_db",
+                "datastore_name": "Transaction Database",
+                "sensitive_objects": ["payment_instruction"],
+            },
+        ],
+    }
+
+
+class TestCAPECHeuristicParsing:
+    """Verify all Phase 2 CAPEC TOML rules parse correctly."""
+
+    @pytest.mark.parametrize(
+        "toml_file,expected_id",
+        [
+            ("th_015.toml", "TH-015"),
+            ("th_016.toml", "TH-016"),
+            ("th_017.toml", "TH-017"),
+            ("th_018.toml", "TH-018"),
+            ("th_019.toml", "TH-019"),
+            ("th_020.toml", "TH-020"),
+            ("th_021.toml", "TH-021"),
+            ("th_022.toml", "TH-022"),
+            ("th_023.toml", "TH-023"),
+            ("th_024.toml", "TH-024"),
+        ],
+    )
+    def test_heuristic_parses_from_toml(self, toml_file: str, expected_id: str) -> None:
+        h, _ = _load_rule(toml_file)
+        assert h.rule_id == expected_id
+        assert h.name
+        assert h.description
+        assert h.target_type in {"module", "workflow", "object", "datastore", "system"}
+        assert h.severity_hint in {"low", "medium", "high", "critical"}
+        assert len(h.frameworks) >= 1
+
+
+class TestCAPECMaterializerOutput:
+    """Verify Phase 2 TOML materializers produce correct threat records."""
+
+    @pytest.mark.parametrize(
+        "toml_file,snapshot_key,expected_count",
+        [
+            ("th_015.toml", "transitive_priv_escalation", 1),
+            ("th_016.toml", "actor_privileged_modules", 1),
+            ("th_017.toml", "cross_trust_writes", 1),
+            ("th_018.toml", "credential_low_trust", 1),
+            ("th_019.toml", "high_fan_in", 1),
+            ("th_020.toml", "workflow_trust_span", 1),
+            ("th_021.toml", "actor_regulated_access", 1),
+            ("th_022.toml", "untrusted_ai_store", 1),
+            ("th_023.toml", "multi_domain_chain", 1),
+            ("th_024.toml", "exposed_transitive_stores", 1),
+        ],
+    )
+    def test_produces_expected_threat_count(
+        self, toml_file: str, snapshot_key: str, expected_count: int,
+    ) -> None:
+        h, mat = _load_rule(toml_file)
+        snapshot = _capec_snapshot()
+        threats = _run_materializer(mat, h, snapshot)
+        assert len(threats) == expected_count, (
+            f"{toml_file}: expected {expected_count} threats, got {len(threats)}"
+        )
+
+    def test_th_015_transitive_escalation_fields(self) -> None:
+        h, mat = _load_rule("th_015.toml")
+        threats = _run_materializer(mat, h, _capec_snapshot())
+        t = threats[0]
+        assert t.rule_id == "TH-015"
+        assert t.target_id == "payment_service"
+        assert t.severity_hint == "critical"
+        assert t.evidence["source_module"] == "mobile_app"
+        assert t.evidence["intermediate_module"] == "api_gateway"
+        assert t.evidence["total_privilege_gap"] == 2
+
+    def test_th_016_actor_privileged_module_fields(self) -> None:
+        h, mat = _load_rule("th_016.toml")
+        threats = _run_materializer(mat, h, _capec_snapshot())
+        t = threats[0]
+        assert t.rule_id == "TH-016"
+        assert t.target_id == "payment_service"
+        assert t.evidence["actor_id"] == "customer"
+        assert t.evidence["privilege_level"] == 2
+        assert t.affected_workflows == ["payment_execution"]
+
+    def test_th_018_credential_exposure_fields(self) -> None:
+        h, mat = _load_rule("th_018.toml")
+        threats = _run_materializer(mat, h, _capec_snapshot())
+        t = threats[0]
+        assert t.rule_id == "TH-018"
+        assert t.target_id == "user_credentials"
+        assert t.severity_hint == "critical"
+        assert t.affected_workflows == ["user_login"]
+        assert t.affected_objects == ["user_credentials"]
+
+    def test_th_020_trust_span_fields(self) -> None:
+        h, mat = _load_rule("th_020.toml")
+        threats = _run_materializer(mat, h, _capec_snapshot())
+        t = threats[0]
+        assert t.rule_id == "TH-020"
+        assert t.target_id == "payment_execution"
+        assert t.target_type == "workflow"
+        assert t.evidence["trust_levels"] == ["low", "medium", "high"]
+
+    def test_th_021_regulated_access_fields(self) -> None:
+        h, mat = _load_rule("th_021.toml")
+        threats = _run_materializer(mat, h, _capec_snapshot())
+        t = threats[0]
+        assert t.rule_id == "TH-021"
+        assert t.target_id == "payment_execution"
+        assert t.evidence["object_id"] == "payment_instruction"
+        assert t.affected_objects == ["payment_instruction"]
+
+    def test_empty_snapshot_produces_no_threats(self) -> None:
+        """All CAPEC heuristics should produce 0 threats from empty snapshot."""
+        for i in range(15, 25):
+            toml_file = f"th_{i:03d}.toml"
+            h, mat = _load_rule(toml_file)
+            threats = _run_materializer(mat, h, {})
+            assert threats == [], f"{toml_file} produced threats from empty snapshot"
+
+
+class TestCAPECDiscoveryIntegration:
+    """Verify Phase 2 heuristics are discovered and registered."""
+
+    def test_discovered_heuristics_include_capec_set(self) -> None:
+        from analysis.heuristics import discovered_heuristics
+        ids = {h.rule_id for h in discovered_heuristics()}
+        expected = {f"TH-{i:03d}" for i in range(15, 25)}
+        assert expected.issubset(ids), f"Missing: {expected - ids}"
+
+    def test_discovered_materializers_include_capec_set(self) -> None:
+        from analysis.heuristics import discovered_materializers
+        ids = {m.rule_id for m in discovered_materializers()}
+        expected = {f"TH-{i:03d}" for i in range(15, 25)}
+        assert expected.issubset(ids), f"Missing: {expected - ids}"
+
+    def test_total_heuristic_count(self) -> None:
+        from analysis.heuristics import discovered_heuristics
+        # Phase 0: TH-001–TH-006, Phase 1: TH-007–TH-014, Phase 2: TH-015–TH-024
+        assert len(discovered_heuristics()) == 24

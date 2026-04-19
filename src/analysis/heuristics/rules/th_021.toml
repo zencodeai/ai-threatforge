@@ -1,0 +1,37 @@
+[heuristic]
+rule_id = "TH-021"
+name = "External actor accessing workflow with regulated data"
+description = """Detect external actors participating in workflows that involve regulated \
+objects, creating compliance risk through uncontrolled external access to protected data."""
+graph_pattern = """(a:ExternalActor)-[:PARTICIPATES_IN]->(w:Workflow)-[:INVOLVES_OBJECT]->\
+(o:Object {regulated:true})"""
+target_type = "workflow"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- workflow.id",
+    "target_type <- 'workflow'",
+    "actor <- external actor with access",
+    "regulated_object <- regulated object in workflow",
+    "rationale <- external actor accesses regulated data workflow",
+]
+
+[materializer]
+primary = "actor_regulated_access"
+sort_by = ["actor_id", "workflow_id", "object_id"]
+skip_if_empty = "workflow_id"
+target_id_field = "workflow_id"
+id_fields = ["actor_id", "workflow_id", "object_id"]
+rationale = "External actor participates in workflow processing regulated data."
+
+[materializer.evidence]
+actor_id = "row.actor_id"
+actor_name = "row.actor_name"
+actor_type = "row.actor_type"
+workflow_name = "row.workflow_name"
+object_id = "row.object_id"
+object_name = "row.object_name"
+
+[materializer.affected]
+workflows = ["row.workflow_id"]
+objects = ["row.object_id"]

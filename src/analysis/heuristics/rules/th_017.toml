@@ -1,0 +1,40 @@
+[heuristic]
+rule_id = "TH-017"
+name = "Low-trust module writes to higher-trust datastore"
+description = """Detect modules in low-trust security domains that have write or \
+read-write access to datastores in medium or high-trust domains, enabling cross-trust \
+data manipulation."""
+graph_pattern = """(m:Module)-[:DEPENDS_ON {writes}]->(ds:DataStore), \
+(m)-[:IN_DOMAIN]->(md {trust_level:'low'}), (ds)-[:IN_DOMAIN]->(dd) \
+WHERE dd.trust_level IN ['medium','high']"""
+target_type = "datastore"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- datastore.id",
+    "target_type <- 'datastore'",
+    "writing_module <- low-trust module with write access",
+    "module_trust <- trust level of writing module domain",
+    "datastore_trust <- trust level of datastore domain",
+    "rationale <- cross-trust write access from untrusted zone",
+]
+
+[materializer]
+primary = "cross_trust_writes"
+sort_by = ["module_id", "datastore_id"]
+skip_if_empty = "datastore_id"
+target_id_field = "datastore_id"
+id_fields = ["module_id", "datastore_id"]
+rationale = "Low-trust module has write access to datastore in higher-trust domain."
+
+[materializer.evidence]
+module_id = "row.module_id"
+module_name = "row.module_name"
+module_trust = "row.module_trust"
+datastore_name = "row.datastore_name"
+datastore_trust = "row.datastore_trust"
+relationship = "row.relationship"
+
+[materializer.affected]
+workflows = []
+objects = []

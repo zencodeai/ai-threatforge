@@ -1,0 +1,35 @@
+[heuristic]
+rule_id = "TH-020"
+name = "Workflow spanning disparate trust levels"
+description = """Detect workflows that involve modules from both low-trust and high-trust \
+security domains, creating a communication channel that bridges the widest trust gap and \
+amplifying manipulation risk."""
+graph_pattern = """(w:Workflow)-[:INVOLVES_MODULE]->(m:Module)-[:IN_DOMAIN]->(d) \
+WITH w, collect(d.trust_level) WHERE 'low' IN trust_levels AND 'high' IN trust_levels"""
+target_type = "workflow"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- workflow.id",
+    "target_type <- 'workflow'",
+    "trust_levels <- trust levels spanned",
+    "domains <- security domains involved",
+    "rationale <- workflow bridges widest trust gap",
+]
+
+[materializer]
+primary = "workflow_trust_span"
+sort_by = ["workflow_id"]
+skip_if_empty = "workflow_id"
+target_id_field = "workflow_id"
+id_fields = ["workflow_id"]
+rationale = "Workflow spans from low-trust to high-trust domain, creating wide attack surface."
+
+[materializer.evidence]
+workflow_name = "row.workflow_name"
+trust_levels = "row.trust_levels"
+domains = "row.domains"
+
+[materializer.affected]
+workflows = ["row.workflow_id"]
+objects = []

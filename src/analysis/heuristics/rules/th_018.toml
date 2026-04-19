@@ -1,0 +1,38 @@
+[heuristic]
+rule_id = "TH-018"
+name = "Credential object exposed in low-trust workflow"
+description = """Detect credential objects involved in workflows that include modules \
+from low-trust security domains, creating credential theft risk through untrusted \
+components."""
+graph_pattern = """(w:Workflow)-[:INVOLVES_OBJECT]->(o:Object {object_type:'credential'}), \
+(w)-[:INVOLVES_MODULE]->(m:Module)-[:IN_DOMAIN]->(d {trust_level:'low'})"""
+target_type = "object"
+severity_hint = "critical"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- object.id",
+    "target_type <- 'object'",
+    "workflow <- workflow exposing credential",
+    "low_trust_module <- module in low-trust domain",
+    "rationale <- credential exposed to low-trust module",
+]
+
+[materializer]
+primary = "credential_low_trust"
+sort_by = ["object_id", "workflow_id", "module_id"]
+skip_if_empty = "object_id"
+target_id_field = "object_id"
+id_fields = ["object_id", "workflow_id", "module_id"]
+rationale = "Credential object is exposed in workflow involving low-trust module."
+
+[materializer.evidence]
+object_name = "row.object_name"
+workflow_id = "row.workflow_id"
+workflow_name = "row.workflow_name"
+module_id = "row.module_id"
+module_name = "row.module_name"
+domain_id = "row.domain_id"
+
+[materializer.affected]
+workflows = ["row.workflow_id"]
+objects = ["row.object_id"]

@@ -54,6 +54,17 @@ def _build_snapshot(queries: GraphQueries) -> dict[str, list[dict[str, Any]]]:
         "cross_domain_stores": queries.cross_domain_datastore_access(),
         "workflow_module_concentration": queries.workflow_module_concentration(),
         "regulated_ai_data": queries.regulated_ai_data(),
+        # CAPEC expansion queries (Phase 2)
+        "transitive_priv_escalation": queries.transitive_privilege_escalation(),
+        "actor_privileged_modules": queries.actor_to_privileged_module(),
+        "cross_trust_writes": queries.cross_trust_write_access(),
+        "credential_low_trust": queries.credential_in_low_trust_workflow(),
+        "high_fan_in": queries.high_fan_in_targets(),
+        "workflow_trust_span": queries.workflow_trust_span(),
+        "actor_regulated_access": queries.actor_regulated_data_access(),
+        "untrusted_ai_store": queries.untrusted_ai_datastore_access(),
+        "multi_domain_chain": queries.multi_domain_dependency_chain(),
+        "exposed_transitive_stores": queries.exposed_transitive_datastore_access(),
     }
 
 

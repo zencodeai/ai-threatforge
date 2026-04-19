@@ -209,3 +209,145 @@ technique_id = "T1005"
 framework = "ATTACK"
 tactic = "collection"
 rationale = "Regulated data flowing through AI module enables collection via model inference pipeline."
+
+# ── CAPEC expansion heuristics (TH-015 – TH-024) ──────────────
+
+[[mappings]]
+rule_id = "TH-015"
+technique_id = "T1068"
+framework = "ATTACK"
+tactic = "privilege-escalation"
+rationale = "Multi-hop dependency chain with increasing privilege enables exploitation for transitive privilege escalation."
+
+[[mappings]]
+rule_id = "TH-015"
+technique_id = "T1548"
+framework = "ATTACK"
+tactic = "privilege-escalation"
+rationale = "Transitive privilege gap across dependency chain enables abuse of elevation control mechanisms."
+
+[[mappings]]
+rule_id = "TH-016"
+technique_id = "T1078"
+framework = "ATTACK"
+tactic = "initial-access"
+rationale = "External actor workflow path to privileged module enables valid account abuse for initial access."
+
+[[mappings]]
+rule_id = "TH-016"
+technique_id = "T1068"
+framework = "ATTACK"
+tactic = "privilege-escalation"
+rationale = "Actor-accessible high-privilege module increases likelihood of exploitation for privilege escalation."
+
+[[mappings]]
+rule_id = "TH-017"
+technique_id = "T1565"
+framework = "ATTACK"
+tactic = "impact"
+rationale = "Low-trust module writing to higher-trust datastore enables data manipulation across trust boundary."
+
+[[mappings]]
+rule_id = "TH-017"
+technique_id = "T1485"
+framework = "ATTACK"
+tactic = "impact"
+rationale = "Cross-trust write access enables data destruction from less-trusted zone."
+
+[[mappings]]
+rule_id = "TH-018"
+technique_id = "T1552"
+framework = "ATTACK"
+tactic = "credential-access"
+rationale = "Credential object in workflow with low-trust module enables unsecured credential discovery."
+
+[[mappings]]
+rule_id = "TH-018"
+technique_id = "T1078"
+framework = "ATTACK"
+tactic = "initial-access"
+rationale = "Low-trust access to credential flow enables valid account compromise for initial access."
+
+[[mappings]]
+rule_id = "TH-019"
+technique_id = "T1195"
+framework = "ATTACK"
+tactic = "initial-access"
+rationale = "High fan-in component is a supply chain compromise target affecting many downstream dependents."
+
+[[mappings]]
+rule_id = "TH-019"
+technique_id = "T1574"
+framework = "ATTACK"
+tactic = "persistence"
+rationale = "Widely-depended-upon component enables hijack execution flow for persistent access."
+
+[[mappings]]
+rule_id = "TH-020"
+technique_id = "T1557"
+framework = "ATTACK"
+tactic = "credential-access"
+rationale = "Workflow spanning low-to-high trust enables adversary-in-the-middle on the communication channel."
+
+[[mappings]]
+rule_id = "TH-020"
+technique_id = "T1021"
+framework = "ATTACK"
+tactic = "lateral-movement"
+rationale = "Wide trust span in single workflow enables lateral movement via remote services."
+
+[[mappings]]
+rule_id = "TH-021"
+technique_id = "T1530"
+framework = "ATTACK"
+tactic = "collection"
+rationale = "External actor access to regulated data workflow enables collection of compliance-protected data."
+
+[[mappings]]
+rule_id = "TH-021"
+technique_id = "T1020"
+framework = "ATTACK"
+tactic = "exfiltration"
+rationale = "External actor path to regulated data creates automated exfiltration risk."
+
+[[mappings]]
+rule_id = "TH-022"
+technique_id = "AML.T0016"
+framework = "ATLAS"
+tactic = "ml-attack-staging"
+rationale = "Low-trust module accessing AI datastore enables training data poisoning via supply chain."
+
+[[mappings]]
+rule_id = "TH-022"
+technique_id = "AML.T0040"
+framework = "ATLAS"
+tactic = "ml-attack-staging"
+rationale = "Untrusted access to AI datastore enables model evasion through manipulated feature data."
+
+[[mappings]]
+rule_id = "TH-023"
+technique_id = "T1570"
+framework = "ATTACK"
+tactic = "lateral-movement"
+rationale = "Multi-domain dependency chain enables staged lateral tool transfer across security boundaries."
+
+[[mappings]]
+rule_id = "TH-023"
+technique_id = "T1090"
+framework = "ATTACK"
+tactic = "command-and-control"
+rationale = "Chain crossing three domains enables proxy-based command and control through intermediate zones."
+
+[[mappings]]
+rule_id = "TH-024"
+technique_id = "T1005"
+framework = "ATTACK"
+tactic = "collection"
+rationale = "Transitive path from internet-exposed module to sensitive datastore enables data collection from local system."
+
+[[mappings]]
+rule_id = "TH-024"
+technique_id = "T1190"
+framework = "ATTACK"
+tactic = "initial-access"
+rationale = "Internet-exposed module with deep datastore access chain is prime target for public-facing exploitation."
