@@ -95,3 +95,117 @@ technique_id = "T1550"
 framework = "ATTACK"
 tactic = "lateral-movement"
 rationale = "Cross-boundary privileged dependencies can be abused through token/key-based movement."
+
+# ── STRIDE expansion heuristics (TH-007 – TH-014) ───────────────
+
+[[mappings]]
+rule_id = "TH-007"
+technique_id = "T1078"
+framework = "ATTACK"
+tactic = "initial-access"
+rationale = "External actor accessing workflow without identity verification enables valid account abuse."
+
+[[mappings]]
+rule_id = "TH-007"
+technique_id = "T1134"
+framework = "ATTACK"
+tactic = "defense-evasion"
+rationale = "Unverified workflow path allows access token manipulation for spoofing."
+
+[[mappings]]
+rule_id = "TH-008"
+technique_id = "T1565"
+framework = "ATTACK"
+tactic = "impact"
+rationale = "Write access to datastore containing classified data enables data manipulation."
+
+[[mappings]]
+rule_id = "TH-008"
+technique_id = "T1485"
+framework = "ATTACK"
+tactic = "impact"
+rationale = "Write access to sensitive datastore enables data destruction."
+
+[[mappings]]
+rule_id = "TH-009"
+technique_id = "T1005"
+framework = "ATTACK"
+tactic = "collection"
+rationale = "Sensitive data crossing trust boundary enables collection from local system."
+
+[[mappings]]
+rule_id = "TH-009"
+technique_id = "T1020"
+framework = "ATTACK"
+tactic = "exfiltration"
+rationale = "Cross-boundary sensitive data flow creates automated exfiltration opportunity."
+
+[[mappings]]
+rule_id = "TH-010"
+technique_id = "T1499"
+framework = "ATTACK"
+tactic = "impact"
+rationale = "Internet-exposed module with downstream dependencies is a prime target for endpoint denial of service."
+
+[[mappings]]
+rule_id = "TH-010"
+technique_id = "T1498"
+framework = "ATTACK"
+tactic = "impact"
+rationale = "Internet-exposed gateway with downstream services enables network-level denial of service."
+
+[[mappings]]
+rule_id = "TH-011"
+technique_id = "T1068"
+framework = "ATTACK"
+tactic = "privilege-escalation"
+rationale = "Dependency from lower to higher privilege module enables exploitation for privilege escalation."
+
+[[mappings]]
+rule_id = "TH-011"
+technique_id = "T1548"
+framework = "ATTACK"
+tactic = "privilege-escalation"
+rationale = "Privilege gap in dependency chain enables abuse of elevation control mechanisms."
+
+[[mappings]]
+rule_id = "TH-012"
+technique_id = "T1565"
+framework = "ATTACK"
+tactic = "impact"
+rationale = "Cross-domain datastore access enables data manipulation from less-trusted domain."
+
+[[mappings]]
+rule_id = "TH-012"
+technique_id = "T1491"
+framework = "ATTACK"
+tactic = "impact"
+rationale = "Multi-domain datastore access increases risk of defacement from compromised domain."
+
+[[mappings]]
+rule_id = "TH-013"
+technique_id = "T1489"
+framework = "ATTACK"
+tactic = "impact"
+rationale = "Single point of failure module enables service stop affecting multiple critical workflows."
+
+[[mappings]]
+rule_id = "TH-013"
+technique_id = "T1499"
+framework = "ATTACK"
+tactic = "impact"
+rationale = "SPOF module is high-value target for denial of service across critical business processes."
+
+[[mappings]]
+rule_id = "TH-014"
+technique_id = "AML.T0016"
+framework = "ATLAS"
+tactic = "ml-attack-staging"
+rationale = "Regulated data in AI pipeline creates poisoning vector for model training data."
+
+[[mappings]]
+rule_id = "TH-014"
+technique_id = "T1005"
+framework = "ATTACK"
+tactic = "collection"
+rationale = "Regulated data flowing through AI module enables collection via model inference pipeline."

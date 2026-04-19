@@ -1,0 +1,36 @@
+[heuristic]
+rule_id = "TH-011"
+name = "Dependency from lower-privilege to higher-privilege module"
+description = """Detect dependencies where a module with lower privilege level depends \
+on a module with higher privilege, creating a privilege escalation path."""
+graph_pattern = """(src:Module)-[:HAS_PRIVILEGE]->(sp:PrivilegeLevel), \
+(src)-[:DEPENDS_ON]->(dst:Module)-[:HAS_PRIVILEGE]->(dp:PrivilegeLevel) \
+WHERE dp.level > sp.level"""
+target_type = "module"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- target_module.id",
+    "target_type <- 'module'",
+    "source_module <- source module with lower privilege",
+    "privilege_gap <- difference in privilege levels",
+    "rationale <- privilege escalation through dependency chain",
+]
+
+[materializer]
+primary = "privilege_escalation"
+sort_by = ["source_module", "target_module"]
+skip_if_empty = "target_module"
+target_id_field = "target_module"
+id_fields = ["source_module", "target_module"]
+rationale = "Dependency enables privilege escalation from lower to higher privilege module."
+
+[materializer.evidence]
+source_module = "row.source_module"
+source_privilege = "row.source_privilege"
+target_privilege = "row.target_privilege"
+privilege_gap = "row.privilege_gap"
+
+[materializer.affected]
+workflows = []
+objects = []

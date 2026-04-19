@@ -1,0 +1,33 @@
+[heuristic]
+rule_id = "TH-013"
+name = "Single point of failure across critical workflows"
+description = """Detect modules that appear in multiple critical workflows, creating a \
+single point of failure whose disruption would impact multiple business processes."""
+graph_pattern = """(s:System)-[:HAS_WORKFLOW]->(w:Workflow)-[:INVOLVES_MODULE]->(m:Module) \
+WHERE s.criticality IN ['high','critical'] GROUP BY m HAVING count(w) > 1"""
+target_type = "module"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- module.id",
+    "target_type <- 'module'",
+    "workflow_count <- number of critical workflows",
+    "rationale <- single point of failure in critical infrastructure",
+]
+
+[materializer]
+primary = "workflow_module_concentration"
+sort_by = ["module_id"]
+skip_if_empty = "module_id"
+target_id_field = "module_id"
+id_fields = ["module_id"]
+rationale = "Module is a single point of failure across multiple critical workflows."
+
+[materializer.evidence]
+module_name = "row.module_name"
+workflow_count = "row.workflow_count"
+workflows = "row.workflows"
+
+[materializer.affected]
+workflows = []
+objects = []

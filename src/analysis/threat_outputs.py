@@ -46,6 +46,14 @@ def _build_snapshot(queries: GraphQueries) -> dict[str, list[dict[str, Any]]]:
         "dependency_edges": queries.dependency_edges(),
         "trust_boundaries": queries.trust_boundary_crossings(),
         "boundary_objects": queries.high_value_objects_crossing_boundaries(),
+        # STRIDE expansion queries
+        "unverified_actor_workflows": queries.unverified_actor_workflows(),
+        "sensitive_writes": queries.module_writes_to_sensitive_datastore(),
+        "exposed_fan_out": queries.exposed_module_fan_out(),
+        "privilege_escalation": queries.privilege_escalation_dependencies(),
+        "cross_domain_stores": queries.cross_domain_datastore_access(),
+        "workflow_module_concentration": queries.workflow_module_concentration(),
+        "regulated_ai_data": queries.regulated_ai_data(),
     }
 
 

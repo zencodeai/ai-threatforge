@@ -178,13 +178,24 @@ WHERE d1.trust_level <> d2.trust_level
 RETURN src, dst, tb
 ```
 
-### 3.5 OWASP Application Security Verification Standard (ASVS)
+### 3.5 OWASP Verification Standards (ASVS + MASVS)
 
-ASVS defines ~280 verification requirements organized by architectural concern (authentication, session management, access control, cryptography). At the graph level, ~40–50 have structural preconditions:
+**ASVS** (Application Security Verification Standard) defines ~280 verification requirements organized by architectural concern (authentication, session management, access control, cryptography). At the graph level, ~40–50 have structural preconditions:
 
 - V1.2.1: Trust boundary enforcement between components
 - V1.4.1: Access control enforcement at gateway
 - V1.6.1: Cryptographic service isolation
+
+**MASVS** (Mobile Application Security Verification Standard) is the mobile counterpart. While many of its requirements target implementation-level controls (certificate pinning, keychain usage), a subset maps to architectural preconditions detectable in the graph:
+
+| MASVS Category | Architectural Signal | Graph Equivalent |
+|---|---|---|
+| MASVS-NETWORK | Unprotected data flow to/from mobile client | `DEPENDS_ON` crossing trust boundary to external module |
+| MASVS-AUTH | Authentication bypass paths | Dependency path skipping auth-capable module |
+| MASVS-STORAGE | Sensitive data on low-trust device | `Object.classification` in module within low-trust domain |
+| MASVS-CRYPTO | Crypto service isolation | Missing encryption module in data flow path |
+
+MASVS is most valuable in Phase 3 (model enrichment), where adding a `deployment_context` or `platform_type` property to modules unlocks mobile-specific heuristics. The ATT&CK `mobile` domain is already syncable (`attack_domains` is configurable), so technique mappings for mobile heuristics come through the existing mapping engine with no additional work.
 
 ---
 
@@ -255,6 +266,7 @@ Precondition clustering at sync time would make Layer 2 smarter by grouping tech
 | STRIDE-per-element | ~20–25 | None | Medium |
 | CAPEC Meta/Standard | ~10 additional | None | Medium |
 | Model enrichment | ~15–20 per property | Schema extension | Large (per property) |
+| OWASP ASVS + MASVS | ~10–15 (ASVS now, MASVS with enrichment) | `deployment_context` for MASVS | Medium–Large |
 | NIST 800-53 control gaps | ~15–20 | Control annotations | Large |
 | ATT&CK precondition clustering | Improves mapping quality | None | Medium |
 | **Vector-based technique suggestion** | **Improves mapping discovery** | **None** | **Done** |

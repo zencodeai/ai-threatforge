@@ -1,0 +1,36 @@
+[heuristic]
+rule_id = "TH-008"
+name = "Write dependency to datastore containing classified data"
+description = """Detect modules with write or read-write dependencies to datastores \
+that store confidential, secret, or regulated objects."""
+graph_pattern = """(m:Module)-[:DEPENDS_ON {relationship:'writes'}]->(ds:DataStore)-\
+[:STORES]->(o:Object) WHERE o.classification IN ['confidential','secret'] \
+OR o.regulated=true"""
+target_type = "datastore"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- datastore.id",
+    "target_type <- 'datastore'",
+    "writing_module <- module.id",
+    "sensitive_objects <- object ids in datastore",
+    "rationale <- write access to classified data store",
+]
+
+[materializer]
+primary = "sensitive_writes"
+sort_by = ["module_id", "datastore_id"]
+skip_if_empty = "datastore_id"
+target_id_field = "datastore_id"
+id_fields = ["module_id", "datastore_id"]
+rationale = "Module has write access to datastore containing classified data."
+
+[materializer.evidence]
+module_id = "row.module_id"
+module_name = "row.module_name"
+relationship = "row.relationship"
+sensitive_objects = "row.sensitive_objects"
+
+[materializer.affected]
+workflows = []
+objects = []

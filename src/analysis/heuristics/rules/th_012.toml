@@ -1,0 +1,33 @@
+[heuristic]
+rule_id = "TH-012"
+name = "Datastore accessible from multiple security domains"
+description = """Detect datastores that receive dependencies from modules in different \
+security domains, increasing the risk of cross-domain data tampering."""
+graph_pattern = """(m:Module)-[:DEPENDS_ON]->(ds:DataStore), \
+(m)-[:IN_DOMAIN]->(d:SecurityDomain) GROUP BY ds HAVING count(DISTINCT d) > 1"""
+target_type = "datastore"
+severity_hint = "medium"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- datastore.id",
+    "target_type <- 'datastore'",
+    "accessing_domains <- list of domains",
+    "rationale <- cross-domain access increases tampering risk",
+]
+
+[materializer]
+primary = "cross_domain_stores"
+sort_by = ["datastore_id"]
+skip_if_empty = "datastore_id"
+target_id_field = "datastore_id"
+id_fields = ["datastore_id"]
+rationale = "Datastore is accessed from multiple security domains, increasing tampering risk."
+
+[materializer.evidence]
+datastore_name = "row.datastore_name"
+domains = "row.domains"
+accessing_modules = "row.accessing_modules"
+
+[materializer.affected]
+workflows = []
+objects = []

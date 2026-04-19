@@ -145,6 +145,102 @@ class GraphQueries:
             """
         )
 
+    # ── STRIDE expansion queries ─────────────────────────────────
+
+    def unverified_actor_workflows(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (a:ExternalActor)-[:PARTICIPATES_IN]->(w:Workflow)
+            WHERE NOT EXISTS {
+                MATCH (w)-[:INVOLVES_MODULE]->(m:Module)
+                WHERE m.module_type = 'identity_service'
+            }
+            RETURN a.id AS actor_id, a.name AS actor_name, a.actor_type AS actor_type,
+                   w.id AS workflow_id, w.name AS workflow_name
+            ORDER BY actor_id, workflow_id
+            """
+        )
+
+    def module_writes_to_sensitive_datastore(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (m:Module)-[r:DEPENDS_ON]->(ds:DataStore)-[:STORES]->(o:Object)
+            WHERE r.relationship IN ['writes', 'reads_writes']
+              AND (o.classification IN ['confidential', 'secret'] OR o.regulated = true)
+            RETURN m.id AS module_id, m.name AS module_name,
+                   ds.id AS datastore_id, ds.name AS datastore_name,
+                   r.relationship AS relationship,
+                   collect(DISTINCT o.id) AS sensitive_objects
+            ORDER BY module_id, datastore_id
+            """
+        )
+
+    def exposed_module_fan_out(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (m:Module)-[:DEPENDS_ON]->(downstream)
+            WHERE m.internet_exposed = true
+            WITH m, count(DISTINCT downstream) AS downstream_count,
+                 collect(DISTINCT downstream.id) AS downstream_ids
+            RETURN m.id AS module_id, m.name AS module_name,
+                   downstream_count, downstream_ids
+            ORDER BY downstream_count DESC, module_id
+            """
+        )
+
+    def privilege_escalation_dependencies(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (src:Module)-[:HAS_PRIVILEGE]->(sp:PrivilegeLevel),
+                  (src)-[:DEPENDS_ON]->(dst:Module)-[:HAS_PRIVILEGE]->(dp:PrivilegeLevel)
+            WHERE dp.level > sp.level
+            RETURN src.id AS source_module, sp.level AS source_privilege,
+                   dst.id AS target_module, dp.level AS target_privilege,
+                   dp.level - sp.level AS privilege_gap
+            ORDER BY privilege_gap DESC, source_module, target_module
+            """
+        )
+
+    def cross_domain_datastore_access(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (m:Module)-[:DEPENDS_ON]->(ds:DataStore),
+                  (m)-[:IN_DOMAIN]->(d:SecurityDomain)
+            WITH ds, collect(DISTINCT d.id) AS domains,
+                 collect(DISTINCT m.id) AS accessing_modules
+            WHERE size(domains) > 1
+            RETURN ds.id AS datastore_id, ds.name AS datastore_name,
+                   domains, accessing_modules
+            ORDER BY datastore_id
+            """
+        )
+
+    def workflow_module_concentration(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (s:System)-[:HAS_WORKFLOW]->(w:Workflow)-[:INVOLVES_MODULE]->(m:Module)
+            WHERE s.criticality IN ['high', 'critical']
+            WITH m, collect(DISTINCT w.id) AS workflows, count(DISTINCT w) AS workflow_count
+            WHERE workflow_count > 1
+            RETURN m.id AS module_id, m.name AS module_name,
+                   workflow_count, workflows
+            ORDER BY workflow_count DESC, module_id
+            """
+        )
+
+    def regulated_ai_data(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (w:Workflow)-[:INVOLVES_OBJECT]->(o:Object),
+                  (w)-[:INVOLVES_MODULE]->(m:Module)
+            WHERE o.regulated = true AND m.ai_relevant = true
+            RETURN DISTINCT o.id AS object_id, o.name AS object_name,
+                   m.id AS ai_module_id, m.name AS ai_module_name,
+                   w.id AS workflow_id
+            ORDER BY object_id, ai_module_id
+            """
+        )
+
 
 def load_sample_queries(path: Path | None = None) -> list[str]:
     root = path or Path(__file__).resolve().parent / "cypher" / "sample_queries.cypher"

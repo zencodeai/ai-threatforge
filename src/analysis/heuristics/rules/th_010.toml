@@ -1,0 +1,33 @@
+[heuristic]
+rule_id = "TH-010"
+name = "Internet-exposed module with downstream service dependencies"
+description = """Detect internet-exposed modules that have downstream dependencies on \
+other services, making them high-impact denial-of-service targets."""
+graph_pattern = """(m:Module {internet_exposed:true})-[:DEPENDS_ON]->(downstream) \
+WITH count(downstream) AS fan_out WHERE fan_out > 0"""
+target_type = "module"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- module.id",
+    "target_type <- 'module'",
+    "downstream_count <- number of downstream deps",
+    "rationale <- internet-exposed with high downstream impact",
+]
+
+[materializer]
+primary = "exposed_fan_out"
+sort_by = ["module_id"]
+skip_if_empty = "module_id"
+target_id_field = "module_id"
+id_fields = ["module_id"]
+rationale = "Internet-exposed module with downstream service dependencies is a high-impact DoS target."
+
+[materializer.evidence]
+module_name = "row.module_name"
+downstream_count = "row.downstream_count"
+downstream_ids = "row.downstream_ids"
+
+[materializer.affected]
+workflows = []
+objects = []

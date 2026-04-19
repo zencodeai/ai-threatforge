@@ -1,0 +1,37 @@
+[heuristic]
+rule_id = "TH-009"
+name = "Sensitive data accessible across trust boundary"
+description = """Detect confidential, secret, or regulated objects that are accessible \
+through workflows crossing trust boundaries, creating information disclosure risk."""
+graph_pattern = """(tb:TrustBoundary)-[:CROSSES_FROM]->(from), (tb)-[:CROSSES_TO]->(to), \
+(src)-[:IN_DOMAIN]->(from), (src)-[:DEPENDS_ON]->(dst)-[:IN_DOMAIN]->(to), \
+(dst)<-[:INVOLVES_MODULE]-(w:Workflow)-[:INVOLVES_OBJECT]->(o:Object) \
+WHERE o.classification IN ['confidential','secret'] OR o.regulated=true"""
+target_type = "object"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- object.id",
+    "target_type <- 'object'",
+    "trust_boundary <- trust_boundary.id",
+    "classification <- object.classification",
+    "rationale <- sensitive data crosses trust boundary",
+]
+
+[materializer]
+primary = "boundary_objects"
+sort_by = ["trust_boundary", "object_id"]
+skip_if_empty = "object_id"
+target_id_field = "object_id"
+id_fields = ["object_id", "trust_boundary"]
+rationale = "Sensitive data is accessible through a trust boundary crossing."
+
+[materializer.evidence]
+trust_boundary = "row.trust_boundary"
+classification = "row.classification"
+regulated = "row.regulated"
+workflow_id = "row.workflow_id"
+
+[materializer.affected]
+workflows = ["row.workflow_id"]
+objects = ["row.object_id"]

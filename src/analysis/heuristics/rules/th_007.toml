@@ -1,0 +1,34 @@
+[heuristic]
+rule_id = "TH-007"
+name = "Workflow with external actor but no identity verification"
+description = """Detect workflows where an external actor participates but the workflow \
+does not include an identity service module, creating a spoofing risk."""
+graph_pattern = """(a:ExternalActor)-[:PARTICIPATES_IN]->(w:Workflow) WHERE NOT EXISTS \
+(w)-[:INVOLVES_MODULE]->(m:Module {module_type:'identity_service'})"""
+target_type = "workflow"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- workflow.id",
+    "target_type <- 'workflow'",
+    "actor <- external_actor.id",
+    "rationale <- external actor access without identity verification",
+]
+
+[materializer]
+primary = "unverified_actor_workflows"
+sort_by = ["workflow_id", "actor_id"]
+skip_if_empty = "workflow_id"
+target_id_field = "workflow_id"
+id_fields = ["workflow_id", "actor_id"]
+rationale = "External actor accesses workflow without identity verification module."
+
+[materializer.evidence]
+actor_id = "row.actor_id"
+actor_name = "row.actor_name"
+actor_type = "row.actor_type"
+workflow_name = "row.workflow_name"
+
+[materializer.affected]
+workflows = ["row.workflow_id"]
+objects = []

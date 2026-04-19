@@ -4,7 +4,7 @@ from analysis.threat_generation import THREAT_HEURISTICS, get_threat_heuristics
 
 
 def test_heuristic_catalog_has_minimum_rules() -> None:
-    assert len(THREAT_HEURISTICS) >= 6
+    assert len(THREAT_HEURISTICS) >= 14
 
 
 def test_rule_ids_are_unique() -> None:

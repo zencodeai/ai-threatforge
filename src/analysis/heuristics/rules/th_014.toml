@@ -1,0 +1,35 @@
+[heuristic]
+rule_id = "TH-014"
+name = "Regulated data processed by AI-relevant module"
+description = """Detect regulated objects that flow through workflows involving \
+AI-relevant modules, creating data disclosure risk through model inference or \
+training pipelines."""
+graph_pattern = """(w:Workflow)-[:INVOLVES_OBJECT]->(o:Object {regulated:true}), \
+(w)-[:INVOLVES_MODULE]->(m:Module {ai_relevant:true})"""
+target_type = "object"
+severity_hint = "high"
+frameworks = ["ATLAS", "ATTACK"]
+output_field_mapping = [
+    "target_id <- object.id",
+    "target_type <- 'object'",
+    "ai_module <- ai-relevant module.id",
+    "workflow <- workflow containing both",
+    "rationale <- regulated data in AI processing pipeline",
+]
+
+[materializer]
+primary = "regulated_ai_data"
+sort_by = ["object_id", "ai_module_id"]
+skip_if_empty = "object_id"
+target_id_field = "object_id"
+id_fields = ["object_id", "ai_module_id"]
+rationale = "Regulated data flows through AI-relevant module, risking disclosure via model pipeline."
+
+[materializer.evidence]
+ai_module_id = "row.ai_module_id"
+ai_module_name = "row.ai_module_name"
+workflow_id = "row.workflow_id"
+
+[materializer.affected]
+workflows = ["row.workflow_id"]
+objects = ["row.object_id"]
