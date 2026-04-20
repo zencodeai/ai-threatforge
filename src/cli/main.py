@@ -33,7 +33,10 @@ def _cmd_generate_threats(args: argparse.Namespace) -> int:
     from analysis.threat_outputs import generate_threat_report
 
     try:
-        report, path = generate_threat_report(args.model, args.output)
+        report, path = generate_threat_report(
+            args.model, args.output,
+            enrich=getattr(args, "enrich", False),
+        )
     except Exception as exc:
         print(f"FAILED: {exc}")
         return 1
@@ -299,6 +302,7 @@ def main(argv: list[str] | None = None) -> int:
     p_gt = sub.add_parser("generate-threats", help="Generate structured threat outputs")
     p_gt.add_argument("--model", required=True, type=Path, help="Path to canonical TOML model")
     p_gt.add_argument("--output", type=Path, default=None, help="Output file path for threats JSON")
+    p_gt.add_argument("--enrich", action="store_true", help="Enable GraphRAG threat enrichment (requires Neo4j)")
 
     # score-risks
     p_sr = sub.add_parser("score-risks", help="Score threats into prioritized risk records")
