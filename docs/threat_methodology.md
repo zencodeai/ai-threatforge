@@ -1,13 +1,28 @@
-# Threat Methodology v0.1
+# Threat Methodology v0.2
 
 This document defines the deterministic threat heuristic catalog.
 
 ## Objectives
 - define reproducible graph-driven threat heuristics
 - map each heuristic to clear output fields
-- provide ATT&CK/ATLAS alignment hooks for Phase 3 mapping work
+- provide ATT&CK/ATLAS alignment hooks
+- support GraphRAG-enriched threat records with suggested mitigations and related techniques
 
-## Rule catalog
+## Heuristic summary
+
+The engine runs **44 heuristics** (TH-001 through TH-044) across four expansion phases:
+
+| Phase | Rules | Focus |
+|---|---|---|
+| Phase 0 (original) | TH-001 – TH-006 | Core structural patterns |
+| Phase 1 (STRIDE) | TH-007 – TH-014 | STRIDE-per-element enumeration |
+| Phase 2 (CAPEC) | TH-015 – TH-024 | CAPEC Meta/Standard gap fill |
+| Phase 3 (Enrichment) | TH-025 – TH-034 | Control-absence detection (auth, encryption, validation) |
+| Phase 4 (NIST 800-53) | TH-035 – TH-044 | Control-gap detection (NIST control families) |
+
+See [design_heuristics.md](design_heuristics.md) for full expansion details, CAPEC mappings, and schema enrichment properties.
+
+## Phase 0 rule catalog
 
 ### TH-001: Internet exposed module handling sensitive workflow data
 - Intent: detect initial access and data exposure candidates.
@@ -107,6 +122,8 @@ Threat objects generated from these heuristics should include at minimum:
 - `framework_mappings`
 - `rationale`
 - `evidence`
+- `suggested_mitigations` (populated by GraphRAG enrichment, default `[]`)
+- `related_techniques` (populated by GraphRAG enrichment, default `[]`)
 
 ## Implementation notes
 - Each heuristic can be defined in one of two formats, both auto-discovered at import time:
@@ -114,6 +131,9 @@ Threat objects generated from these heuristics should include at minimum:
   - **Python** (`src/analysis/heuristics/th_*.py`) — a standalone module containing both the `ThreatHeuristic` dataclass definition (`HEURISTIC`) and a `ThreatMaterializer` class. Use this format for heuristics requiring complex logic that cannot be expressed declaratively.
   - Python modules take precedence when both formats define the same `rule_id`. Discovery uses `pkgutil.iter_modules` for Python and `pathlib.glob` for TOML.
 - Technique mapping is exposed through the facade `src/analysis/technique_mapping.py`, which delegates to `mapping_engine.py` (curated + tactic-expansion + context-filtering pipeline), `mapping_loader.py` (TOML I/O and name resolution), and `mapping_types.py` (data model). Each `rule_id` is bound to ATT&CK/ATLAS technique IDs and names.
-- **Vector-based technique suggestion** (`src/analysis/suggestion_scorer.py`) provides an offline Layer 0 for discovering candidate technique bindings. Technique descriptions are embedded at sync time (`threatforge sync --embed`) and stored in the SQLite knowledge base. The `score_suggestions()` function blends cosine similarity with tactic-overlap and framework-match bonuses to rank candidates. Use `threatforge suggest-mappings --rule-id TH-007` to generate ranked suggestions for a heuristic, or `--description "..."` for ad-hoc queries. Output formats: `table`, `json`, `toml` (ready-to-paste `[[mappings]]` entries). This is advisory — suggestions require human review before promotion to `mapping_rules.toml`.
+- **Vector-based technique suggestion** is available through two implementations:
+  - **Legacy** (`src/analysis/suggestion_scorer.py`): SQLite-backed, blends cosine similarity (60%) with tactic-overlap (25%) and framework-match (15%) bonuses.
+  - **GraphRAG** (`src/analysis/graphrag_scorer.py`): Neo4j-backed, blends vector similarity (45%) with tactic overlap (15%), framework match (10%), mitigation gap (20%), and sub-technique bonus (10%). The mitigation-gap signal compares technique mitigations against the target module's `control_functions`. Use `threatforge suggest-mappings --graphrag` to use the GraphRAG scorer, or `--legacy` to force the SQLite path.
+- **Runtime threat enrichment** (`src/analysis/threat_enricher.py`) traverses the MITRE knowledge graph after materialization to add `suggested_mitigations` and `related_techniques` to each `ThreatRecord`. Enabled via `--enrich` flag or `THREATFORGE_GRAPHRAG=1` env var.
 - **Sync-time batch mapping** (`src/analysis/mapping_writer.py`) extends `threatforge sync --map-heuristics` to score all discovered heuristics in one pass and write `data/threat_intel/mapping_suggestions.toml`. The output file uses `mapping_type = "suggested"` and is regenerated on each run. Configurable via `--map-threshold` (default 0.40) and `--map-top-k` (default 10). Curated mappings are excluded from suggestions and never overwritten. The `[suggestions]` section in `mapping_config.toml` controls whether suggested mappings are included at analysis time (`include_suggested = false` by default).
 - Structured threat generation is orchestrated by `src/analysis/threat_outputs.py`, which iterates auto-discovered materializers via `materializer_registry.py` and persists outputs to `models/outputs/threats/`.

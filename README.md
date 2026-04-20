@@ -3,7 +3,7 @@
 **Model-driven threat modeling that converts architecture context into explainable, analyst-ready security outputs.**
 
 <p align="center">
-  <img src="docs/diagrams/pipeline_hero.svg" alt="Analysis pipeline: Model → Validate → Graph → Threats → Risks → Analyst UI" width="880" />
+  <img src="docs/diagrams/pipeline_hero.svg" alt="Analysis pipeline: Model → Validate → Graph → Threats → Enrich → Risks → Analyst UI" width="880" />
 </p>
 
 ---
@@ -19,7 +19,7 @@ Threat Forge AI treats **architecture as code**:
 1. **Define** — capture system structure in a canonical TOML model with domains, modules, workflows, trust boundaries, and data classifications.
 2. **Validate** — enforce schema integrity and cross-reference checks with Pydantic contracts.
 3. **Graph** — load model relationships into Neo4j for attack-path and dependency traversal.
-4. **Threat** — generate deterministic ATT&CK and ATLAS-aligned threats using heuristic rules against graph patterns.
+4. **Threat** — generate deterministic ATT&CK and ATLAS-aligned threats using 44 heuristic rules against graph patterns, with optional GraphRAG enrichment (suggested mitigations, related techniques).
 5. **Risk** — score and prioritize risks with a transparent weighted formula (six factors, four priority bands).
 6. **Interact** — expose evidence-backed answers through a query workflow and Streamlit analyst UI.
 
@@ -57,13 +57,13 @@ Analyst questions are routed to tools via deterministic keyword matching, execut
 | `models/outputs/` | Generated threat, risk, and trace artifacts |
 | `src/models/` | Pydantic schema contracts |
 | `src/graph/` | Neo4j client, graph loader, query helpers, Cypher constraints/indexes |
-| `src/knowledge/` | MITRE ATT&CK + ATLAS ingestion, SQLite store, in-memory index |
+| `src/knowledge/` | MITRE ATT&CK + ATLAS ingestion, Neo4j GraphRAG (chunking, vector search), SQLite fallback |
 | `src/analysis/` | Threat generation engine, layered ATT&CK/ATLAS mapping, risk scoring |
 | `src/agents/` | Tool interfaces, deterministic query workflow, observability tracing |
-| `src/ui/` | Streamlit analyst interface (model overview, threats, risks, chat) |
+| `src/ui/` | Streamlit analyst interface (model overview, threats, risks, mappings, chat) |
 | `src/cli/` | Unified CLI (`threatforge` command) |
 | `data/threat_intel/` | Curated mapping rules, expansion config, auto-generated suggestions, knowledge-base SQLite |
-| `tests/` | 141 tests across 19 modules |
+| `tests/` | 340 tests across 27 modules |
 | `docs/` | Architecture narrative, walkthrough, demo script, diagrams |
 
 ---
@@ -90,7 +90,9 @@ cp .env.example .env
 ```bash
 threatforge sync                   # fetch ATT&CK + ATLAS techniques
 threatforge sync --embed           # also generate technique embeddings
+threatforge sync --neo4j           # load MITRE knowledge graph into Neo4j
 threatforge sync --map-heuristics  # embed + generate suggested technique mappings
+threatforge sync --map-heuristics --graphrag  # use Neo4j GraphRAG scorer for suggestions
 threatforge sync --status          # check current sync state
 ```
 
@@ -101,6 +103,7 @@ threatforge validate --model examples/fintech_ai_platform.toml
 set -a && source .env && set +a
 threatforge load-graph --model examples/fintech_ai_platform.toml --clear
 threatforge generate-threats --model examples/fintech_ai_platform.toml
+threatforge generate-threats --model examples/fintech_ai_platform.toml --enrich  # add mitigations + related techniques
 threatforge score-risks
 ```
 
@@ -118,11 +121,12 @@ threatforge ui
 | Screen | Description |
 |---|---|
 | **Model Overview** | Architecture entities, domain counts, trust boundary summary |
-| **Threats** | Generated threats with ATT&CK/ATLAS technique mappings and rationale |
+| **Threats** | Generated threats with severity/rule filters, enrichment indicators, suggested mitigations, and related techniques |
 | **Risks** | Priority-ranked risks with weighted score drivers and explanations |
+| **Mappings** | Curated and suggested technique mappings, heuristic catalog, GraphRAG scoring weight config |
 | **Analyst Chat** | Natural-language Q&A grounded in graph, threat, and risk artifacts |
 
-The UI sidebar includes a **Run Rebuild Workflow** action that re-executes the full pipeline (validate → load → threats → risks) in one click.
+The UI sidebar includes knowledge base sync status, **GraphRAG controls** (enrichment toggle, GraphRAG scorer toggle), and a **Run Rebuild Workflow** action that re-executes the full pipeline (validate → load → threats → risks) in one click.
 
 ---
 
@@ -157,7 +161,7 @@ No code changes are needed — the factory function `create_trace_recorder()` au
 pytest -q
 ```
 
-141 tests across schema validation, graph operations, threat generation, technique mapping, risk scoring, knowledge ingestion, vector suggestion, mapping generation, agent workflow, observability, and UI layers.
+340 tests across schema validation, graph operations, threat generation (44 heuristics), technique mapping, risk scoring, knowledge ingestion, GraphRAG scoring, threat enrichment, chunking, graph vector search, agent workflow, observability, and UI layers.
 
 ---
 
@@ -173,6 +177,9 @@ pytest -q
 | [Threat Methodology](docs/threat_methodology.md) | Heuristic rule catalog with ATT&CK/ATLAS alignment |
 | [Risk Methodology](docs/risk_methodology.md) | Scoring formula, factor weights, and priority bands |
 | [ATT&CK/ATLAS Ingestion Design](docs/design_attack_atlas_ingestion.md) | Knowledge-base sync architecture and layered mapping engine |
+| [GraphRAG Design](docs/design_graphrag.md) | Neo4j GraphRAG integration: knowledge graph, chunking, vector search, enhanced scoring, threat enrichment |
+| [GraphRAG Migration](docs/migration_graphrag.md) | Step-by-step guide for enabling the GraphRAG pipeline |
+| [Heuristic Expansion](docs/design_heuristics.md) | STRIDE, CAPEC, schema enrichment, and NIST 800-53 heuristic expansion strategy |
 | [Diagrams](docs/diagrams/) | Mermaid sources (.mmd) exported to SVG — pipeline, workflow, risk scoring, project layout, knowledge ingestion |
 
 ---
@@ -185,12 +192,12 @@ pytest -q
 | Schema validation | Pydantic ≥ 2.8 | Model contracts with cross-reference integrity enforcement |
 | Graph database | Neo4j ≥ 5.20 | Property graph for attack-path traversal and dependency analysis |
 | Graph protocol | Bolt (official `neo4j` driver) | Parameterised Cypher queries with connection pooling |
-| Knowledge base | MITRE ATT&CK + ATLAS | STIX 2.1 / YAML ingestion into SQLite with in-memory index for technique lookup |
-| Threat mapping | MITRE ATT&CK + ATLAS | Layered mapping: curated TOML rules, opt-in tactic expansion, context filtering, vector-based sync-time suggestion generation |
-| UI | Streamlit ≥ 1.35 | Multipage analyst dashboard with sidebar controls and one-click rebuild |
+| Knowledge base | MITRE ATT&CK + ATLAS | STIX 2.1 / YAML ingestion into Neo4j knowledge graph (primary) with SQLite fallback; chunked embeddings + native vector index |
+| Threat mapping | MITRE ATT&CK + ATLAS | Layered mapping: curated TOML rules, opt-in tactic expansion, context filtering, GraphRAG-enhanced suggestion scoring (mitigation gap, sub-technique, tactic overlap) |
+| UI | Streamlit ≥ 1.35 | Multipage analyst dashboard (5 screens) with knowledge sync, GraphRAG controls, and one-click rebuild |
 | Observability | JSONL local traces | Structured event log for every workflow invocation |
 | Observability (opt.) | LangSmith | Cloud trace export with parent-child run relationships |
-| Testing | pytest ≥ 8.0 | 141 tests across 19 modules — schema, graph, analysis, knowledge, agents, UI |
+| Testing | pytest ≥ 8.0 | 340 tests across 27 modules — schema, graph, analysis, knowledge, GraphRAG, agents, UI |
 
 ### Why these choices
 

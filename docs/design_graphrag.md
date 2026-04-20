@@ -1,6 +1,6 @@
 # Design: Neo4j GraphRAG Integration
 
-> Status: Proposed  
+> Status: **Implemented** (Phases A–E complete)  
 > Author: ThreatForge Team  
 > Date: 2026-04-20
 
@@ -593,7 +593,7 @@ For existing deployments:
 1. **Technique recall**: For a set of 20 manually validated heuristic-technique pairs not in curated mappings, GraphRAG suggestions should include >= 80% (vs. current ~60% with flat vector search).
 2. **Mitigation relevance**: For threat records targeting modules with `control_functions`, suggested mitigations should reference only controls NOT already implemented.
 3. **Performance**: Full threat pipeline (44 heuristics + GraphRAG enrichment) completes in < 30 seconds for the example fintech model.
-4. **Zero regression**: All existing 257 tests continue to pass with GraphRAG disabled.
+4. **Zero regression**: All existing tests continue to pass with GraphRAG disabled (340 total, 3 pre-existing failures unrelated to GraphRAG).
 
 ## 15. Implementation Record
 
