@@ -526,7 +526,242 @@ class TestCAPECDiscoveryIntegration:
         expected = {f"TH-{i:03d}" for i in range(15, 25)}
         assert expected.issubset(ids), f"Missing: {expected - ids}"
 
-    def test_total_heuristic_count(self) -> None:
+    def test_total_heuristic_count_phase2(self) -> None:
         from analysis.heuristics import discovered_heuristics
         # Phase 0: TH-001–TH-006, Phase 1: TH-007–TH-014, Phase 2: TH-015–TH-024
-        assert len(discovered_heuristics()) == 24
+        # Phase 3 adds TH-025–TH-034 (tested separately)
+        assert len(discovered_heuristics()) >= 24
+
+
+# ── Schema Enrichment Phase 3 heuristics (TH-025 – TH-034) ──────
+
+
+def _enrichment_snapshot() -> dict[str, list[dict[str, Any]]]:
+    """Snapshot data covering all Phase 3 schema enrichment heuristic queries."""
+    return {
+        "unauth_actor_modules": [
+            {
+                "actor_id": "customer",
+                "actor_name": "Customer",
+                "workflow_id": "payment_execution",
+                "workflow_name": "Payment Execution",
+                "module_id": "fraud_model_service",
+                "module_name": "Fraud Model Service",
+            },
+        ],
+        "unencrypted_boundary": [
+            {
+                "source_module": "payment_service",
+                "source_name": "Payment Service",
+                "target_id": "fraud_model_service",
+                "target_name": "Fraud Model Service",
+                "trust_boundary": "backend_ml_boundary",
+                "relationship": "calls",
+            },
+        ],
+        "exposed_no_validation": [
+            {
+                "module_id": "mobile_app",
+                "module_name": "Mobile App",
+                "module_type": "client_application",
+            },
+        ],
+        "exposed_no_rate_limit": [
+            {
+                "module_id": "mobile_app",
+                "module_name": "Mobile App",
+                "downstream_count": 1,
+                "downstream_ids": ["api_gateway"],
+            },
+        ],
+        "critical_unlogged": [
+            {
+                "module_id": "fraud_model_service",
+                "module_name": "Fraud Model Service",
+                "workflow_id": "payment_execution",
+                "workflow_name": "Payment Execution",
+                "system_criticality": "high",
+            },
+        ],
+        "unencrypted_sensitive_store": [
+            {
+                "module_id": "payment_service",
+                "module_name": "Payment Service",
+                "datastore_id": "txn_db",
+                "datastore_name": "Transaction Database",
+                "relationship": "writes",
+                "sensitive_objects": ["payment_instruction"],
+            },
+        ],
+        "bidirectional_boundary": [
+            {
+                "source_module": "payment_service",
+                "source_name": "Payment Service",
+                "target_id": "fraud_model_service",
+                "target_name": "Fraud Model Service",
+                "trust_boundary": "backend_ml_boundary",
+                "relationship": "calls",
+            },
+        ],
+        "api_across_boundary": [
+            {
+                "module_id": "auth_service",
+                "module_name": "Auth Service",
+                "api_endpoints": ["/internal/auth/verify", "/internal/auth/token"],
+                "domain_id": "backend",
+                "trust_boundary": "backend_ml_boundary",
+            },
+        ],
+        "unauth_chain_privileged": [
+            {
+                "source_module": "mobile_app",
+                "source_name": "Mobile App",
+                "target_module": "fraud_model_service",
+                "target_name": "Fraud Model Service",
+                "privilege_level": 2,
+            },
+        ],
+        "mobile_edge_regulated": [
+            {
+                "module_id": "mobile_app",
+                "module_name": "Mobile App",
+                "deployment_context": "mobile",
+                "workflow_id": "user_login",
+                "workflow_name": "User Login",
+                "object_id": "user_credentials",
+                "object_name": "User Credentials",
+            },
+        ],
+    }
+
+
+class TestEnrichmentHeuristicParsing:
+    """Verify all Phase 3 enrichment TOML rules parse correctly."""
+
+    @pytest.mark.parametrize(
+        "toml_file,expected_id",
+        [
+            ("th_025.toml", "TH-025"),
+            ("th_026.toml", "TH-026"),
+            ("th_027.toml", "TH-027"),
+            ("th_028.toml", "TH-028"),
+            ("th_029.toml", "TH-029"),
+            ("th_030.toml", "TH-030"),
+            ("th_031.toml", "TH-031"),
+            ("th_032.toml", "TH-032"),
+            ("th_033.toml", "TH-033"),
+            ("th_034.toml", "TH-034"),
+        ],
+    )
+    def test_heuristic_parses_from_toml(self, toml_file: str, expected_id: str) -> None:
+        h, _ = _load_rule(toml_file)
+        assert h.rule_id == expected_id
+        assert h.name
+        assert h.description
+        assert h.target_type in {"module", "workflow", "object", "datastore", "system"}
+        assert h.severity_hint in {"low", "medium", "high", "critical"}
+        assert len(h.frameworks) >= 1
+
+
+class TestEnrichmentMaterializerOutput:
+    """Verify Phase 3 TOML materializers produce correct threat records."""
+
+    @pytest.mark.parametrize(
+        "toml_file,snapshot_key,expected_count",
+        [
+            ("th_025.toml", "unauth_actor_modules", 1),
+            ("th_026.toml", "unencrypted_boundary", 1),
+            ("th_027.toml", "exposed_no_validation", 1),
+            ("th_028.toml", "exposed_no_rate_limit", 1),
+            ("th_029.toml", "critical_unlogged", 1),
+            ("th_030.toml", "unencrypted_sensitive_store", 1),
+            ("th_031.toml", "bidirectional_boundary", 1),
+            ("th_032.toml", "api_across_boundary", 1),
+            ("th_033.toml", "unauth_chain_privileged", 1),
+            ("th_034.toml", "mobile_edge_regulated", 1),
+        ],
+    )
+    def test_produces_expected_threat_count(
+        self, toml_file: str, snapshot_key: str, expected_count: int,
+    ) -> None:
+        h, mat = _load_rule(toml_file)
+        snapshot = _enrichment_snapshot()
+        threats = _run_materializer(mat, h, snapshot)
+        assert len(threats) == expected_count, (
+            f"{toml_file}: expected {expected_count} threats, got {len(threats)}"
+        )
+
+    def test_th_025_unauthenticated_actor_fields(self) -> None:
+        h, mat = _load_rule("th_025.toml")
+        threats = _run_materializer(mat, h, _enrichment_snapshot())
+        t = threats[0]
+        assert t.rule_id == "TH-025"
+        assert t.target_id == "fraud_model_service"
+        assert t.evidence["actor_id"] == "customer"
+        assert t.affected_workflows == ["payment_execution"]
+
+    def test_th_027_no_input_validation_fields(self) -> None:
+        h, mat = _load_rule("th_027.toml")
+        threats = _run_materializer(mat, h, _enrichment_snapshot())
+        t = threats[0]
+        assert t.rule_id == "TH-027"
+        assert t.target_id == "mobile_app"
+        assert t.severity_hint == "high"
+        assert t.evidence["module_type"] == "client_application"
+
+    def test_th_029_unlogged_critical_fields(self) -> None:
+        h, mat = _load_rule("th_029.toml")
+        threats = _run_materializer(mat, h, _enrichment_snapshot())
+        t = threats[0]
+        assert t.rule_id == "TH-029"
+        assert t.target_id == "fraud_model_service"
+        assert t.evidence["system_criticality"] == "high"
+        assert t.affected_workflows == ["payment_execution"]
+
+    def test_th_033_unauth_chain_privileged_fields(self) -> None:
+        h, mat = _load_rule("th_033.toml")
+        threats = _run_materializer(mat, h, _enrichment_snapshot())
+        t = threats[0]
+        assert t.rule_id == "TH-033"
+        assert t.target_id == "fraud_model_service"
+        assert t.severity_hint == "critical"
+        assert t.evidence["privilege_level"] == 2
+
+    def test_th_034_mobile_regulated_fields(self) -> None:
+        h, mat = _load_rule("th_034.toml")
+        threats = _run_materializer(mat, h, _enrichment_snapshot())
+        t = threats[0]
+        assert t.rule_id == "TH-034"
+        assert t.target_id == "mobile_app"
+        assert t.evidence["deployment_context"] == "mobile"
+        assert t.affected_workflows == ["user_login"]
+        assert t.affected_objects == ["user_credentials"]
+
+    def test_empty_snapshot_produces_no_threats(self) -> None:
+        """All enrichment heuristics should produce 0 threats from empty snapshot."""
+        for i in range(25, 35):
+            toml_file = f"th_{i:03d}.toml"
+            h, mat = _load_rule(toml_file)
+            threats = _run_materializer(mat, h, {})
+            assert threats == [], f"{toml_file} produced threats from empty snapshot"
+
+
+class TestEnrichmentDiscoveryIntegration:
+    """Verify Phase 3 heuristics are discovered and registered."""
+
+    def test_discovered_heuristics_include_enrichment_set(self) -> None:
+        from analysis.heuristics import discovered_heuristics
+        ids = {h.rule_id for h in discovered_heuristics()}
+        expected = {f"TH-{i:03d}" for i in range(25, 35)}
+        assert expected.issubset(ids), f"Missing: {expected - ids}"
+
+    def test_discovered_materializers_include_enrichment_set(self) -> None:
+        from analysis.heuristics import discovered_materializers
+        ids = {m.rule_id for m in discovered_materializers()}
+        expected = {f"TH-{i:03d}" for i in range(25, 35)}
+        assert expected.issubset(ids), f"Missing: {expected - ids}"
+
+    def test_total_heuristic_count(self) -> None:
+        from analysis.heuristics import discovered_heuristics
+        # Phase 0–3: TH-001–TH-034
+        assert len(discovered_heuristics()) == 34

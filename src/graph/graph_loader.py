@@ -128,6 +128,12 @@ class GraphLoader:
                 "description": m.description,
                 "domain_id": m.domain,
                 "privilege_id": m.privilege,
+                "authentication_required": m.authentication_required,
+                "input_validation": m.input_validation,
+                "rate_limiting": m.rate_limiting,
+                "logging_enabled": m.logging_enabled,
+                "api_endpoints": m.api_endpoints,
+                "deployment_context": m.deployment_context,
             }
             for m in model.modules
         ]
@@ -140,7 +146,13 @@ class GraphLoader:
                 m.internet_exposed = row.internet_exposed,
                 m.processes_sensitive_data = row.processes_sensitive_data,
                 m.ai_relevant = row.ai_relevant,
-                m.description = row.description
+                m.description = row.description,
+                m.authentication_required = row.authentication_required,
+                m.input_validation = row.input_validation,
+                m.rate_limiting = row.rate_limiting,
+                m.logging_enabled = row.logging_enabled,
+                m.api_endpoints = row.api_endpoints,
+                m.deployment_context = row.deployment_context
             """,
             {"batch": batch},
         )
@@ -347,6 +359,8 @@ class GraphLoader:
                 "source": d.source,
                 "target": d.target,
                 "relationship": d.relationship,
+                "encryption_in_transit": d.encryption_in_transit,
+                "data_flow_direction": d.data_flow_direction,
             }
             for d in model.dependencies
         ]
@@ -357,6 +371,8 @@ class GraphLoader:
                   (target {id: row.target})
             WHERE target:Module OR target:DataStore
             MERGE (source)-[r:DEPENDS_ON {relationship: row.relationship}]->(target)
+            SET r.encryption_in_transit = row.encryption_in_transit,
+                r.data_flow_direction = row.data_flow_direction
             """,
             {"batch": batch},
         )

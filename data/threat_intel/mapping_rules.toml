@@ -351,3 +351,145 @@ technique_id = "T1190"
 framework = "ATTACK"
 tactic = "initial-access"
 rationale = "Internet-exposed module with deep datastore access chain is prime target for public-facing exploitation."
+
+# ── Schema enrichment heuristics (TH-025 – TH-034) ────────────
+
+[[mappings]]
+rule_id = "TH-025"
+technique_id = "T1078"
+framework = "ATTACK"
+tactic = "initial-access"
+rationale = "Unauthenticated module reachable by external actor enables valid account abuse without credential challenge."
+
+[[mappings]]
+rule_id = "TH-025"
+technique_id = "T1134"
+framework = "ATTACK"
+tactic = "defense-evasion"
+rationale = "Missing authentication allows access token manipulation to impersonate legitimate actors."
+
+[[mappings]]
+rule_id = "TH-026"
+technique_id = "T1040"
+framework = "ATTACK"
+tactic = "credential-access"
+rationale = "Unencrypted data flow across trust boundary enables network sniffing for credential capture."
+
+[[mappings]]
+rule_id = "TH-026"
+technique_id = "T1557"
+framework = "ATTACK"
+tactic = "credential-access"
+rationale = "Unencrypted cross-boundary communication enables adversary-in-the-middle interception."
+
+[[mappings]]
+rule_id = "TH-027"
+technique_id = "T1190"
+framework = "ATTACK"
+tactic = "initial-access"
+rationale = "Internet-exposed module without input validation is vulnerable to injection-based exploitation."
+
+[[mappings]]
+rule_id = "TH-027"
+technique_id = "T1059"
+framework = "ATTACK"
+tactic = "execution"
+rationale = "Missing input validation on exposed module enables command and scripting interpreter abuse."
+
+[[mappings]]
+rule_id = "TH-028"
+technique_id = "T1499"
+framework = "ATTACK"
+tactic = "impact"
+rationale = "Internet-exposed module without rate limiting enables endpoint denial of service."
+
+[[mappings]]
+rule_id = "TH-028"
+technique_id = "T1498"
+framework = "ATTACK"
+tactic = "impact"
+rationale = "Unthrottled exposed module with downstream dependencies enables network-level denial of service."
+
+[[mappings]]
+rule_id = "TH-029"
+technique_id = "T1070"
+framework = "ATTACK"
+tactic = "defense-evasion"
+rationale = "Unlogged module in critical workflow enables indicator removal through absent audit trail."
+
+[[mappings]]
+rule_id = "TH-029"
+technique_id = "T1562"
+framework = "ATTACK"
+tactic = "defense-evasion"
+rationale = "Missing logging on critical workflow module constitutes impaired defense detection capability."
+
+[[mappings]]
+rule_id = "TH-030"
+technique_id = "T1040"
+framework = "ATTACK"
+tactic = "credential-access"
+rationale = "Unencrypted access to datastore with classified data enables network sniffing for sensitive content."
+
+[[mappings]]
+rule_id = "TH-030"
+technique_id = "T1005"
+framework = "ATTACK"
+tactic = "collection"
+rationale = "Unencrypted datastore dependency enables collection of classified data from local system."
+
+[[mappings]]
+rule_id = "TH-031"
+technique_id = "T1557"
+framework = "ATTACK"
+tactic = "credential-access"
+rationale = "Bidirectional flow across trust boundary doubles the adversary-in-the-middle attack surface."
+
+[[mappings]]
+rule_id = "TH-031"
+technique_id = "T1565"
+framework = "ATTACK"
+tactic = "impact"
+rationale = "Bidirectional cross-boundary flow enables data manipulation in both directions."
+
+[[mappings]]
+rule_id = "TH-032"
+technique_id = "T1190"
+framework = "ATTACK"
+tactic = "initial-access"
+rationale = "API endpoints accessible across trust boundary are targets for public-facing exploitation."
+
+[[mappings]]
+rule_id = "TH-032"
+technique_id = "T1106"
+framework = "ATTACK"
+tactic = "execution"
+rationale = "Cross-boundary API endpoints enable native API abuse from less-trusted zones."
+
+[[mappings]]
+rule_id = "TH-033"
+technique_id = "T1068"
+framework = "ATTACK"
+tactic = "privilege-escalation"
+rationale = "Unauthenticated chain to privileged module enables exploitation for privilege escalation."
+
+[[mappings]]
+rule_id = "TH-033"
+technique_id = "T1548"
+framework = "ATTACK"
+tactic = "privilege-escalation"
+rationale = "Missing authentication in dependency path enables abuse of elevation control mechanisms."
+
+[[mappings]]
+rule_id = "TH-034"
+technique_id = "T1005"
+framework = "ATTACK"
+tactic = "collection"
+rationale = "Mobile/edge module handling regulated data enables local data collection on less-controlled device."
+
+[[mappings]]
+rule_id = "TH-034"
+technique_id = "T1414"
+framework = "ATTACK"
+tactic = "collection"
+rationale = "Regulated data on mobile platform is vulnerable to clipboard or inter-process data capture."

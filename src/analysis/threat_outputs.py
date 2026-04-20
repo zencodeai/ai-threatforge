@@ -65,6 +65,17 @@ def _build_snapshot(queries: GraphQueries) -> dict[str, list[dict[str, Any]]]:
         "untrusted_ai_store": queries.untrusted_ai_datastore_access(),
         "multi_domain_chain": queries.multi_domain_dependency_chain(),
         "exposed_transitive_stores": queries.exposed_transitive_datastore_access(),
+        # Schema enrichment queries (Phase 3)
+        "unauth_actor_modules": queries.unauthenticated_actor_modules(),
+        "unencrypted_boundary": queries.unencrypted_boundary_flows(),
+        "exposed_no_validation": queries.exposed_without_input_validation(),
+        "exposed_no_rate_limit": queries.exposed_without_rate_limiting(),
+        "critical_unlogged": queries.critical_workflow_unlogged_modules(),
+        "unencrypted_sensitive_store": queries.unencrypted_sensitive_datastore_flow(),
+        "bidirectional_boundary": queries.bidirectional_boundary_flows(),
+        "api_across_boundary": queries.api_endpoints_across_boundary(),
+        "unauth_chain_privileged": queries.unauthenticated_chain_to_privileged(),
+        "mobile_edge_regulated": queries.mobile_edge_regulated_data(),
     }
 
 

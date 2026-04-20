@@ -1,0 +1,34 @@
+[heuristic]
+rule_id = "TH-029"
+name = "Module in critical workflow without logging"
+description = """Detect modules that participate in critical workflows but have logging \
+disabled, creating repudiation risk where security-relevant actions cannot be audited."""
+graph_pattern = """(s:System {criticality:'high'})-[:HAS_WORKFLOW]->(w:Workflow)\
+-[:INVOLVES_MODULE]->(m:Module {logging_enabled:false})"""
+target_type = "module"
+severity_hint = "medium"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- module.id",
+    "target_type <- 'module'",
+    "workflow <- critical workflow lacking audit trail",
+    "rationale <- unlogged module in critical workflow enables repudiation",
+]
+
+[materializer]
+primary = "critical_unlogged"
+sort_by = ["module_id", "workflow_id"]
+skip_if_empty = "module_id"
+target_id_field = "module_id"
+id_fields = ["module_id", "workflow_id"]
+rationale = "Module in critical workflow has logging disabled, preventing audit trail."
+
+[materializer.evidence]
+module_name = "row.module_name"
+workflow_id = "row.workflow_id"
+workflow_name = "row.workflow_name"
+system_criticality = "row.system_criticality"
+
+[materializer.affected]
+workflows = ["row.workflow_id"]
+objects = []

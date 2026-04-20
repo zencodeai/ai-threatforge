@@ -1,0 +1,38 @@
+[heuristic]
+rule_id = "TH-026"
+name = "Unencrypted data flow crossing trust boundary"
+description = """Detect dependencies that cross a trust boundary without encryption \
+in transit, creating information disclosure risk through unprotected communication \
+channels."""
+graph_pattern = """(src:Module)-[r:DEPENDS_ON {encryption_in_transit:false}]->(dst), \
+(src)-[:IN_DOMAIN]->(d1), (dst)-[:IN_DOMAIN]->(d2), \
+(tb:TrustBoundary)-[:CROSSES_FROM]->(d1)-[:CROSSES_TO]->(d2)"""
+target_type = "module"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- source_module.id",
+    "target_type <- 'module'",
+    "target <- destination of unencrypted flow",
+    "trust_boundary <- boundary being crossed",
+    "rationale <- unencrypted data flow across trust boundary",
+]
+
+[materializer]
+primary = "unencrypted_boundary"
+sort_by = ["source_module", "target_id"]
+skip_if_empty = "source_module"
+target_id_field = "source_module"
+id_fields = ["source_module", "target_id", "trust_boundary"]
+rationale = "Data flow crosses trust boundary without encryption in transit."
+
+[materializer.evidence]
+source_name = "row.source_name"
+target_id = "row.target_id"
+target_name = "row.target_name"
+trust_boundary = "row.trust_boundary"
+relationship = "row.relationship"
+
+[materializer.affected]
+workflows = []
+objects = []

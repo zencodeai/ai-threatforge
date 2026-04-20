@@ -52,6 +52,56 @@ def test_load_model_runs_core_merges() -> None:
     assert stats.relationships_created == 1
 
 
+def test_module_enrichment_properties_in_cypher() -> None:
+    """Verify new Module properties appear in the MERGE SET clause."""
+    fake = FakeClient()
+    loader = GraphLoader(fake)  # type: ignore[arg-type]
+    model = load_canonical_model(EXAMPLE_MODEL)
+    loader.load_model(model)
+
+    module_queries = [q for q, _ in fake.calls if "MERGE (m:Module" in q]
+    assert module_queries, "No Module MERGE query found"
+    q = module_queries[0]
+    for prop in (
+        "authentication_required", "input_validation", "rate_limiting",
+        "logging_enabled", "api_endpoints", "deployment_context",
+    ):
+        assert f"m.{prop}" in q, f"Missing {prop} in Module MERGE"
+
+
+def test_dependency_enrichment_properties_in_cypher() -> None:
+    """Verify new Dependency properties appear in the DEPENDS_ON SET clause."""
+    fake = FakeClient()
+    loader = GraphLoader(fake)  # type: ignore[arg-type]
+    model = load_canonical_model(EXAMPLE_MODEL)
+    loader.load_model(model)
+
+    dep_queries = [q for q, _ in fake.calls if "MERGE (source)-[r:DEPENDS_ON" in q]
+    assert dep_queries, "No DEPENDS_ON MERGE query found"
+    q = dep_queries[0]
+    assert "r.encryption_in_transit" in q
+    assert "r.data_flow_direction" in q
+
+
+def test_module_enrichment_batch_data() -> None:
+    """Verify batch data includes enrichment values from the model."""
+    fake = FakeClient()
+    loader = GraphLoader(fake)  # type: ignore[arg-type]
+    model = load_canonical_model(EXAMPLE_MODEL)
+    loader.load_model(model)
+
+    module_calls = [
+        (q, p) for q, p in fake.calls
+        if "MERGE (m:Module" in q and p and "batch" in p
+    ]
+    assert module_calls
+    batch = module_calls[0][1]["batch"]
+    gateway = next(m for m in batch if m["id"] == "api_gateway")
+    assert gateway["authentication_required"] is True
+    assert gateway["rate_limiting"] is True
+    assert len(gateway["api_endpoints"]) > 0
+
+
 @pytest.mark.integration
 def test_load_model_into_graph_integration() -> None:
     required = ["NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD"]

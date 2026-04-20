@@ -43,6 +43,12 @@ class Module(BaseModel):
     processes_sensitive_data: bool = False
     ai_relevant: bool = False
     description: str | None = None
+    authentication_required: bool = False
+    input_validation: bool = False
+    rate_limiting: bool = False
+    logging_enabled: bool = False
+    api_endpoints: list[str] = Field(default_factory=list)
+    deployment_context: str | None = None
 
 
 class ObjectModel(BaseModel):
@@ -89,6 +95,8 @@ class Dependency(BaseModel):
     source: str
     target: str
     relationship: str
+    encryption_in_transit: bool = False
+    data_flow_direction: str | None = None
 
 
 class CanonicalModel(BaseModel):

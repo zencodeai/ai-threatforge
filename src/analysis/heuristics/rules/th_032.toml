@@ -1,0 +1,36 @@
+[heuristic]
+rule_id = "TH-032"
+name = "Module with API endpoints accessible across trust boundary"
+description = """Detect modules with defined API endpoints that are located in a domain \
+targeted by a trust boundary crossing, expanding the interface attack surface available \
+to less-trusted zones."""
+graph_pattern = """(m:Module)-[:IN_DOMAIN]->(d), (tb:TrustBoundary)-[:CROSSES_TO]->(d) \
+WHERE size(m.api_endpoints) > 0"""
+target_type = "module"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- module.id",
+    "target_type <- 'module'",
+    "api_endpoints <- endpoints exposed across boundary",
+    "trust_boundary <- boundary providing access",
+    "rationale <- API endpoints accessible from less-trusted zone",
+]
+
+[materializer]
+primary = "api_across_boundary"
+sort_by = ["module_id", "trust_boundary"]
+skip_if_empty = "module_id"
+target_id_field = "module_id"
+id_fields = ["module_id", "trust_boundary"]
+rationale = "Module API endpoints are accessible across trust boundary from less-trusted zone."
+
+[materializer.evidence]
+module_name = "row.module_name"
+api_endpoints = "row.api_endpoints"
+domain_id = "row.domain_id"
+trust_boundary = "row.trust_boundary"
+
+[materializer.affected]
+workflows = []
+objects = []

@@ -1,0 +1,37 @@
+[heuristic]
+rule_id = "TH-031"
+name = "Bidirectional data flow across trust boundary"
+description = """Detect dependencies with bidirectional data flow that cross a trust \
+boundary, increasing the attack surface by allowing data to flow in both directions \
+between different trust zones."""
+graph_pattern = """(src:Module)-[r:DEPENDS_ON {data_flow_direction:'bidirectional'}]->(dst), \
+(tb:TrustBoundary) crossing between their domains"""
+target_type = "module"
+severity_hint = "medium"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- source_module.id",
+    "target_type <- 'module'",
+    "target <- destination module",
+    "trust_boundary <- boundary with bidirectional flow",
+    "rationale <- bidirectional flow across trust boundary increases attack surface",
+]
+
+[materializer]
+primary = "bidirectional_boundary"
+sort_by = ["source_module", "target_id"]
+skip_if_empty = "source_module"
+target_id_field = "source_module"
+id_fields = ["source_module", "target_id", "trust_boundary"]
+rationale = "Bidirectional data flow across trust boundary increases attack surface."
+
+[materializer.evidence]
+source_name = "row.source_name"
+target_id = "row.target_id"
+target_name = "row.target_name"
+trust_boundary = "row.trust_boundary"
+relationship = "row.relationship"
+
+[materializer.affected]
+workflows = []
+objects = []

@@ -64,3 +64,57 @@ def test_invalid_datastore_contains_fails() -> None:
 
     with pytest.raises(ValueError, match="contains unknown objects"):
         CanonicalModel.model_validate(payload)
+
+
+# ── Phase 3 schema enrichment tests ──────────────────────────────
+
+
+def test_module_enrichment_fields_parse() -> None:
+    model = load_canonical_model(EXAMPLE_MODEL)
+    gateway = next(m for m in model.modules if m.id == "api_gateway")
+    assert gateway.authentication_required is True
+    assert gateway.input_validation is True
+    assert gateway.rate_limiting is True
+    assert gateway.logging_enabled is True
+    assert "/api/v1/payments" in gateway.api_endpoints
+    assert gateway.deployment_context == "cloud"
+
+
+def test_module_enrichment_defaults() -> None:
+    """Omitting enrichment fields should produce backward-compatible defaults."""
+    payload = load_example_payload()
+    # Strip all enrichment fields from first module
+    for key in (
+        "authentication_required", "input_validation", "rate_limiting",
+        "logging_enabled", "api_endpoints", "deployment_context",
+    ):
+        payload["modules"][0].pop(key, None)
+    model = CanonicalModel.model_validate(payload)
+    m = model.modules[0]
+    assert m.authentication_required is False
+    assert m.input_validation is False
+    assert m.rate_limiting is False
+    assert m.logging_enabled is False
+    assert m.api_endpoints == []
+    assert m.deployment_context is None
+
+
+def test_dependency_enrichment_fields_parse() -> None:
+    model = load_canonical_model(EXAMPLE_MODEL)
+    encrypted_dep = next(
+        d for d in model.dependencies
+        if d.source == "mobile_app" and d.target == "api_gateway"
+    )
+    assert encrypted_dep.encryption_in_transit is True
+    assert encrypted_dep.data_flow_direction == "outbound"
+
+
+def test_dependency_enrichment_defaults() -> None:
+    """Omitting dependency enrichment fields should produce defaults."""
+    payload = load_example_payload()
+    for key in ("encryption_in_transit", "data_flow_direction"):
+        payload["dependencies"][0].pop(key, None)
+    model = CanonicalModel.model_validate(payload)
+    d = model.dependencies[0]
+    assert d.encryption_in_transit is False
+    assert d.data_flow_direction is None

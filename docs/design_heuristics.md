@@ -459,4 +459,92 @@ Full test suite result: **188 passed**, 3 pre-existing failures (unchanged from 
 |---|---|---|
 | Phase 0 (original) | TH-001 – TH-006 | 6 |
 | Phase 1 (STRIDE) | TH-007 – TH-014 | 14 |
-| Phase 2 (CAPEC) | TH-015 – TH-024 | **24** |
+| Phase 2 (CAPEC) | TH-015 – TH-024 | 24 |
+| Phase 3 (Enrichment) | TH-025 – TH-034 | **34** |
+
+---
+
+## 9. Phase 3 — Model Schema Enrichment
+
+> Implemented: 2026-04-20
+
+Phase 3 adds 8 new properties to the canonical model schema and 10 heuristics (TH-025 through TH-034) that detect **control absences** — missing authentication, encryption, input validation, rate limiting, and logging. This shifts from "what attacks are possible?" toward "what controls are missing?" — the perspective that Phase 4 (NIST 800-53) will build on.
+
+### New schema properties
+
+All properties are optional with backward-compatible defaults. Existing TOML models continue to work unchanged.
+
+**Module properties:**
+
+| Property | Type | Default | Unlocks |
+|---|---|---|---|
+| `authentication_required` | `bool` | `False` | Spoofing detection, unauthenticated access paths |
+| `input_validation` | `bool` | `False` | Injection and manipulation detection |
+| `rate_limiting` | `bool` | `False` | DoS exposure detection |
+| `logging_enabled` | `bool` | `False` | Repudiation detection |
+| `api_endpoints` | `list[str]` | `[]` | Interface-specific attack surface |
+| `deployment_context` | `str \| None` | `None` | Platform-aware technique filtering |
+
+**Dependency properties:**
+
+| Property | Type | Default | Unlocks |
+|---|---|---|---|
+| `encryption_in_transit` | `bool` | `False` | Information disclosure across boundaries |
+| `data_flow_direction` | `str \| None` | `None` | Directional flow analysis |
+
+### New heuristics
+
+| Rule | Property | Name | Target | Severity | Detection Signal |
+|---|---|---|---|---|---|
+| TH-025 | `authentication_required` | External actor reaches unauthenticated module | module | high | Actor→Workflow→Module without auth |
+| TH-026 | `encryption_in_transit` | Unencrypted flow crossing trust boundary | module | high | Unencrypted dep across boundary |
+| TH-027 | `input_validation` | Internet-exposed module without input validation | module | high | Exposed + no validation |
+| TH-028 | `rate_limiting` | Internet-exposed module without rate limiting | module | medium | Exposed + no rate limit + downstream |
+| TH-029 | `logging_enabled` | Module in critical workflow without logging | module | medium | Unlogged in critical workflow |
+| TH-030 | `encryption_in_transit` | Unencrypted dep to classified datastore | datastore | high | Unencrypted + classified data |
+| TH-031 | `data_flow_direction` | Bidirectional flow across trust boundary | module | medium | Bidirectional + boundary crossing |
+| TH-032 | `api_endpoints` | API endpoints accessible across boundary | module | high | Endpoints in boundary-target domain |
+| TH-033 | `authentication_required` | Unauthenticated chain to privileged module | module | critical | No auth on path to privilege ≥ 2 |
+| TH-034 | `deployment_context` | Mobile/edge module handling regulated data | module | high | Mobile/edge + regulated objects |
+
+### Implementation details
+
+Changes span the full stack:
+
+1. **Schema** (`src/models/schema/canonical_model.py`): 6 new fields on `Module`, 2 on `Dependency`
+2. **Graph loader** (`src/graph/graph_loader.py`): `_merge_modules` and `_merge_dependencies` SET the new properties
+3. **Example model** (`examples/fintech_ai_platform.toml`): All modules and dependencies annotated with new properties
+4. **Cypher queries** (`src/graph/graph_queries.py`): 10 new methods under `Schema enrichment queries (Phase 3)`
+5. **Snapshot builder** (`src/analysis/threat_outputs.py`): 10 new snapshot keys
+6. **TOML rules** (`src/analysis/heuristics/rules/th_025.toml` – `th_034.toml`): 10 new heuristic definitions
+7. **Technique mappings** (`data/threat_intel/mapping_rules.toml`): 20 new curated entries
+
+### Technique mapping summary
+
+| Rule | Techniques | Frameworks |
+|---|---|---|
+| TH-025 | T1078, T1134 | ATT&CK |
+| TH-026 | T1040, T1557 | ATT&CK |
+| TH-027 | T1190, T1059 | ATT&CK |
+| TH-028 | T1499, T1498 | ATT&CK |
+| TH-029 | T1070, T1562 | ATT&CK |
+| TH-030 | T1040, T1005 | ATT&CK |
+| TH-031 | T1557, T1565 | ATT&CK |
+| TH-032 | T1190, T1106 | ATT&CK |
+| TH-033 | T1068, T1548 | ATT&CK |
+| TH-034 | T1005, T1414 | ATT&CK |
+
+### Test coverage
+
+**Schema tests** (`test_schema.py`): 4 new tests verifying property parsing and defaults for both Module and Dependency enrichment fields.
+
+**Graph loader tests** (`test_graph_loader.py`): 3 new tests verifying Cypher SET clauses include the new properties and batch data carries correct values.
+
+**Heuristic tests** (`test_generic_materializer.py`): 29 new tests:
+- 10 TOML parsing tests
+- 10 materializer output tests
+- 5 field-level tests (TH-025, TH-027, TH-029, TH-033, TH-034)
+- 1 empty snapshot test
+- 3 discovery integration tests (including total count = 34)
+
+Full test suite result: **224 passed**, 3 pre-existing failures (unchanged).

@@ -1,0 +1,38 @@
+[heuristic]
+rule_id = "TH-030"
+name = "Unencrypted dependency to datastore with classified data"
+description = """Detect dependencies to datastores containing confidential, secret, or \
+regulated objects where the data flow is not encrypted in transit, creating information \
+disclosure risk."""
+graph_pattern = """(m:Module)-[r:DEPENDS_ON {encryption_in_transit:false}]->(ds:DataStore)\
+-[:STORES]->(o:Object) WHERE o.classification IN ['confidential','secret'] \
+OR o.regulated=true"""
+target_type = "datastore"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- datastore.id",
+    "target_type <- 'datastore'",
+    "accessing_module <- module with unencrypted access",
+    "sensitive_objects <- classified objects at risk",
+    "rationale <- unencrypted path to sensitive datastore",
+]
+
+[materializer]
+primary = "unencrypted_sensitive_store"
+sort_by = ["module_id", "datastore_id"]
+skip_if_empty = "datastore_id"
+target_id_field = "datastore_id"
+id_fields = ["module_id", "datastore_id"]
+rationale = "Dependency to datastore with classified data lacks encryption in transit."
+
+[materializer.evidence]
+module_id = "row.module_id"
+module_name = "row.module_name"
+datastore_name = "row.datastore_name"
+relationship = "row.relationship"
+sensitive_objects = "row.sensitive_objects"
+
+[materializer.affected]
+workflows = []
+objects = []

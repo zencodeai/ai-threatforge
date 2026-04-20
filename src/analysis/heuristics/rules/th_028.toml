@@ -1,0 +1,34 @@
+[heuristic]
+rule_id = "TH-028"
+name = "Internet-exposed module without rate limiting"
+description = """Detect internet-exposed modules that lack rate limiting and have \
+downstream dependencies, creating denial-of-service risk through unthrottled request \
+amplification."""
+graph_pattern = """(m:Module {internet_exposed:true, rate_limiting:false})\
+-[:DEPENDS_ON]->(downstream)"""
+target_type = "module"
+severity_hint = "medium"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- module.id",
+    "target_type <- 'module'",
+    "downstream_count <- number of downstream services at risk",
+    "rationale <- unthrottled internet-exposed module with downstream impact",
+]
+
+[materializer]
+primary = "exposed_no_rate_limit"
+sort_by = ["module_id"]
+skip_if_empty = "module_id"
+target_id_field = "module_id"
+id_fields = ["module_id"]
+rationale = "Internet-exposed module lacks rate limiting, amplifying DoS risk to downstream services."
+
+[materializer.evidence]
+module_name = "row.module_name"
+downstream_count = "row.downstream_count"
+downstream_ids = "row.downstream_ids"
+
+[materializer.affected]
+workflows = []
+objects = []

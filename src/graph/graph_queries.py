@@ -390,6 +390,153 @@ class GraphQueries:
         )
 
 
+    # ── Schema enrichment queries (Phase 3) ───────────────────────
+
+    def unauthenticated_actor_modules(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (a:ExternalActor)-[:PARTICIPATES_IN]->(w:Workflow)
+                  -[:INVOLVES_MODULE]->(m:Module)
+            WHERE m.authentication_required = false
+            RETURN DISTINCT a.id AS actor_id, a.name AS actor_name,
+                   w.id AS workflow_id, w.name AS workflow_name,
+                   m.id AS module_id, m.name AS module_name
+            ORDER BY actor_id, module_id
+            """
+        )
+
+    def unencrypted_boundary_flows(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (src:Module)-[r:DEPENDS_ON]->(dst),
+                  (src)-[:IN_DOMAIN]->(d1:SecurityDomain),
+                  (dst)-[:IN_DOMAIN]->(d2:SecurityDomain),
+                  (tb:TrustBoundary)-[:CROSSES_FROM]->(d1),
+                  (tb)-[:CROSSES_TO]->(d2)
+            WHERE r.encryption_in_transit = false
+            RETURN src.id AS source_module, src.name AS source_name,
+                   dst.id AS target_id, dst.name AS target_name,
+                   tb.id AS trust_boundary,
+                   r.relationship AS relationship
+            ORDER BY trust_boundary, source_module, target_id
+            """
+        )
+
+    def exposed_without_input_validation(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (m:Module)
+            WHERE m.internet_exposed = true
+              AND m.input_validation = false
+            RETURN m.id AS module_id, m.name AS module_name,
+                   m.module_type AS module_type
+            ORDER BY module_id
+            """
+        )
+
+    def exposed_without_rate_limiting(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (m:Module)-[:DEPENDS_ON]->(downstream)
+            WHERE m.internet_exposed = true
+              AND m.rate_limiting = false
+            WITH m, count(DISTINCT downstream) AS downstream_count,
+                 collect(DISTINCT downstream.id) AS downstream_ids
+            RETURN m.id AS module_id, m.name AS module_name,
+                   downstream_count, downstream_ids
+            ORDER BY downstream_count DESC, module_id
+            """
+        )
+
+    def critical_workflow_unlogged_modules(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (s:System)-[:HAS_WORKFLOW]->(w:Workflow)-[:INVOLVES_MODULE]->(m:Module)
+            WHERE s.criticality IN ['high', 'critical']
+              AND m.logging_enabled = false
+            RETURN DISTINCT m.id AS module_id, m.name AS module_name,
+                   w.id AS workflow_id, w.name AS workflow_name,
+                   s.criticality AS system_criticality
+            ORDER BY module_id, workflow_id
+            """
+        )
+
+    def unencrypted_sensitive_datastore_flow(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (m:Module)-[r:DEPENDS_ON]->(ds:DataStore)-[:STORES]->(o:Object)
+            WHERE r.encryption_in_transit = false
+              AND (o.classification IN ['confidential', 'secret'] OR o.regulated = true)
+            RETURN DISTINCT m.id AS module_id, m.name AS module_name,
+                   ds.id AS datastore_id, ds.name AS datastore_name,
+                   r.relationship AS relationship,
+                   collect(DISTINCT o.id) AS sensitive_objects
+            ORDER BY module_id, datastore_id
+            """
+        )
+
+    def bidirectional_boundary_flows(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (src:Module)-[r:DEPENDS_ON]->(dst),
+                  (src)-[:IN_DOMAIN]->(d1:SecurityDomain),
+                  (dst)-[:IN_DOMAIN]->(d2:SecurityDomain),
+                  (tb:TrustBoundary)-[:CROSSES_FROM]->(d1),
+                  (tb)-[:CROSSES_TO]->(d2)
+            WHERE r.data_flow_direction = 'bidirectional'
+            RETURN src.id AS source_module, src.name AS source_name,
+                   dst.id AS target_id, dst.name AS target_name,
+                   tb.id AS trust_boundary,
+                   r.relationship AS relationship
+            ORDER BY trust_boundary, source_module, target_id
+            """
+        )
+
+    def api_endpoints_across_boundary(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (m:Module)-[:IN_DOMAIN]->(d1:SecurityDomain),
+                  (tb:TrustBoundary)-[:CROSSES_TO]->(d1)
+            WHERE size(m.api_endpoints) > 0
+            RETURN m.id AS module_id, m.name AS module_name,
+                   m.api_endpoints AS api_endpoints,
+                   d1.id AS domain_id,
+                   tb.id AS trust_boundary
+            ORDER BY module_id, trust_boundary
+            """
+        )
+
+    def unauthenticated_chain_to_privileged(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (src:Module)-[:DEPENDS_ON]->(dst:Module)
+                  -[:HAS_PRIVILEGE]->(p:PrivilegeLevel)
+            WHERE src.authentication_required = false
+              AND dst.authentication_required = false
+              AND p.level >= 2
+            RETURN src.id AS source_module, src.name AS source_name,
+                   dst.id AS target_module, dst.name AS target_name,
+                   p.level AS privilege_level
+            ORDER BY privilege_level DESC, source_module, target_module
+            """
+        )
+
+    def mobile_edge_regulated_data(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (w:Workflow)-[:INVOLVES_MODULE]->(m:Module),
+                  (w)-[:INVOLVES_OBJECT]->(o:Object)
+            WHERE m.deployment_context IN ['mobile', 'edge']
+              AND o.regulated = true
+            RETURN DISTINCT m.id AS module_id, m.name AS module_name,
+                   m.deployment_context AS deployment_context,
+                   w.id AS workflow_id, w.name AS workflow_name,
+                   o.id AS object_id, o.name AS object_name
+            ORDER BY module_id, workflow_id, object_id
+            """
+        )
+
+
 def load_sample_queries(path: Path | None = None) -> list[str]:
     root = path or Path(__file__).resolve().parent / "cypher" / "sample_queries.cypher"
     raw = root.read_text(encoding="utf-8")

@@ -1,0 +1,31 @@
+[heuristic]
+rule_id = "TH-027"
+name = "Internet-exposed module without input validation"
+description = """Detect internet-exposed modules that do not perform input validation, \
+creating injection and manipulation risk from untrusted external input."""
+graph_pattern = """(m:Module {internet_exposed:true, input_validation:false})"""
+target_type = "module"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- module.id",
+    "target_type <- 'module'",
+    "module_type <- type of exposed module",
+    "rationale <- internet-exposed module lacks input validation",
+]
+
+[materializer]
+primary = "exposed_no_validation"
+sort_by = ["module_id"]
+skip_if_empty = "module_id"
+target_id_field = "module_id"
+id_fields = ["module_id"]
+rationale = "Internet-exposed module does not perform input validation."
+
+[materializer.evidence]
+module_name = "row.module_name"
+module_type = "row.module_type"
+
+[materializer.affected]
+workflows = []
+objects = []

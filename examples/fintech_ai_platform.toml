@@ -60,6 +60,12 @@ internet_exposed = true
 processes_sensitive_data = true
 ai_relevant = false
 description = "Customer mobile application"
+authentication_required = false
+input_validation = false
+rate_limiting = false
+logging_enabled = false
+api_endpoints = []
+deployment_context = "mobile"
 
 [[modules]]
 id = "api_gateway"
@@ -70,6 +76,12 @@ privilege = "service"
 internet_exposed = true
 processes_sensitive_data = true
 ai_relevant = false
+authentication_required = true
+input_validation = true
+rate_limiting = true
+logging_enabled = true
+api_endpoints = ["/api/v1/auth", "/api/v1/payments", "/api/v1/status"]
+deployment_context = "cloud"
 
 [[modules]]
 id = "auth_service"
@@ -80,6 +92,12 @@ privilege = "service"
 internet_exposed = false
 processes_sensitive_data = true
 ai_relevant = false
+authentication_required = true
+input_validation = true
+rate_limiting = false
+logging_enabled = true
+api_endpoints = ["/internal/auth/verify", "/internal/auth/token"]
+deployment_context = "cloud"
 
 [[modules]]
 id = "payment_service"
@@ -90,6 +108,12 @@ privilege = "service"
 internet_exposed = false
 processes_sensitive_data = true
 ai_relevant = false
+authentication_required = true
+input_validation = true
+rate_limiting = false
+logging_enabled = true
+api_endpoints = ["/internal/payments/execute"]
+deployment_context = "cloud"
 
 [[modules]]
 id = "fraud_model_service"
@@ -100,6 +124,12 @@ privilege = "service"
 internet_exposed = false
 processes_sensitive_data = true
 ai_relevant = true
+authentication_required = false
+input_validation = false
+rate_limiting = false
+logging_enabled = false
+api_endpoints = ["/internal/ml/predict"]
+deployment_context = "cloud"
 
 [[objects]]
 id = "user_credentials"
@@ -194,28 +224,40 @@ to_domain = "ml"
 source = "mobile_app"
 target = "api_gateway"
 relationship = "calls"
+encryption_in_transit = true
+data_flow_direction = "outbound"
 
 [[dependencies]]
 source = "api_gateway"
 target = "auth_service"
 relationship = "calls"
+encryption_in_transit = true
+data_flow_direction = "bidirectional"
 
 [[dependencies]]
 source = "api_gateway"
 target = "payment_service"
 relationship = "calls"
+encryption_in_transit = true
+data_flow_direction = "bidirectional"
 
 [[dependencies]]
 source = "payment_service"
 target = "fraud_model_service"
 relationship = "calls"
+encryption_in_transit = false
+data_flow_direction = "bidirectional"
 
 [[dependencies]]
 source = "payment_service"
 target = "txn_db"
 relationship = "writes"
+encryption_in_transit = false
+data_flow_direction = "outbound"
 
 [[dependencies]]
 source = "fraud_model_service"
 target = "feature_store"
 relationship = "reads_writes"
+encryption_in_transit = false
+data_flow_direction = "bidirectional"

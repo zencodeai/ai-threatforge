@@ -1,0 +1,40 @@
+[heuristic]
+rule_id = "TH-034"
+name = "Mobile or edge module handling regulated data"
+description = """Detect modules deployed to mobile or edge contexts that participate in \
+workflows involving regulated objects, creating platform-specific data protection risk \
+on less-controlled devices."""
+graph_pattern = """(w:Workflow)-[:INVOLVES_MODULE]->(m:Module), \
+(w)-[:INVOLVES_OBJECT]->(o:Object {regulated:true}) \
+WHERE m.deployment_context IN ['mobile','edge']"""
+target_type = "module"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- module.id",
+    "target_type <- 'module'",
+    "deployment_context <- platform type",
+    "workflow <- workflow with regulated data",
+    "regulated_object <- regulated object at risk",
+    "rationale <- regulated data on less-controlled platform",
+]
+
+[materializer]
+primary = "mobile_edge_regulated"
+sort_by = ["module_id", "workflow_id", "object_id"]
+skip_if_empty = "module_id"
+target_id_field = "module_id"
+id_fields = ["module_id", "workflow_id", "object_id"]
+rationale = "Mobile/edge module handles regulated data on less-controlled platform."
+
+[materializer.evidence]
+module_name = "row.module_name"
+deployment_context = "row.deployment_context"
+workflow_id = "row.workflow_id"
+workflow_name = "row.workflow_name"
+object_id = "row.object_id"
+object_name = "row.object_name"
+
+[materializer.affected]
+workflows = ["row.workflow_id"]
+objects = ["row.object_id"]

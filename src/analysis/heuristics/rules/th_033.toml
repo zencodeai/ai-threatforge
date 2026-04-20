@@ -1,0 +1,36 @@
+[heuristic]
+rule_id = "TH-033"
+name = "Unauthenticated dependency chain to privileged module"
+description = """Detect dependency chains where both source and target modules lack \
+authentication requirements and the target has elevated privileges, creating an \
+unauthenticated escalation path."""
+graph_pattern = """(src:Module {authentication_required:false})-[:DEPENDS_ON]->\
+(dst:Module {authentication_required:false})-[:HAS_PRIVILEGE]->(p) WHERE p.level >= 2"""
+target_type = "module"
+severity_hint = "critical"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- target_module.id",
+    "target_type <- 'module'",
+    "source_module <- unauthenticated entry point",
+    "privilege_level <- target privilege level",
+    "rationale <- unauthenticated chain reaches privileged module",
+]
+
+[materializer]
+primary = "unauth_chain_privileged"
+sort_by = ["source_module", "target_module"]
+skip_if_empty = "target_module"
+target_id_field = "target_module"
+id_fields = ["source_module", "target_module"]
+rationale = "Unauthenticated dependency chain reaches module with elevated privileges."
+
+[materializer.evidence]
+source_module = "row.source_module"
+source_name = "row.source_name"
+target_name = "row.target_name"
+privilege_level = "row.privilege_level"
+
+[materializer.affected]
+workflows = []
+objects = []
