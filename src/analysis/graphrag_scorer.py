@@ -41,6 +41,15 @@ class GraphRAGScoringWeights:
     mitigation_gap: float = 0.20
     subtechnique: float = 0.10
 
+    def __post_init__(self) -> None:
+        for name in ("vector", "tactic", "framework", "mitigation_gap", "subtechnique"):
+            val = getattr(self, name)
+            if not 0.0 <= val <= 1.0:
+                raise ValueError(f"Weight '{name}' must be in [0.0, 1.0], got {val}")
+        total = self.vector + self.tactic + self.framework + self.mitigation_gap + self.subtechnique
+        if abs(total - 1.0) > 0.01:
+            raise ValueError(f"Weights must sum to ~1.0, got {total:.4f}")
+
 
 @dataclass(frozen=True)
 class GraphRAGSuggestion:

@@ -360,6 +360,10 @@ class TestGraphRAGScoringWeights:
         assert total == pytest.approx(1.0)
 
     def test_custom_weights(self) -> None:
-        w = GraphRAGScoringWeights(vector=0.5, tactic=0.2)
-        assert w.vector == 0.5
-        assert w.tactic == 0.2
+        w = GraphRAGScoringWeights(vector=0.50, tactic=0.20, framework=0.10, mitigation_gap=0.10, subtechnique=0.10)
+        assert w.vector == 0.50
+        assert w.tactic == 0.20
+
+    def test_invalid_weights_rejected(self) -> None:
+        with pytest.raises(ValueError, match="sum to"):
+            GraphRAGScoringWeights(vector=0.9, tactic=0.9)

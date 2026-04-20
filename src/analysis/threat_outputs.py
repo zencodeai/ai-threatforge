@@ -137,10 +137,16 @@ def build_threat_report_from_snapshot(
 
     # GraphRAG enrichment (opt-in when Neo4j client is provided)
     if neo4j_client is not None:
-        from .threat_enricher import ThreatEnricher
+        try:
+            from .threat_enricher import ThreatEnricher
 
-        enricher = ThreatEnricher(neo4j_client)
-        enricher.enrich(ordered, model)
+            enricher = ThreatEnricher(neo4j_client)
+            enricher.enrich(ordered, model)
+        except Exception:
+            logging.getLogger(__name__).warning(
+                "GraphRAG enrichment failed; returning unenriched report.",
+                exc_info=True,
+            )
 
     return ThreatReport(
         model_id=model.meta.model_id,

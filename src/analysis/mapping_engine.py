@@ -8,7 +8,11 @@ from .mapping_types import TechniqueMapping
 from .threat_generation import THREAT_HEURISTICS
 
 if TYPE_CHECKING:
+    from graph.neo4j_client import Neo4jClient
+    from knowledge.embedder import TextEmbedder
     from knowledge.index import TechniqueIndex
+
+    from .graphrag_scorer import GraphRAGSuggestion
 
 
 def _expand_by_tactic(
@@ -132,14 +136,14 @@ def graphrag_score_suggestions(
     rule_id: str,
     heuristic_text: str,
     *,
-    neo4j_client: object,
-    embedder: object,
+    neo4j_client: Neo4jClient,
+    embedder: TextEmbedder,
     curated_mappings: tuple[TechniqueMapping, ...] = (),
     target_frameworks: tuple[str, ...] = (),
     module_controls: list[str] | None = None,
     top_k: int = 15,
     threshold: float = 0.0,
-) -> list:
+) -> list[GraphRAGSuggestion]:
     """Run the GraphRAG-enhanced Layer 0 scorer.
 
     This is the graph-aware alternative to :func:`suggestion_scorer.score_suggestions`.
@@ -152,13 +156,13 @@ def graphrag_score_suggestions(
 
     from .graphrag_scorer import GraphRAGScorer
 
-    graph_search = GraphVectorSearch(neo4j_client)  # type: ignore[arg-type]
-    scorer = GraphRAGScorer(neo4j_client, graph_search)  # type: ignore[arg-type]
+    graph_search = GraphVectorSearch(neo4j_client)
+    scorer = GraphRAGScorer(neo4j_client, graph_search)
 
     return scorer.score(
         rule_id,
         heuristic_text,
-        embedder=embedder,  # type: ignore[arg-type]
+        embedder=embedder,
         curated_mappings=curated_mappings,
         target_frameworks=target_frameworks,
         module_controls=module_controls,

@@ -7,7 +7,6 @@ into Neo4j for vector-indexed retrieval.
 
 from __future__ import annotations
 
-import hashlib
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Sequence
@@ -137,6 +136,11 @@ class ChunkingPipeline:
         stats.total_embedded = len(texts)
 
         # Attach embeddings to records
+        if len(vectors) != len(all_records):
+            raise RuntimeError(
+                f"Embedding count mismatch: {len(vectors)} vectors "
+                f"for {len(all_records)} chunk records"
+            )
         for record, vector in zip(all_records, vectors):
             record["embedding"] = vector.tolist()
 

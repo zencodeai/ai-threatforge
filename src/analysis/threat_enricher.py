@@ -11,7 +11,6 @@ traverses the MITRE knowledge sub-graph in Neo4j to add:
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 from models.schema.threat_model import RelatedTechnique, SuggestedMitigation
@@ -22,8 +21,6 @@ if TYPE_CHECKING:
     from models.schema.threat_model import ThreatRecord
 
 __all__ = ["ThreatEnricher"]
-
-_log = logging.getLogger(__name__)
 
 
 class ThreatEnricher:
@@ -111,7 +108,9 @@ class ThreatEnricher:
         suggestions: list[SuggestedMitigation] = []
 
         for row in rows:
-            mid = row["mitigation_id"]
+            mid = row.get("mitigation_id")
+            if not mid:
+                continue
             # Skip mitigations already implemented by the module
             if mid in module_controls:
                 continue
@@ -120,14 +119,18 @@ class ThreatEnricher:
                 continue
             seen.add(mid)
 
+            mit_name = row.get("mitigation_name") or "Unknown"
+            tech_id = row.get("technique_id") or "Unknown"
+            tech_name = row.get("technique_name") or "Unknown"
+
             suggestions.append(SuggestedMitigation(
                 mitigation_id=mid,
-                name=row["mitigation_name"],
-                technique_id=row["technique_id"],
-                technique_name=row["technique_name"],
+                name=mit_name,
+                technique_id=tech_id,
+                technique_name=tech_name,
                 rationale=(
-                    f"{row['mitigation_name']} mitigates {row['technique_id']} "
-                    f"({row['technique_name']}) and is not implemented by the target module."
+                    f"{mit_name} mitigates {tech_id} "
+                    f"({tech_name}) and is not implemented by the target module."
                 ),
             ))
 
@@ -166,16 +169,16 @@ class ThreatEnricher:
         )
 
         for row in shared_rows:
-            tid = row["technique_id"]
-            if tid in seen:
+            tid = row.get("technique_id")
+            if not tid or tid in seen:
                 continue
             seen.add(tid)
             related.append(RelatedTechnique(
                 technique_id=tid,
-                technique_name=row["technique_name"],
-                framework=row["framework"],
+                technique_name=row.get("technique_name") or "Unknown",
+                framework=row.get("framework") or "ATTACK",
                 relationship="shared-mitigation",
-                shared_mitigations=row["shared_count"],
+                shared_mitigations=row.get("shared_count", 0),
             ))
             if len(related) >= max_results:
                 return related
@@ -213,15 +216,15 @@ class ThreatEnricher:
         )
 
         for row in hierarchy_rows:
-            tid = row["technique_id"]
-            if tid in seen:
+            tid = row.get("technique_id")
+            if not tid or tid in seen:
                 continue
             seen.add(tid)
             related.append(RelatedTechnique(
                 technique_id=tid,
-                technique_name=row["technique_name"],
-                framework=row["framework"],
-                relationship=row["relationship"],
+                technique_name=row.get("technique_name") or "Unknown",
+                framework=row.get("framework") or "ATTACK",
+                relationship=row.get("relationship", "subtechnique"),
             ))
             if len(related) >= max_results:
                 break
