@@ -1,8 +1,22 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
+
+
+def _graphrag_enabled(args: argparse.Namespace) -> bool:
+    """Resolve whether GraphRAG mode is active.
+
+    Priority: ``--legacy`` flag (force off) > ``--graphrag`` flag (force on)
+    > ``THREATFORGE_GRAPHRAG`` env var (``1`` = on).
+    """
+    if getattr(args, "legacy", False):
+        return False
+    if getattr(args, "graphrag", False) or getattr(args, "enrich", False):
+        return True
+    return os.environ.get("THREATFORGE_GRAPHRAG", "") == "1"
 
 
 def _cmd_validate(args: argparse.Namespace) -> int:
@@ -35,7 +49,7 @@ def _cmd_generate_threats(args: argparse.Namespace) -> int:
     try:
         report, path = generate_threat_report(
             args.model, args.output,
-            enrich=getattr(args, "enrich", False),
+            enrich=_graphrag_enabled(args),
         )
     except Exception as exc:
         print(f"FAILED: {exc}")
@@ -175,7 +189,7 @@ def _cmd_suggest_mappings(args: argparse.Namespace) -> int:
         query_text = args.description
         target_frameworks = ()
 
-    use_graphrag = getattr(args, "graphrag", False)
+    use_graphrag = _graphrag_enabled(args)
 
     if use_graphrag:
         from graph.neo4j_client import Neo4jClient, Neo4jConfig
@@ -303,6 +317,7 @@ def main(argv: list[str] | None = None) -> int:
     p_gt.add_argument("--model", required=True, type=Path, help="Path to canonical TOML model")
     p_gt.add_argument("--output", type=Path, default=None, help="Output file path for threats JSON")
     p_gt.add_argument("--enrich", action="store_true", help="Enable GraphRAG threat enrichment (requires Neo4j)")
+    p_gt.add_argument("--legacy", action="store_true", help="Force legacy SQLite path (ignore THREATFORGE_GRAPHRAG env)")
 
     # score-risks
     p_sr = sub.add_parser("score-risks", help="Score threats into prioritized risk records")
@@ -334,6 +349,7 @@ def main(argv: list[str] | None = None) -> int:
     p_sg.add_argument("--threshold", type=float, default=0.30, help="Min composite score (default: 0.30)")
     p_sg.add_argument("--format", choices=["table", "json", "toml"], default="table", help="Output format")
     p_sg.add_argument("--graphrag", action="store_true", help="Use GraphRAG scorer (requires Neo4j)")
+    p_sg.add_argument("--legacy", action="store_true", help="Force legacy SQLite path (ignore THREATFORGE_GRAPHRAG env)")
 
     args = parser.parse_args(argv)
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Sequence
 
@@ -252,7 +253,7 @@ class TechniqueStore:
     def is_populated(self) -> bool:
         return self.technique_count() > 0
 
-    # ── Embeddings ───────────────────────────────────────────────────
+    # ── Embeddings (deprecated — use Neo4j ChunkingPipeline instead) ──
 
     def upsert_embeddings(
         self,
@@ -263,6 +264,12 @@ class TechniqueStore:
         vectors: np.ndarray,
         text_hashes: Sequence[str],
     ) -> None:
+        warnings.warn(
+            "TechniqueStore.upsert_embeddings is deprecated. "
+            "Use ChunkingPipeline with Neo4j for vector storage.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         cur = self._conn.cursor()
         for eid, vec, th in zip(entity_ids, vectors, text_hashes):
             cur.execute(
@@ -291,7 +298,16 @@ class TechniqueStore:
         entity_type: str,
         model_name: str,
     ) -> tuple[list[str], list[bytes]]:
-        """Return ``(entity_ids, raw_vectors)`` for the given type and model."""
+        """Return ``(entity_ids, raw_vectors)`` for the given type and model.
+
+        .. deprecated:: Use Neo4j GraphVectorSearch instead.
+        """
+        warnings.warn(
+            "TechniqueStore.load_all_embeddings is deprecated. "
+            "Use GraphVectorSearch with Neo4j for semantic search.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         rows = self._conn.execute(
             "SELECT entity_id, vector FROM embeddings "
             "WHERE entity_type = ? AND model_name = ? ORDER BY entity_id",

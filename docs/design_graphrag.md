@@ -594,3 +594,44 @@ For existing deployments:
 2. **Mitigation relevance**: For threat records targeting modules with `control_functions`, suggested mitigations should reference only controls NOT already implemented.
 3. **Performance**: Full threat pipeline (44 heuristics + GraphRAG enrichment) completes in < 30 seconds for the example fintech model.
 4. **Zero regression**: All existing 257 tests continue to pass with GraphRAG disabled.
+
+## 15. Implementation Record
+
+### Phase A: MITRE Knowledge Graph (completed)
+
+- `src/graph/knowledge_loader.py` — `KnowledgeGraphLoader` with MERGE logic for Technique, Tactic, Mitigation nodes and IN_TACTIC, IS_SUBTECHNIQUE_OF, MITIGATED_BY relationships
+- `src/graph/cypher/mitre_constraints.cypher` — uniqueness constraints
+- `src/graph/cypher/mitre_indexes.cypher` — performance indexes
+- HeuristicRule nodes + MAPS_TO edges from curated TOML
+- Module IMPLEMENTS_CONTROL edges from control_functions
+- Wired into `threatforge sync --neo4j`
+- Tests: `tests/test_knowledge_loader.py` (16 tests)
+
+### Phase B: Chunking and Vector Index (completed)
+
+- `src/knowledge/chunking.py` — `ChunkingPipeline` with overlapping token-based chunking and prefix anchoring
+- `src/knowledge/graph_vector_search.py` — `GraphVectorSearch` using `db.index.vector.queryNodes` with graph traversal
+- `src/graph/cypher/vector_indexes.cypher` — Neo4j native 384-dim cosine vector index on TextChunk nodes
+- Tests: `tests/test_chunking.py` (16 tests), `tests/test_graph_vector_search.py` (12 tests)
+
+### Phase C: GraphRAG-Enhanced Scoring (completed)
+
+- `src/analysis/graphrag_scorer.py` — `GraphRAGScorer` with composite formula: vector (0.45) + tactic overlap (0.15) + framework match (0.10) + mitigation gap (0.20) + sub-technique bonus (0.10)
+- `src/analysis/mapping_engine.py` — `graphrag_score_suggestions()` entry point
+- CLI: `suggest-mappings --graphrag` flag
+- Tests: `tests/test_graphrag_scorer.py` (23 tests)
+
+### Phase D: Runtime Threat Enrichment (completed)
+
+- `src/analysis/threat_enricher.py` — `ThreatEnricher` post-materialization graph traversal
+- `src/models/schema/threat_model.py` — `SuggestedMitigation`, `RelatedTechnique` models; new fields on `ThreatRecord`
+- Wired into `build_threat_report_from_snapshot()` with opt-in `neo4j_client` parameter
+- CLI: `generate-threats --enrich` flag
+- Tests: `tests/test_threat_enricher.py` (15 tests)
+
+### Phase E: Cleanup and Migration (completed)
+
+- CLI transition: `--graphrag`/`--enrich` flags + `THREATFORGE_GRAPHRAG=1` env var + `--legacy` override
+- Deprecation warnings on `VectorIndex`, `TechniqueStore.upsert_embeddings`, `TechniqueStore.load_all_embeddings`
+- Migration guide: `docs/migration_graphrag.md`
+- Total new tests across all phases: 82

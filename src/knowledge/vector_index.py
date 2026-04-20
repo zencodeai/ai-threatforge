@@ -1,7 +1,14 @@
-"""In-memory vector index for dense similarity search over technique embeddings."""
+"""In-memory vector index for dense similarity search over technique embeddings.
+
+.. deprecated::
+    Use :class:`~knowledge.graph_vector_search.GraphVectorSearch` with Neo4j
+    for improved semantic search with graph context.  This module is retained
+    as a fallback for deployments without Neo4j.
+"""
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -15,6 +22,11 @@ __all__ = ["VectorIndex"]
 class VectorIndex:
     """In-memory vector index built from pre-computed embeddings.
 
+    .. deprecated::
+        Prefer :class:`~knowledge.graph_vector_search.GraphVectorSearch` which
+        combines Neo4j native vector index with graph traversal for richer
+        results.  This class is retained for SQLite-only fallback.
+
     Analogous to :class:`~knowledge.index.TechniqueIndex` but for dense
     vectors.  The corpus is small enough (~830 techniques) that brute-force
     cosine similarity via ``matmul`` is faster than any ANN library.
@@ -25,6 +37,12 @@ class VectorIndex:
         store: TechniqueStore,
         model_name: str = "all-MiniLM-L6-v2",
     ) -> None:
+        warnings.warn(
+            "VectorIndex is deprecated. Use GraphVectorSearch with Neo4j for "
+            "graph-aware semantic search. Set THREATFORGE_GRAPHRAG=1 to enable.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         ids, blobs = store.load_all_embeddings("technique", model_name)
         self._model_name = model_name
         self._ids: list[str] = ids
