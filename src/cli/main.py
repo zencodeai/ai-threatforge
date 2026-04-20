@@ -101,6 +101,7 @@ def _cmd_sync(args: argparse.Namespace) -> int:
             atlas_version=args.atlas_version,
             offline_dir=args.offline,
             embed=args.embed,
+            neo4j=args.neo4j,
             map_heuristics=args.map_heuristics,
             map_threshold=args.map_threshold,
             map_top_k=args.map_top_k,
@@ -114,6 +115,14 @@ def _cmd_sync(args: argparse.Namespace) -> int:
     print(f"  tactics:     {counts['tactics']}")
     print(f"  techniques:  {counts['techniques']}")
     print(f"  mitigations: {counts['mitigations']}")
+    if "neo4j_techniques" in counts:
+        print(f"  neo4j:")
+        print(f"    techniques:  {counts['neo4j_techniques']}")
+        print(f"    tactics:     {counts['neo4j_tactics']}")
+        print(f"    mitigations: {counts['neo4j_mitigations']}")
+        print(f"    rules:       {counts['neo4j_heuristic_rules']}")
+        print(f"    maps_to:     {counts['neo4j_maps_to']}")
+        print(f"    ctrl_bridges:{counts['neo4j_implements_control']}")
     if "embedded" in counts:
         print(f"  embedded:    {counts['embedded']}")
     if "suggestions" in counts:
@@ -267,6 +276,7 @@ def main(argv: list[str] | None = None) -> int:
     p_sync.add_argument("--offline", type=Path, default=None, help="Directory with local STIX/ATLAS files")
     p_sync.add_argument("--status", action="store_true", help="Show current sync status")
     p_sync.add_argument("--embed", action="store_true", help="Generate technique embeddings after sync")
+    p_sync.add_argument("--neo4j", action="store_true", help="Load MITRE knowledge graph into Neo4j")
     p_sync.add_argument("--map-heuristics", action="store_true", help="Generate suggested technique mappings for all heuristics")
     p_sync.add_argument("--map-threshold", type=float, default=0.40, help="Min composite score for suggestions (default: 0.40)")
     p_sync.add_argument("--map-top-k", type=int, default=10, help="Max suggestions per heuristic (default: 10)")

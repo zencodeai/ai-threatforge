@@ -74,6 +74,80 @@ def _dedup_mitigations(mitigations: list[Mitigation]) -> list[Mitigation]:
     return list(seen.values())
 
 
+def _sync_to_neo4j(
+    tactics: list[Tactic],
+    techniques: list[Technique],
+    mitigations: list[Mitigation],
+) -> Any:
+    """Load MITRE data into Neo4j and create bridge relationships."""
+    from graph.knowledge_loader import KnowledgeGraphLoader, KnowledgeLoadStats
+    from graph.neo4j_client import Neo4jClient, Neo4jConfig
+
+    config = Neo4jConfig.from_env()
+    with Neo4jClient(config) as client:
+        client.verify_connectivity()
+        loader = KnowledgeGraphLoader(client)
+        loader.apply_schema()
+
+        stats = loader.load_mitre_data(
+            tactics=tactics,
+            techniques=techniques,
+            mitigations=mitigations,
+        )
+
+        # Build heuristic rule nodes and MAPS_TO edges from curated TOML
+        heuristic_rules, curated_mappings = _load_heuristic_bridge_data()
+        rules_count, maps_count = loader.load_heuristic_bridges(
+            heuristic_rules=heuristic_rules,
+            curated_mappings=curated_mappings,
+        )
+        stats.heuristic_rules = rules_count
+        stats.maps_to_edges = maps_count
+
+        # Create IMPLEMENTS_CONTROL bridges (Module -> Mitigation)
+        stats.implements_control_edges = loader.sync_control_bridges()
+
+    return stats
+
+
+def _load_heuristic_bridge_data() -> tuple[list[dict], list[dict]]:
+    """Load heuristic definitions and curated mappings for Neo4j bridge creation."""
+    import tomllib
+
+    from project_paths import ProjectPaths
+
+    paths = ProjectPaths.default()
+
+    # Load heuristic rules from discovered heuristics
+    from analysis.heuristics import discovered_heuristics
+
+    heuristic_rules = [
+        {
+            "rule_id": h.rule_id,
+            "name": h.name,
+            "severity_hint": h.severity_hint,
+            "target_type": h.target_type,
+        }
+        for h in discovered_heuristics()
+    ]
+
+    # Load curated mappings from TOML
+    curated_mappings: list[dict] = []
+    if paths.mapping_rules.exists():
+        with open(paths.mapping_rules, "rb") as f:
+            data = tomllib.load(f)
+        for entry in data.get("mappings", []):
+            curated_mappings.append({
+                "rule_id": entry["rule_id"],
+                "technique_id": entry["technique_id"],
+                "tactic": entry["tactic"],
+                "rationale": entry["rationale"],
+                "mapping_type": "curated",
+            })
+
+    return heuristic_rules, curated_mappings
+
+
 def sync(
     *,
     attack_version: str = "latest",
@@ -82,6 +156,7 @@ def sync(
     db_path: Path | str = DEFAULT_DB_PATH,
     attack_domains: tuple[str, ...] = ATTACK_DOMAINS,
     embed: bool = False,
+    neo4j: bool = False,
     map_heuristics: bool = False,
     map_threshold: float = 0.40,
     map_top_k: int = 10,
@@ -134,6 +209,18 @@ def sync(
         store.set_meta("atlas_version", atlas_version)
         store.set_meta("last_sync_utc", datetime.now(UTC).isoformat())
         store.set_meta("technique_count", str(counts["techniques"]))
+
+        # ── Neo4j knowledge graph ────────────────────────────────
+        if neo4j:
+            neo4j_counts = _sync_to_neo4j(
+                deduped_tactics, deduped_techniques, deduped_mitigations,
+            )
+            counts["neo4j_techniques"] = neo4j_counts.techniques
+            counts["neo4j_tactics"] = neo4j_counts.tactics
+            counts["neo4j_mitigations"] = neo4j_counts.mitigations
+            counts["neo4j_heuristic_rules"] = neo4j_counts.heuristic_rules
+            counts["neo4j_maps_to"] = neo4j_counts.maps_to_edges
+            counts["neo4j_implements_control"] = neo4j_counts.implements_control_edges
 
         # map_heuristics implies embed
         if map_heuristics or embed:
