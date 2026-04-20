@@ -1,0 +1,35 @@
+[heuristic]
+rule_id = "TH-044"
+name = "Critical workflow SPOF without contingency control"
+description = """Detect modules that are single points of failure across multiple critical \
+workflows and do not provide CP-10 (System Recovery and Reconstitution) control, \
+creating unmitigated availability risk."""
+graph_pattern = """(m:Module) in multiple critical workflows WHERE NOT 'CP-10' IN \
+m.control_functions"""
+target_type = "module"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- module.id",
+    "target_type <- 'module'",
+    "workflow_count <- number of critical workflows affected",
+    "workflows <- list of critical workflows",
+    "rationale <- SPOF without contingency control",
+]
+
+[materializer]
+primary = "spof_no_contingency"
+sort_by = ["module_id"]
+skip_if_empty = "module_id"
+target_id_field = "module_id"
+id_fields = ["module_id"]
+rationale = "Single point of failure across critical workflows lacks contingency control (CP-10)."
+
+[materializer.evidence]
+module_name = "row.module_name"
+workflow_count = "row.workflow_count"
+workflows = "row.workflows"
+
+[materializer.affected]
+workflows = []
+objects = []

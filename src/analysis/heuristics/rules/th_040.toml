@@ -1,0 +1,34 @@
+[heuristic]
+rule_id = "TH-040"
+name = "Internet-exposed path without input validation service"
+description = """Detect internet-exposed modules with downstream dependencies where \
+neither the exposed module nor its immediate downstream provides SI-10 (Information \
+Input Validation) control."""
+graph_pattern = """(exposed:Module {internet_exposed:true})-[:DEPENDS_ON]->(downstream) \
+WHERE NOT EXISTS SI-10 in [exposed, downstream]"""
+target_type = "module"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- exposed_module.id",
+    "target_type <- 'module'",
+    "downstream <- unvalidated downstream module",
+    "rationale <- no input validation in exposed path",
+]
+
+[materializer]
+primary = "no_validation_service"
+sort_by = ["exposed_module", "downstream_module"]
+skip_if_empty = "exposed_module"
+target_id_field = "exposed_module"
+id_fields = ["exposed_module", "downstream_module"]
+rationale = "Internet-exposed path lacks input validation service (SI-10)."
+
+[materializer.evidence]
+exposed_name = "row.exposed_name"
+downstream_module = "row.downstream_module"
+downstream_name = "row.downstream_name"
+
+[materializer.affected]
+workflows = []
+objects = []

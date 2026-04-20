@@ -76,6 +76,17 @@ def _build_snapshot(queries: GraphQueries) -> dict[str, list[dict[str, Any]]]:
         "api_across_boundary": queries.api_endpoints_across_boundary(),
         "unauth_chain_privileged": queries.unauthenticated_chain_to_privileged(),
         "mobile_edge_regulated": queries.mobile_edge_regulated_data(),
+        # Control-gap detection queries (Phase 4)
+        "no_flow_enforcement": queries.boundary_without_flow_enforcement(),
+        "no_access_control": queries.actor_workflow_without_access_control(),
+        "no_boundary_protection": queries.boundary_without_protection_module(),
+        "no_encryption_service": queries.sensitive_flow_without_encryption_service(),
+        "no_auth_service": queries.actor_to_backend_without_auth_service(),
+        "no_validation_service": queries.exposed_path_without_validation_service(),
+        "no_audit_module": queries.critical_workflow_without_audit(),
+        "no_encryption_at_rest": queries.classified_store_without_encryption_at_rest(),
+        "no_change_control": queries.privileged_module_without_change_control(),
+        "spof_no_contingency": queries.spof_without_contingency(),
     }
 
 

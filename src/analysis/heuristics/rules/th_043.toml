@@ -1,0 +1,33 @@
+[heuristic]
+rule_id = "TH-043"
+name = "High-privilege module without change control"
+description = """Detect modules with service-level or higher privilege that do not \
+provide CM-3 (Configuration Change Control), creating risk of unauthorized \
+configuration changes to privileged components."""
+graph_pattern = """(m:Module)-[:HAS_PRIVILEGE]->(p:PrivilegeLevel) WHERE p.level >= 2 \
+AND NOT 'CM-3' IN m.control_functions"""
+target_type = "module"
+severity_hint = "medium"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- module.id",
+    "target_type <- 'module'",
+    "privilege_level <- module privilege level",
+    "rationale <- privileged module lacks change control",
+]
+
+[materializer]
+primary = "no_change_control"
+sort_by = ["module_id"]
+skip_if_empty = "module_id"
+target_id_field = "module_id"
+id_fields = ["module_id"]
+rationale = "Privileged module lacks configuration change control (CM-3)."
+
+[materializer.evidence]
+module_name = "row.module_name"
+privilege_level = "row.privilege_level"
+
+[materializer.affected]
+workflows = []
+objects = []

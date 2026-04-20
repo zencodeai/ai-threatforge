@@ -1,0 +1,35 @@
+[heuristic]
+rule_id = "TH-037"
+name = "Trust boundary without boundary protection module"
+description = """Detect trust boundaries where the target domain has no module providing \
+SC-7 (Boundary Protection) control, such as a gateway or firewall, leaving the boundary \
+unprotected."""
+graph_pattern = """(tb:TrustBoundary)-[:CROSSES_TO]->(to_d) WHERE NOT EXISTS module \
+with SC-7 in to_d"""
+target_type = "module"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- trust_boundary.id",
+    "target_type <- trust boundary without protection",
+    "from_domain <- source domain",
+    "to_domain <- unprotected target domain",
+    "rationale <- no boundary protection at trust boundary",
+]
+
+[materializer]
+primary = "no_boundary_protection"
+sort_by = ["trust_boundary"]
+skip_if_empty = "trust_boundary"
+target_id_field = "trust_boundary"
+id_fields = ["trust_boundary"]
+rationale = "Trust boundary target domain has no boundary protection module (SC-7)."
+
+[materializer.evidence]
+boundary_name = "row.boundary_name"
+from_domain = "row.from_domain"
+to_domain = "row.to_domain"
+
+[materializer.affected]
+workflows = []
+objects = []

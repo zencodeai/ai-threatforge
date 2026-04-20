@@ -134,6 +134,7 @@ class GraphLoader:
                 "logging_enabled": m.logging_enabled,
                 "api_endpoints": m.api_endpoints,
                 "deployment_context": m.deployment_context,
+                "control_functions": m.control_functions,
             }
             for m in model.modules
         ]
@@ -152,7 +153,8 @@ class GraphLoader:
                 m.rate_limiting = row.rate_limiting,
                 m.logging_enabled = row.logging_enabled,
                 m.api_endpoints = row.api_endpoints,
-                m.deployment_context = row.deployment_context
+                m.deployment_context = row.deployment_context,
+                m.control_functions = row.control_functions
             """,
             {"batch": batch},
         )

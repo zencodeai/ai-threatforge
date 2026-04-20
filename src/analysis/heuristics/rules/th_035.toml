@@ -1,0 +1,37 @@
+[heuristic]
+rule_id = "TH-035"
+name = "Trust boundary crossing without information flow enforcement"
+description = """Detect dependencies that cross a trust boundary into a domain where \
+no module provides AC-4 (Information Flow Enforcement) control, allowing uncontrolled \
+data movement between trust zones."""
+graph_pattern = """(src)-[:DEPENDS_ON]->(dst) crossing TrustBoundary WHERE NOT EXISTS \
+module with AC-4 in target domain"""
+target_type = "module"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- source_module.id",
+    "target_type <- 'module'",
+    "trust_boundary <- boundary being crossed",
+    "unprotected_domain <- domain lacking AC-4 control",
+    "rationale <- no information flow enforcement at boundary",
+]
+
+[materializer]
+primary = "no_flow_enforcement"
+sort_by = ["source_module", "target_id"]
+skip_if_empty = "source_module"
+target_id_field = "source_module"
+id_fields = ["source_module", "target_id", "trust_boundary"]
+rationale = "Data flow crosses trust boundary into domain without information flow enforcement (AC-4)."
+
+[materializer.evidence]
+source_name = "row.source_name"
+target_id = "row.target_id"
+target_name = "row.target_name"
+trust_boundary = "row.trust_boundary"
+unprotected_domain = "row.unprotected_domain"
+
+[materializer.affected]
+workflows = []
+objects = []

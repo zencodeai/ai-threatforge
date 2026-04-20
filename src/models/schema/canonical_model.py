@@ -49,6 +49,7 @@ class Module(BaseModel):
     logging_enabled: bool = False
     api_endpoints: list[str] = Field(default_factory=list)
     deployment_context: str | None = None
+    control_functions: list[str] = Field(default_factory=list)
 
 
 class ObjectModel(BaseModel):

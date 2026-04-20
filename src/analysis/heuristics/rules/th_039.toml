@@ -1,0 +1,37 @@
+[heuristic]
+rule_id = "TH-039"
+name = "External actor to backend without authentication service"
+description = """Detect external actors reaching medium or high-trust modules through \
+workflows that lack a module providing IA-2 (Identification and Authentication) control, \
+enabling unauthenticated backend access."""
+graph_pattern = """(a:ExternalActor)-[:PARTICIPATES_IN]->(w:Workflow)-[:INVOLVES_MODULE]->\
+(m:Module) in medium/high trust WHERE NOT EXISTS IA-2 module in workflow"""
+target_type = "workflow"
+severity_hint = "critical"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- workflow.id",
+    "target_type <- 'workflow'",
+    "actor <- external actor without authentication",
+    "module <- backend module reached without auth",
+    "rationale <- no authentication service in actor-to-backend path",
+]
+
+[materializer]
+primary = "no_auth_service"
+sort_by = ["actor_id", "module_id"]
+skip_if_empty = "workflow_id"
+target_id_field = "workflow_id"
+id_fields = ["actor_id", "workflow_id", "module_id"]
+rationale = "External actor reaches backend module without authentication service (IA-2) in workflow."
+
+[materializer.evidence]
+actor_id = "row.actor_id"
+actor_name = "row.actor_name"
+workflow_name = "row.workflow_name"
+module_id = "row.module_id"
+trust_level = "row.trust_level"
+
+[materializer.affected]
+workflows = ["row.workflow_id"]
+objects = []

@@ -764,4 +764,228 @@ class TestEnrichmentDiscoveryIntegration:
     def test_total_heuristic_count(self) -> None:
         from analysis.heuristics import discovered_heuristics
         # Phase 0–3: TH-001–TH-034
-        assert len(discovered_heuristics()) == 34
+        assert len(discovered_heuristics()) >= 34
+
+
+# ── Control-Gap Detection Phase 4 heuristics (TH-035 – TH-044) ──
+
+
+def _control_gap_snapshot() -> dict[str, list[dict[str, Any]]]:
+    """Snapshot data covering all Phase 4 control-gap heuristic queries."""
+    return {
+        "no_flow_enforcement": [
+            {
+                "source_module": "mobile_app",
+                "source_name": "Mobile App",
+                "target_id": "api_gateway",
+                "target_name": "API Gateway",
+                "trust_boundary": "internet_boundary",
+                "unprotected_domain": "edge",
+            },
+        ],
+        "no_access_control": [
+            {
+                "actor_id": "customer",
+                "actor_name": "Customer",
+                "actor_type": "end_user",
+                "workflow_id": "payment_execution",
+                "workflow_name": "Payment Execution",
+            },
+        ],
+        "no_boundary_protection": [
+            {
+                "trust_boundary": "internet_boundary",
+                "boundary_name": "Internet Boundary",
+                "from_domain": "client",
+                "to_domain": "edge",
+            },
+        ],
+        "no_encryption_service": [
+            {
+                "module_id": "payment_service",
+                "module_name": "Payment Service",
+                "datastore_id": "txn_db",
+                "datastore_name": "Transaction Database",
+                "sensitive_objects": ["payment_instruction"],
+            },
+        ],
+        "no_auth_service": [
+            {
+                "actor_id": "customer",
+                "actor_name": "Customer",
+                "module_id": "fraud_model_service",
+                "module_name": "Fraud Model Service",
+                "workflow_id": "payment_execution",
+            },
+        ],
+        "no_validation_service": [
+            {
+                "exposed_module": "mobile_app",
+                "exposed_name": "Mobile App",
+                "downstream_module": "api_gateway",
+                "downstream_name": "API Gateway",
+            },
+        ],
+        "no_audit_module": [
+            {
+                "workflow_id": "payment_execution",
+                "workflow_name": "Payment Execution",
+                "system_criticality": "high",
+            },
+        ],
+        "no_encryption_at_rest": [
+            {
+                "datastore_id": "txn_db",
+                "datastore_name": "Transaction Database",
+                "classified_objects": ["payment_instruction"],
+            },
+        ],
+        "no_change_control": [
+            {
+                "module_id": "payment_service",
+                "module_name": "Payment Service",
+                "privilege_level": 3,
+            },
+        ],
+        "spof_no_contingency": [
+            {
+                "module_id": "api_gateway",
+                "module_name": "API Gateway",
+                "workflow_count": 3,
+                "workflows": ["payment_execution", "user_login", "fraud_check"],
+            },
+        ],
+    }
+
+
+class TestControlGapHeuristicParsing:
+    """Verify all Phase 4 control-gap TOML rules parse correctly."""
+
+    @pytest.mark.parametrize(
+        "toml_file,expected_id",
+        [
+            ("th_035.toml", "TH-035"),
+            ("th_036.toml", "TH-036"),
+            ("th_037.toml", "TH-037"),
+            ("th_038.toml", "TH-038"),
+            ("th_039.toml", "TH-039"),
+            ("th_040.toml", "TH-040"),
+            ("th_041.toml", "TH-041"),
+            ("th_042.toml", "TH-042"),
+            ("th_043.toml", "TH-043"),
+            ("th_044.toml", "TH-044"),
+        ],
+    )
+    def test_heuristic_parses_from_toml(self, toml_file: str, expected_id: str) -> None:
+        h, _ = _load_rule(toml_file)
+        assert h.rule_id == expected_id
+        assert h.name
+        assert h.description
+        assert h.target_type in {"module", "workflow", "object", "datastore", "system"}
+        assert h.severity_hint in {"low", "medium", "high", "critical"}
+        assert len(h.frameworks) >= 1
+
+
+class TestControlGapMaterializerOutput:
+    """Verify Phase 4 TOML materializers produce correct threat records."""
+
+    @pytest.mark.parametrize(
+        "toml_file,snapshot_key,expected_count",
+        [
+            ("th_035.toml", "no_flow_enforcement", 1),
+            ("th_036.toml", "no_access_control", 1),
+            ("th_037.toml", "no_boundary_protection", 1),
+            ("th_038.toml", "no_encryption_service", 1),
+            ("th_039.toml", "no_auth_service", 1),
+            ("th_040.toml", "no_validation_service", 1),
+            ("th_041.toml", "no_audit_module", 1),
+            ("th_042.toml", "no_encryption_at_rest", 1),
+            ("th_043.toml", "no_change_control", 1),
+            ("th_044.toml", "spof_no_contingency", 1),
+        ],
+    )
+    def test_produces_expected_threat_count(
+        self, toml_file: str, snapshot_key: str, expected_count: int,
+    ) -> None:
+        h, mat = _load_rule(toml_file)
+        snapshot = _control_gap_snapshot()
+        threats = _run_materializer(mat, h, snapshot)
+        assert len(threats) == expected_count, (
+            f"{toml_file}: expected {expected_count} threats, got {len(threats)}"
+        )
+
+    def test_th_035_no_flow_enforcement_fields(self) -> None:
+        h, mat = _load_rule("th_035.toml")
+        threats = _run_materializer(mat, h, _control_gap_snapshot())
+        t = threats[0]
+        assert t.rule_id == "TH-035"
+        assert t.target_id == "mobile_app"
+        assert t.severity_hint == "high"
+        assert t.evidence["trust_boundary"] == "internet_boundary"
+        assert t.evidence["unprotected_domain"] == "edge"
+
+    def test_th_036_no_access_control_fields(self) -> None:
+        h, mat = _load_rule("th_036.toml")
+        threats = _run_materializer(mat, h, _control_gap_snapshot())
+        t = threats[0]
+        assert t.rule_id == "TH-036"
+        assert t.target_id == "payment_execution"
+        assert t.evidence["actor_id"] == "customer"
+        assert t.affected_workflows == ["payment_execution"]
+
+    def test_th_039_no_auth_service_fields(self) -> None:
+        h, mat = _load_rule("th_039.toml")
+        threats = _run_materializer(mat, h, _control_gap_snapshot())
+        t = threats[0]
+        assert t.rule_id == "TH-039"
+        assert t.target_id == "payment_execution"
+        assert t.evidence["actor_id"] == "customer"
+        assert t.affected_workflows == ["payment_execution"]
+
+    def test_th_041_no_audit_module_fields(self) -> None:
+        h, mat = _load_rule("th_041.toml")
+        threats = _run_materializer(mat, h, _control_gap_snapshot())
+        t = threats[0]
+        assert t.rule_id == "TH-041"
+        assert t.target_id == "payment_execution"
+        assert t.target_type == "workflow"
+        assert t.evidence["system_criticality"] == "high"
+        assert t.affected_workflows == ["payment_execution"]
+
+    def test_th_044_spof_no_contingency_fields(self) -> None:
+        h, mat = _load_rule("th_044.toml")
+        threats = _run_materializer(mat, h, _control_gap_snapshot())
+        t = threats[0]
+        assert t.rule_id == "TH-044"
+        assert t.target_id == "api_gateway"
+        assert t.severity_hint == "high"
+        assert t.evidence["workflow_count"] == 3
+
+    def test_empty_snapshot_produces_no_threats(self) -> None:
+        """All control-gap heuristics should produce 0 threats from empty snapshot."""
+        for i in range(35, 45):
+            toml_file = f"th_{i:03d}.toml"
+            h, mat = _load_rule(toml_file)
+            threats = _run_materializer(mat, h, {})
+            assert threats == [], f"{toml_file} produced threats from empty snapshot"
+
+
+class TestControlGapDiscoveryIntegration:
+    """Verify Phase 4 heuristics are discovered and registered."""
+
+    def test_discovered_heuristics_include_control_gap_set(self) -> None:
+        from analysis.heuristics import discovered_heuristics
+        ids = {h.rule_id for h in discovered_heuristics()}
+        expected = {f"TH-{i:03d}" for i in range(35, 45)}
+        assert expected.issubset(ids), f"Missing: {expected - ids}"
+
+    def test_discovered_materializers_include_control_gap_set(self) -> None:
+        from analysis.heuristics import discovered_materializers
+        ids = {m.rule_id for m in discovered_materializers()}
+        expected = {f"TH-{i:03d}" for i in range(35, 45)}
+        assert expected.issubset(ids), f"Missing: {expected - ids}"
+
+    def test_total_heuristic_count_phase4(self) -> None:
+        from analysis.heuristics import discovered_heuristics
+        # Phase 0–4: TH-001–TH-044
+        assert len(discovered_heuristics()) == 44

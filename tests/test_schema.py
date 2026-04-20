@@ -118,3 +118,24 @@ def test_dependency_enrichment_defaults() -> None:
     d = model.dependencies[0]
     assert d.encryption_in_transit is False
     assert d.data_flow_direction is None
+
+
+# ── Phase 4 control-gap detection tests ─────────────────────────
+
+
+def test_module_control_functions_parse() -> None:
+    model = load_canonical_model(EXAMPLE_MODEL)
+    gateway = next(m for m in model.modules if m.id == "api_gateway")
+    assert "AC-4" in gateway.control_functions
+    assert "SC-7" in gateway.control_functions
+    assert "SI-10" in gateway.control_functions
+    assert "AU-2" in gateway.control_functions
+
+
+def test_module_control_functions_default() -> None:
+    """Omitting control_functions should default to empty list."""
+    payload = load_example_payload()
+    payload["modules"][0].pop("control_functions", None)
+    model = CanonicalModel.model_validate(payload)
+    m = model.modules[0]
+    assert m.control_functions == []

@@ -102,6 +102,39 @@ def test_module_enrichment_batch_data() -> None:
     assert len(gateway["api_endpoints"]) > 0
 
 
+# ── Phase 4 control-gap detection tests ─────────────────────────
+
+
+def test_control_functions_in_cypher() -> None:
+    """Verify control_functions appears in the Module MERGE SET clause."""
+    fake = FakeClient()
+    loader = GraphLoader(fake)  # type: ignore[arg-type]
+    model = load_canonical_model(EXAMPLE_MODEL)
+    loader.load_model(model)
+
+    module_queries = [q for q, _ in fake.calls if "MERGE (m:Module" in q]
+    assert module_queries
+    assert "m.control_functions" in module_queries[0]
+
+
+def test_control_functions_batch_data() -> None:
+    """Verify batch data includes control_functions from the model."""
+    fake = FakeClient()
+    loader = GraphLoader(fake)  # type: ignore[arg-type]
+    model = load_canonical_model(EXAMPLE_MODEL)
+    loader.load_model(model)
+
+    module_calls = [
+        (q, p) for q, p in fake.calls
+        if "MERGE (m:Module" in q and p and "batch" in p
+    ]
+    assert module_calls
+    batch = module_calls[0][1]["batch"]
+    gateway = next(m for m in batch if m["id"] == "api_gateway")
+    assert "AC-4" in gateway["control_functions"]
+    assert "SC-7" in gateway["control_functions"]
+
+
 @pytest.mark.integration
 def test_load_model_into_graph_integration() -> None:
     required = ["NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD"]

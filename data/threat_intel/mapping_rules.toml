@@ -493,3 +493,145 @@ technique_id = "T1414"
 framework = "ATTACK"
 tactic = "collection"
 rationale = "Regulated data on mobile platform is vulnerable to clipboard or inter-process data capture."
+
+# ── Control-gap detection heuristics (TH-035 – TH-044) ────────────
+
+[[mappings]]
+rule_id = "TH-035"
+technique_id = "T1048"
+framework = "ATTACK"
+tactic = "exfiltration"
+rationale = "Trust boundary without flow enforcement (AC-4) enables exfiltration over alternative protocol."
+
+[[mappings]]
+rule_id = "TH-035"
+technique_id = "T1071"
+framework = "ATTACK"
+tactic = "command-and-control"
+rationale = "Missing information flow enforcement at boundary enables application layer protocol abuse for C2."
+
+[[mappings]]
+rule_id = "TH-036"
+technique_id = "T1078"
+framework = "ATTACK"
+tactic = "initial-access"
+rationale = "Workflow reachable by external actor without access control (AC-3) enables valid account abuse."
+
+[[mappings]]
+rule_id = "TH-036"
+technique_id = "T1548"
+framework = "ATTACK"
+tactic = "privilege-escalation"
+rationale = "Missing access enforcement on actor-reachable workflow enables abuse of elevation control mechanism."
+
+[[mappings]]
+rule_id = "TH-037"
+technique_id = "T1190"
+framework = "ATTACK"
+tactic = "initial-access"
+rationale = "Trust boundary without boundary protection module (SC-7) exposes services to public-facing exploitation."
+
+[[mappings]]
+rule_id = "TH-037"
+technique_id = "T1021"
+framework = "ATTACK"
+tactic = "lateral-movement"
+rationale = "Missing boundary protection enables remote service lateral movement across trust zones."
+
+[[mappings]]
+rule_id = "TH-038"
+technique_id = "T1040"
+framework = "ATTACK"
+tactic = "credential-access"
+rationale = "Sensitive data flow without encryption service (SC-8) enables network sniffing for credential capture."
+
+[[mappings]]
+rule_id = "TH-038"
+technique_id = "T1557"
+framework = "ATTACK"
+tactic = "credential-access"
+rationale = "Missing transmission confidentiality on sensitive flow enables adversary-in-the-middle interception."
+
+[[mappings]]
+rule_id = "TH-039"
+technique_id = "T1078"
+framework = "ATTACK"
+tactic = "initial-access"
+rationale = "External actor path to backend without authentication service (IA-2) enables valid account exploitation."
+
+[[mappings]]
+rule_id = "TH-039"
+technique_id = "T1134"
+framework = "ATTACK"
+tactic = "defense-evasion"
+rationale = "Missing identification service on actor-to-backend path enables access token manipulation."
+
+[[mappings]]
+rule_id = "TH-040"
+technique_id = "T1190"
+framework = "ATTACK"
+tactic = "initial-access"
+rationale = "Internet-exposed path without validation service (SI-10) is vulnerable to injection-based exploitation."
+
+[[mappings]]
+rule_id = "TH-040"
+technique_id = "T1059"
+framework = "ATTACK"
+tactic = "execution"
+rationale = "Missing input validation service on exposed path enables command and scripting interpreter abuse."
+
+[[mappings]]
+rule_id = "TH-041"
+technique_id = "T1070"
+framework = "ATTACK"
+tactic = "defense-evasion"
+rationale = "Critical workflow without audit module (AU-2) enables indicator removal through absent audit trail."
+
+[[mappings]]
+rule_id = "TH-041"
+technique_id = "T1562"
+framework = "ATTACK"
+tactic = "defense-evasion"
+rationale = "Missing event logging in critical workflow constitutes impaired defense detection capability."
+
+[[mappings]]
+rule_id = "TH-042"
+technique_id = "T1005"
+framework = "ATTACK"
+tactic = "collection"
+rationale = "Classified datastore without encryption-at-rest control (SC-28) enables local data collection."
+
+[[mappings]]
+rule_id = "TH-042"
+technique_id = "T1565"
+framework = "ATTACK"
+tactic = "impact"
+rationale = "Missing protection of information at rest on classified store enables stored data manipulation."
+
+[[mappings]]
+rule_id = "TH-043"
+technique_id = "T1543"
+framework = "ATTACK"
+tactic = "persistence"
+rationale = "Privileged module without change control (CM-3) enables creation or modification of system-level processes."
+
+[[mappings]]
+rule_id = "TH-043"
+technique_id = "T1574"
+framework = "ATTACK"
+tactic = "persistence"
+rationale = "Missing configuration change control on privileged module enables hijack of execution flow."
+
+[[mappings]]
+rule_id = "TH-044"
+technique_id = "T1499"
+framework = "ATTACK"
+tactic = "impact"
+rationale = "Critical workflow SPOF without contingency control (CP-10) enables endpoint denial of service."
+
+[[mappings]]
+rule_id = "TH-044"
+technique_id = "T1485"
+framework = "ATTACK"
+tactic = "impact"
+rationale = "Single point of failure without recovery capability enables data destruction with no reconstitution path."

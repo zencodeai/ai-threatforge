@@ -1,0 +1,33 @@
+[heuristic]
+rule_id = "TH-042"
+name = "Classified datastore without encryption-at-rest control"
+description = """Detect datastores containing confidential or secret objects where no \
+module with SC-28 (Protection of Information at Rest) control has a dependency on the \
+datastore."""
+graph_pattern = """(ds:DataStore)-[:STORES]->(o:Object) WHERE o.classification in \
+['confidential','secret'] AND NOT EXISTS module with SC-28 depending on ds"""
+target_type = "datastore"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- datastore.id",
+    "target_type <- 'datastore'",
+    "classified_objects <- objects requiring protection",
+    "rationale <- classified datastore lacks encryption-at-rest control",
+]
+
+[materializer]
+primary = "no_encryption_at_rest"
+sort_by = ["datastore_id"]
+skip_if_empty = "datastore_id"
+target_id_field = "datastore_id"
+id_fields = ["datastore_id"]
+rationale = "Datastore with classified data lacks encryption-at-rest control (SC-28)."
+
+[materializer.evidence]
+datastore_name = "row.datastore_name"
+classified_objects = "row.classified_objects"
+
+[materializer.affected]
+workflows = []
+objects = []

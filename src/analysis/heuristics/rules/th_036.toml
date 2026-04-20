@@ -1,0 +1,34 @@
+[heuristic]
+rule_id = "TH-036"
+name = "External actor workflow without access control enforcement"
+description = """Detect workflows where an external actor participates but no module in \
+the workflow provides AC-3 (Access Enforcement) control, allowing unrestricted access \
+to workflow resources."""
+graph_pattern = """(a:ExternalActor)-[:PARTICIPATES_IN]->(w:Workflow) WHERE NOT EXISTS \
+module with AC-3 in workflow"""
+target_type = "workflow"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- workflow.id",
+    "target_type <- 'workflow'",
+    "actor <- external actor without access control",
+    "rationale <- workflow lacks access enforcement for external actor",
+]
+
+[materializer]
+primary = "no_access_control"
+sort_by = ["actor_id", "workflow_id"]
+skip_if_empty = "workflow_id"
+target_id_field = "workflow_id"
+id_fields = ["actor_id", "workflow_id"]
+rationale = "External actor participates in workflow without access enforcement (AC-3)."
+
+[materializer.evidence]
+actor_id = "row.actor_id"
+actor_name = "row.actor_name"
+workflow_name = "row.workflow_name"
+
+[materializer.affected]
+workflows = ["row.workflow_id"]
+objects = []

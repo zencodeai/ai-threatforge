@@ -1,0 +1,32 @@
+[heuristic]
+rule_id = "TH-041"
+name = "Critical workflow without audit module"
+description = """Detect critical workflows where no module provides AU-2 (Event Logging) \
+control, preventing security event auditing and incident investigation."""
+graph_pattern = """(s:System {criticality:'high'})-[:HAS_WORKFLOW]->(w:Workflow) \
+WHERE NOT EXISTS module with AU-2 in workflow"""
+target_type = "workflow"
+severity_hint = "medium"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- workflow.id",
+    "target_type <- 'workflow'",
+    "system_criticality <- criticality level",
+    "rationale <- critical workflow has no audit module",
+]
+
+[materializer]
+primary = "no_audit_module"
+sort_by = ["workflow_id"]
+skip_if_empty = "workflow_id"
+target_id_field = "workflow_id"
+id_fields = ["workflow_id"]
+rationale = "Critical workflow has no module providing event logging (AU-2)."
+
+[materializer.evidence]
+workflow_name = "row.workflow_name"
+system_criticality = "row.system_criticality"
+
+[materializer.affected]
+workflows = ["row.workflow_id"]
+objects = []

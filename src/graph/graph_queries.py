@@ -537,6 +537,165 @@ class GraphQueries:
         )
 
 
+    # ── Control-gap detection queries (Phase 4) ───────────────────
+
+    def boundary_without_flow_enforcement(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (src:Module)-[r:DEPENDS_ON]->(dst),
+                  (src)-[:IN_DOMAIN]->(d1:SecurityDomain),
+                  (dst)-[:IN_DOMAIN]->(d2:SecurityDomain),
+                  (tb:TrustBoundary)-[:CROSSES_FROM]->(d1),
+                  (tb)-[:CROSSES_TO]->(d2)
+            WHERE NOT EXISTS {
+                MATCH (enf:Module)-[:IN_DOMAIN]->(d2)
+                WHERE 'AC-4' IN enf.control_functions
+            }
+            RETURN src.id AS source_module, src.name AS source_name,
+                   dst.id AS target_id, dst.name AS target_name,
+                   tb.id AS trust_boundary,
+                   d2.id AS unprotected_domain
+            ORDER BY trust_boundary, source_module
+            """
+        )
+
+    def actor_workflow_without_access_control(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (a:ExternalActor)-[:PARTICIPATES_IN]->(w:Workflow)
+            WHERE NOT EXISTS {
+                MATCH (w)-[:INVOLVES_MODULE]->(m:Module)
+                WHERE 'AC-3' IN m.control_functions
+            }
+            RETURN a.id AS actor_id, a.name AS actor_name,
+                   w.id AS workflow_id, w.name AS workflow_name
+            ORDER BY actor_id, workflow_id
+            """
+        )
+
+    def boundary_without_protection_module(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (tb:TrustBoundary)-[:CROSSES_FROM]->(from_d:SecurityDomain),
+                  (tb)-[:CROSSES_TO]->(to_d:SecurityDomain)
+            WHERE NOT EXISTS {
+                MATCH (gw:Module)-[:IN_DOMAIN]->(to_d)
+                WHERE 'SC-7' IN gw.control_functions
+            }
+            RETURN tb.id AS trust_boundary, tb.name AS boundary_name,
+                   from_d.id AS from_domain, to_d.id AS to_domain
+            ORDER BY trust_boundary
+            """
+        )
+
+    def sensitive_flow_without_encryption_service(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (m:Module)-[:DEPENDS_ON]->(ds:DataStore)-[:STORES]->(o:Object)
+            WHERE (o.classification IN ['confidential', 'secret'] OR o.regulated = true)
+            AND NOT EXISTS {
+                MATCH (m)-[:DEPENDS_ON*0..2]->(enc:Module)
+                WHERE 'SC-8' IN enc.control_functions
+            }
+            RETURN DISTINCT m.id AS module_id, m.name AS module_name,
+                   ds.id AS datastore_id, ds.name AS datastore_name,
+                   collect(DISTINCT o.id) AS sensitive_objects
+            ORDER BY module_id, datastore_id
+            """
+        )
+
+    def actor_to_backend_without_auth_service(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (a:ExternalActor)-[:PARTICIPATES_IN]->(w:Workflow)
+                  -[:INVOLVES_MODULE]->(m:Module)-[:IN_DOMAIN]->(d:SecurityDomain)
+            WHERE d.trust_level IN ['medium', 'high']
+            AND NOT EXISTS {
+                MATCH (w)-[:INVOLVES_MODULE]->(auth:Module)
+                WHERE 'IA-2' IN auth.control_functions
+            }
+            RETURN DISTINCT a.id AS actor_id, a.name AS actor_name,
+                   w.id AS workflow_id, w.name AS workflow_name,
+                   m.id AS module_id, d.trust_level AS trust_level
+            ORDER BY actor_id, module_id
+            """
+        )
+
+    def exposed_path_without_validation_service(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (exposed:Module)-[:DEPENDS_ON]->(downstream:Module)
+            WHERE exposed.internet_exposed = true
+            AND NOT EXISTS {
+                MATCH (val:Module)
+                WHERE val.id IN [exposed.id, downstream.id]
+                  AND 'SI-10' IN val.control_functions
+            }
+            RETURN exposed.id AS exposed_module, exposed.name AS exposed_name,
+                   downstream.id AS downstream_module,
+                   downstream.name AS downstream_name
+            ORDER BY exposed_module, downstream_module
+            """
+        )
+
+    def critical_workflow_without_audit(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (s:System)-[:HAS_WORKFLOW]->(w:Workflow)
+            WHERE s.criticality IN ['high', 'critical']
+            AND NOT EXISTS {
+                MATCH (w)-[:INVOLVES_MODULE]->(m:Module)
+                WHERE 'AU-2' IN m.control_functions
+            }
+            RETURN w.id AS workflow_id, w.name AS workflow_name,
+                   s.criticality AS system_criticality
+            ORDER BY workflow_id
+            """
+        )
+
+    def classified_store_without_encryption_at_rest(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (ds:DataStore)-[:STORES]->(o:Object)
+            WHERE o.classification IN ['confidential', 'secret']
+            AND NOT EXISTS {
+                MATCH (prot:Module)-[:DEPENDS_ON]->(ds)
+                WHERE 'SC-28' IN prot.control_functions
+            }
+            RETURN DISTINCT ds.id AS datastore_id, ds.name AS datastore_name,
+                   collect(DISTINCT o.id) AS classified_objects
+            ORDER BY datastore_id
+            """
+        )
+
+    def privileged_module_without_change_control(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (m:Module)-[:HAS_PRIVILEGE]->(p:PrivilegeLevel)
+            WHERE p.level >= 2
+              AND NOT 'CM-3' IN m.control_functions
+            RETURN m.id AS module_id, m.name AS module_name,
+                   p.level AS privilege_level
+            ORDER BY privilege_level DESC, module_id
+            """
+        )
+
+    def spof_without_contingency(self) -> list[dict]:
+        return self.client.run_query(
+            """
+            MATCH (s:System)-[:HAS_WORKFLOW]->(w:Workflow)-[:INVOLVES_MODULE]->(m:Module)
+            WHERE s.criticality IN ['high', 'critical']
+            WITH m, count(DISTINCT w) AS workflow_count,
+                 collect(DISTINCT w.id) AS workflows
+            WHERE workflow_count > 1
+              AND NOT 'CP-10' IN m.control_functions
+            RETURN m.id AS module_id, m.name AS module_name,
+                   workflow_count, workflows
+            ORDER BY workflow_count DESC, module_id
+            """
+        )
+
+
 def load_sample_queries(path: Path | None = None) -> list[str]:
     root = path or Path(__file__).resolve().parent / "cypher" / "sample_queries.cypher"
     raw = root.read_text(encoding="utf-8")

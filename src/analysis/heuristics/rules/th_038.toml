@@ -1,0 +1,36 @@
+[heuristic]
+rule_id = "TH-038"
+name = "Sensitive data path without encryption service"
+description = """Detect modules accessing datastores with classified or regulated data \
+where no module in the dependency path provides SC-8 (Transmission Confidentiality) \
+control."""
+graph_pattern = """(m:Module)-[:DEPENDS_ON]->(ds:DataStore)-[:STORES]->(o:Object) \
+WHERE classified/regulated AND NOT EXISTS SC-8 in path"""
+target_type = "datastore"
+severity_hint = "high"
+frameworks = ["ATTACK"]
+output_field_mapping = [
+    "target_id <- datastore.id",
+    "target_type <- 'datastore'",
+    "module <- module accessing without encryption",
+    "sensitive_objects <- classified objects at risk",
+    "rationale <- no encryption service in path to sensitive data",
+]
+
+[materializer]
+primary = "no_encryption_service"
+sort_by = ["module_id", "datastore_id"]
+skip_if_empty = "datastore_id"
+target_id_field = "datastore_id"
+id_fields = ["module_id", "datastore_id"]
+rationale = "Path to sensitive datastore lacks module providing transmission confidentiality (SC-8)."
+
+[materializer.evidence]
+module_id = "row.module_id"
+module_name = "row.module_name"
+datastore_name = "row.datastore_name"
+sensitive_objects = "row.sensitive_objects"
+
+[materializer.affected]
+workflows = []
+objects = []

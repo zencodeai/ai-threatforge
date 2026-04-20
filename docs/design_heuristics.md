@@ -548,3 +548,70 @@ Changes span the full stack:
 - 3 discovery integration tests (including total count = 34)
 
 Full test suite result: **224 passed**, 3 pre-existing failures (unchanged).
+
+## 10. Phase 4 — Control-Gap Detection (NIST 800-53)
+
+> Implemented: 2026-04-20
+
+Phase 4 adds a `control_functions` property to `Module` and 10 heuristics (TH-035 through TH-044) that detect **missing NIST 800-53 controls in architectural paths**. Unlike Phase 3's boolean property checks on individual modules, Phase 4 uses `WHERE NOT EXISTS { ... }` Cypher subqueries to find control absences across trust boundaries, workflows, and dependency chains.
+
+### New schema property
+
+| Property | Model Class | Type | Default | Unlocks |
+|---|---|---|---|---|
+| `control_functions` | `Module` | `list[str]` | `[]` | Absence-based control-gap detection across NIST 800-53 families |
+
+### New heuristics
+
+| Rule | NIST Control | Name | Target | Severity | Detection Signal |
+|---|---|---|---|---|---|
+| TH-035 | AC-4 | Trust boundary without flow enforcement | system | high | Boundary with no AC-4 module |
+| TH-036 | AC-3 | Actor-reachable workflow without access control | workflow | high | Actor→Workflow with no AC-3 module |
+| TH-037 | SC-7 | Trust boundary without protection module | system | high | Boundary with no SC-7 module |
+| TH-038 | SC-8 | Sensitive data flow without encryption service | datastore | high | Sensitive dep path with no SC-8 module |
+| TH-039 | IA-2 | External actor to backend without auth service | module | critical | Actor→Backend with no IA-2 module |
+| TH-040 | SI-10 | Internet-exposed path without validation service | module | high | Exposed path with no SI-10 module |
+| TH-041 | AU-2 | Critical workflow without audit module | workflow | medium | Critical workflow with no AU-2 module |
+| TH-042 | SC-28 | Classified datastore without encryption-at-rest | datastore | high | Classified store with no SC-28 module |
+| TH-043 | CM-3 | High-privilege module without change control | module | medium | Privilege ≥ 2 with no CM-3 |
+| TH-044 | CP-10 | Critical workflow SPOF without contingency | module | high | Multi-workflow SPOF with no CP-10 |
+
+### Implementation details
+
+Changes span the full stack:
+
+1. **Schema** (`src/models/schema/canonical_model.py`): `control_functions: list[str]` added to `Module`
+2. **Graph loader** (`src/graph/graph_loader.py`): `_merge_modules` SETs `control_functions` on the Neo4j node
+3. **Example model** (`examples/fintech_ai_platform.toml`): All 5 modules annotated with `control_functions` (api_gateway has AC-4/SC-7/SI-10/AU-2, auth_service has IA-2/IA-4/AC-3/AU-2, payment_service has AU-2/CM-3/SC-28, mobile_app and fraud_model_service left empty for gap detection)
+4. **Cypher queries** (`src/graph/graph_queries.py`): 10 new methods under `Control-gap detection queries (Phase 4)` using `WHERE NOT EXISTS` subqueries
+5. **Snapshot builder** (`src/analysis/threat_outputs.py`): 10 new snapshot keys
+6. **TOML rules** (`src/analysis/heuristics/rules/th_035.toml` – `th_044.toml`): 10 new heuristic definitions
+7. **Technique mappings** (`data/threat_intel/mapping_rules.toml`): 20 new curated entries
+
+### Technique mapping summary
+
+| Rule | Techniques | Frameworks |
+|---|---|---|
+| TH-035 | T1048, T1071 | ATT&CK |
+| TH-036 | T1078, T1548 | ATT&CK |
+| TH-037 | T1190, T1021 | ATT&CK |
+| TH-038 | T1040, T1557 | ATT&CK |
+| TH-039 | T1078, T1134 | ATT&CK |
+| TH-040 | T1190, T1059 | ATT&CK |
+| TH-041 | T1070, T1562 | ATT&CK |
+| TH-042 | T1005, T1565 | ATT&CK |
+| TH-043 | T1543, T1574 | ATT&CK |
+| TH-044 | T1499, T1485 | ATT&CK |
+
+### Test coverage
+
+**Schema tests** (`test_schema.py`): 2 new tests verifying `control_functions` parsing and empty-list default.
+
+**Graph loader tests** (`test_graph_loader.py`): 2 new tests verifying `control_functions` in Cypher SET clause and batch data.
+
+**Heuristic tests** (`test_generic_materializer.py`): 27 new tests:
+- 10 TOML parsing tests
+- 10 materializer output tests
+- 5 field-level tests (TH-035, TH-036, TH-039, TH-041, TH-044)
+- 1 empty snapshot test
+- 1 discovery integration test (total count = 44)

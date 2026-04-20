@@ -66,6 +66,7 @@ rate_limiting = false
 logging_enabled = false
 api_endpoints = []
 deployment_context = "mobile"
+control_functions = []
 
 [[modules]]
 id = "api_gateway"
@@ -82,6 +83,7 @@ rate_limiting = true
 logging_enabled = true
 api_endpoints = ["/api/v1/auth", "/api/v1/payments", "/api/v1/status"]
 deployment_context = "cloud"
+control_functions = ["AC-4", "SC-7", "SI-10", "AU-2"]
 
 [[modules]]
 id = "auth_service"
@@ -98,6 +100,7 @@ rate_limiting = false
 logging_enabled = true
 api_endpoints = ["/internal/auth/verify", "/internal/auth/token"]
 deployment_context = "cloud"
+control_functions = ["IA-2", "IA-4", "AC-3", "AU-2"]
 
 [[modules]]
 id = "payment_service"
@@ -114,6 +117,7 @@ rate_limiting = false
 logging_enabled = true
 api_endpoints = ["/internal/payments/execute"]
 deployment_context = "cloud"
+control_functions = ["AU-2", "CM-3", "SC-28"]
 
 [[modules]]
 id = "fraud_model_service"
@@ -130,6 +134,7 @@ rate_limiting = false
 logging_enabled = false
 api_endpoints = ["/internal/ml/predict"]
 deployment_context = "cloud"
+control_functions = []
 
 [[objects]]
 id = "user_credentials"
