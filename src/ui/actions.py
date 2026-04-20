@@ -57,8 +57,16 @@ def load_graph(model_path: Path, *, clear_graph: bool = True, executor: Executor
     return run_command(args, executor=executor)
 
 
-def generate_threats(model_path: Path, *, executor: Executor | None = None) -> ActionResult:
-    return run_command(["generate-threats", "--model", str(model_path)], executor=executor)
+def generate_threats(
+    model_path: Path,
+    *,
+    enrich: bool = False,
+    executor: Executor | None = None,
+) -> ActionResult:
+    args = ["generate-threats", "--model", str(model_path)]
+    if enrich:
+        args.append("--enrich")
+    return run_command(args, executor=executor)
 
 
 def score_risks(*, executor: Executor | None = None) -> ActionResult:
@@ -69,6 +77,7 @@ def rebuild_analysis(
     model_path: Path,
     *,
     clear_graph: bool = True,
+    enrich: bool = False,
     executor: Executor | None = None,
 ) -> list[tuple[str, ActionResult]]:
     steps: list[tuple[str, ActionResult]] = []
@@ -76,7 +85,7 @@ def rebuild_analysis(
     pipeline = [
         ("validate_model", lambda: validate_model(model_path, executor=executor)),
         ("load_graph", lambda: load_graph(model_path, clear_graph=clear_graph, executor=executor)),
-        ("generate_threats", lambda: generate_threats(model_path, executor=executor)),
+        ("generate_threats", lambda: generate_threats(model_path, enrich=enrich, executor=executor)),
         ("score_risks", lambda: score_risks(executor=executor)),
     ]
 
@@ -97,6 +106,7 @@ def sync_knowledge(
     map_heuristics: bool = False,
     map_threshold: float = 0.40,
     map_top_k: int = 10,
+    graphrag: bool = False,
     executor: Executor | None = None,
 ) -> ActionResult:
     """Run ``threatforge sync`` with the given options."""
@@ -113,6 +123,8 @@ def sync_knowledge(
             "--map-threshold", str(map_threshold),
             "--map-top-k", str(map_top_k),
         ])
+    if graphrag:
+        args.append("--graphrag")
     return run_command(args, executor=executor)
 
 

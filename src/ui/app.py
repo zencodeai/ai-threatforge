@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 
@@ -22,9 +23,20 @@ def _resolve_model_path(uploaded_file, selected_example: Path | None) -> Path | 
     return selected_example
 
 
+def _graphrag_available() -> bool:
+    """Check if GraphRAG is enabled via env var."""
+    return os.environ.get("THREATFORGE_GRAPHRAG", "") == "1"
+
+
 def _render_pipeline_controls(model_path: Path | None) -> None:
     st.sidebar.markdown("### Rebuild Analysis")
     clear_graph = st.sidebar.checkbox("Clear graph before load", value=True)
+    enrich = st.sidebar.checkbox(
+        "GraphRAG enrichment",
+        value=False,
+        key="rebuild_enrich",
+        help="Add suggested mitigations and related techniques via Neo4j graph traversal.",
+    )
 
     if st.sidebar.button("Run Rebuild Workflow"):
         if model_path is None:
@@ -32,7 +44,9 @@ def _render_pipeline_controls(model_path: Path | None) -> None:
             return
 
         with st.spinner("Running analysis workflow..."):
-            step_results = rebuild_analysis(model_path, clear_graph=clear_graph)
+            step_results = rebuild_analysis(
+                model_path, clear_graph=clear_graph, enrich=enrich,
+            )
 
         for step_name, result in step_results:
             if result.ok:
@@ -48,6 +62,12 @@ def _render_pipeline_controls(model_path: Path | None) -> None:
 def _render_knowledge_status() -> None:
     st.sidebar.markdown("### Knowledge Base")
     status = load_sync_status()
+
+    graphrag_on = _graphrag_available()
+    if graphrag_on:
+        st.sidebar.caption("GraphRAG: enabled")
+    else:
+        st.sidebar.caption("GraphRAG: off (set THREATFORGE_GRAPHRAG=1)")
 
     if status.get("status") == "not synced":
         st.sidebar.info("Knowledge base not synced yet.")
@@ -69,6 +89,11 @@ def _render_knowledge_status() -> None:
         atlas_ver = st.text_input("ATLAS version", value="latest", key="sync_atlas_ver")
         embed = st.checkbox("Generate embeddings", key="sync_embed")
         map_heuristics = st.checkbox("Map heuristics", key="sync_map_heuristics")
+        use_graphrag = st.checkbox(
+            "Use GraphRAG scorer",
+            key="sync_graphrag",
+            help="Use Neo4j vector search instead of SQLite for scoring suggestions.",
+        )
         threshold = st.slider(
             "Threshold", 0.10, 0.90, 0.40, 0.05,
             key="sync_threshold",
@@ -89,6 +114,7 @@ def _render_knowledge_status() -> None:
                     map_heuristics=map_heuristics,
                     map_threshold=threshold,
                     map_top_k=top_k,
+                    graphrag=use_graphrag,
                 )
             if result.ok:
                 st.success("Sync complete.")

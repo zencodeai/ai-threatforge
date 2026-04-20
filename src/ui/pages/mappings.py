@@ -159,9 +159,51 @@ def _render_config_editor() -> None:
             key="cfg_sug_included",
         )
 
+        st.markdown("##### GraphRAG Scoring Weights")
+        st.caption(
+            "Weights for the GraphRAG composite scorer. Must sum to ~1.0. "
+            "Only applies when using the GraphRAG scorer (--graphrag)."
+        )
+        gcol1, gcol2, gcol3 = st.columns(3)
+        graphrag = config.get("graphrag", {})
+        with gcol1:
+            w_vector = st.number_input(
+                "Vector", 0.0, 1.0, graphrag.get("weight_vector", 0.45),
+                step=0.05, key="cfg_w_vector",
+            )
+            w_tactic = st.number_input(
+                "Tactic", 0.0, 1.0, graphrag.get("weight_tactic", 0.15),
+                step=0.05, key="cfg_w_tactic",
+            )
+        with gcol2:
+            w_framework = st.number_input(
+                "Framework", 0.0, 1.0, graphrag.get("weight_framework", 0.10),
+                step=0.05, key="cfg_w_framework",
+            )
+            w_mitigation = st.number_input(
+                "Mitigation Gap", 0.0, 1.0, graphrag.get("weight_mitigation_gap", 0.20),
+                step=0.05, key="cfg_w_mitigation",
+            )
+        with gcol3:
+            w_subtechnique = st.number_input(
+                "Subtechnique", 0.0, 1.0, graphrag.get("weight_subtechnique", 0.10),
+                step=0.05, key="cfg_w_subtechnique",
+            )
+
+        weight_sum = w_vector + w_tactic + w_framework + w_mitigation + w_subtechnique
+        if abs(weight_sum - 1.0) > 0.01:
+            st.warning(f"Weights sum to {weight_sum:.2f} (should be ~1.0)")
+
         if st.button("Save Config", key="save_config_btn"):
             config["expansion"]["enabled"] = exp_enabled
             config["suggestions"]["include_suggested"] = sug_included
+            config["graphrag"] = {
+                "weight_vector": w_vector,
+                "weight_tactic": w_tactic,
+                "weight_framework": w_framework,
+                "weight_mitigation_gap": w_mitigation,
+                "weight_subtechnique": w_subtechnique,
+            }
             save_mapping_config(config)
             st.success("Configuration saved.")
             st.rerun()

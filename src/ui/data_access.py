@@ -7,7 +7,7 @@ from artifact_locator import ArtifactLocator
 from project_paths import ProjectPaths
 from models.schema.canonical_model import CanonicalModel, load_canonical_model
 from models.schema.risk_model import RiskReport
-from models.schema.threat_model import ThreatReport
+from models.schema.threat_model import ThreatRecord, ThreatReport
 from report_repository import FileReportRepository, ReportRepository
 
 _DEFAULT_PATHS = ProjectPaths.default()
@@ -80,12 +80,42 @@ def threat_rows(report: ThreatReport, limit: int | None = None) -> list[dict[str
             "severity_hint": threat.severity_hint,
             "frameworks": ", ".join(sorted({m.framework for m in threat.framework_mappings})),
             "techniques": ", ".join(sorted({m.technique_id for m in threat.framework_mappings})),
+            "mitigations": len(threat.suggested_mitigations),
+            "related": len(threat.related_techniques),
         }
         for threat in report.threats
     ]
     if limit is None:
         return rows
     return rows[: max(0, limit)]
+
+
+def mitigation_rows(threat: ThreatRecord) -> list[dict[str, str]]:
+    """Extract suggested mitigations from a ThreatRecord as flat dicts."""
+    return [
+        {
+            "mitigation_id": m.mitigation_id,
+            "name": m.name,
+            "technique_id": m.technique_id,
+            "technique_name": m.technique_name,
+            "rationale": m.rationale,
+        }
+        for m in threat.suggested_mitigations
+    ]
+
+
+def related_technique_rows(threat: ThreatRecord) -> list[dict[str, object]]:
+    """Extract related techniques from a ThreatRecord as flat dicts."""
+    return [
+        {
+            "technique_id": r.technique_id,
+            "technique_name": r.technique_name,
+            "framework": r.framework,
+            "relationship": r.relationship,
+            "shared_mitigations": r.shared_mitigations,
+        }
+        for r in threat.related_techniques
+    ]
 
 
 def risk_rows(report: RiskReport, limit: int | None = None) -> list[dict[str, object]]:
