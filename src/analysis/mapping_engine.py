@@ -126,3 +126,42 @@ def map_rule_to_techniques(
     expanded = _expand_by_tactic(rule_id, config, index=index)
     filtered = _filter_by_context(expanded, context, index=index)
     return curated + filtered
+
+
+def graphrag_score_suggestions(
+    rule_id: str,
+    heuristic_text: str,
+    *,
+    neo4j_client: object,
+    embedder: object,
+    curated_mappings: tuple[TechniqueMapping, ...] = (),
+    target_frameworks: tuple[str, ...] = (),
+    module_controls: list[str] | None = None,
+    top_k: int = 15,
+    threshold: float = 0.0,
+) -> list:
+    """Run the GraphRAG-enhanced Layer 0 scorer.
+
+    This is the graph-aware alternative to :func:`suggestion_scorer.score_suggestions`.
+    Requires a live Neo4j connection with MITRE knowledge graph and TextChunk
+    vector index populated (via ``threatforge sync --neo4j``).
+
+    Returns a list of :class:`~analysis.graphrag_scorer.GraphRAGSuggestion`.
+    """
+    from knowledge.graph_vector_search import GraphVectorSearch
+
+    from .graphrag_scorer import GraphRAGScorer
+
+    graph_search = GraphVectorSearch(neo4j_client)  # type: ignore[arg-type]
+    scorer = GraphRAGScorer(neo4j_client, graph_search)  # type: ignore[arg-type]
+
+    return scorer.score(
+        rule_id,
+        heuristic_text,
+        embedder=embedder,  # type: ignore[arg-type]
+        curated_mappings=curated_mappings,
+        target_frameworks=target_frameworks,
+        module_controls=module_controls,
+        top_k=top_k,
+        threshold=threshold,
+    )
