@@ -30,6 +30,7 @@ class KnowledgeLoadStats:
     heuristic_rules: int = 0
     maps_to_edges: int = 0
     implements_control_edges: int = 0
+    text_chunks: int = 0
 
 
 class KnowledgeGraphLoader:
@@ -48,7 +49,11 @@ class KnowledgeGraphLoader:
 
     def apply_schema(self, base_path: Path | None = None) -> None:
         root = base_path or Path(__file__).resolve().parent
-        for file_name in ("mitre_constraints.cypher", "mitre_indexes.cypher"):
+        for file_name in (
+            "mitre_constraints.cypher",
+            "mitre_indexes.cypher",
+            "vector_indexes.cypher",
+        ):
             file_path = root / "cypher" / file_name
             for statement in self._read_cypher_file(file_path):
                 self.client.execute_write(statement)

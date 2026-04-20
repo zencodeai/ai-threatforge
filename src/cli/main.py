@@ -123,6 +123,8 @@ def _cmd_sync(args: argparse.Namespace) -> int:
         print(f"    rules:       {counts['neo4j_heuristic_rules']}")
         print(f"    maps_to:     {counts['neo4j_maps_to']}")
         print(f"    ctrl_bridges:{counts['neo4j_implements_control']}")
+        if counts.get("neo4j_text_chunks"):
+            print(f"    text_chunks: {counts['neo4j_text_chunks']}")
     if "embedded" in counts:
         print(f"  embedded:    {counts['embedded']}")
     if "suggestions" in counts:

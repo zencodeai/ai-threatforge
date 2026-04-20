@@ -78,8 +78,15 @@ def _sync_to_neo4j(
     tactics: list[Tactic],
     techniques: list[Technique],
     mitigations: list[Mitigation],
+    *,
+    embed_chunks: bool = True,
 ) -> Any:
-    """Load MITRE data into Neo4j and create bridge relationships."""
+    """Load MITRE data into Neo4j and create bridge relationships.
+
+    When *embed_chunks* is True (default), also runs the chunking pipeline
+    to split descriptions, embed them, and write TextChunk nodes with a
+    Neo4j native vector index.
+    """
     from graph.knowledge_loader import KnowledgeGraphLoader, KnowledgeLoadStats
     from graph.neo4j_client import Neo4jClient, Neo4jConfig
 
@@ -106,6 +113,19 @@ def _sync_to_neo4j(
 
         # Create IMPLEMENTS_CONTROL bridges (Module -> Mitigation)
         stats.implements_control_edges = loader.sync_control_bridges()
+
+        # Chunk descriptions and write TextChunk nodes with embeddings
+        if embed_chunks:
+            from .chunking import ChunkingPipeline
+            from .embedder import SentenceTransformerEmbedder
+
+            embedder = SentenceTransformerEmbedder()
+            pipeline = ChunkingPipeline(client, embedder)
+            chunk_stats = pipeline.process(
+                techniques=techniques,
+                mitigations=mitigations,
+            )
+            stats.text_chunks = chunk_stats.total_embedded
 
     return stats
 
@@ -221,6 +241,7 @@ def sync(
             counts["neo4j_heuristic_rules"] = neo4j_counts.heuristic_rules
             counts["neo4j_maps_to"] = neo4j_counts.maps_to_edges
             counts["neo4j_implements_control"] = neo4j_counts.implements_control_edges
+            counts["neo4j_text_chunks"] = neo4j_counts.text_chunks
 
         # map_heuristics implies embed
         if map_heuristics or embed:
