@@ -9,7 +9,7 @@ Security architects, engineering leaders, and hiring reviewers evaluating AI + s
 3. Confirm Streamlit app launches.
 4. Keep these files ready:
 - `examples/fintech_ai_platform.toml`
-- latest threat and risk artifacts in `models/outputs/`
+- the active threat and risk artifacts recorded by the current analysis manifest in `models/outputs/`
 
 ## Script flow
 ### 1. Open with the problem (1 minute)

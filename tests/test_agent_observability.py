@@ -4,10 +4,13 @@ import json
 from pathlib import Path
 
 from agents.observability import JsonlTraceRecorder
+from analysis_manifest import AnalysisManifestStore
 from agents.tools import AgentTools
 from agents.workflow import QueryWorkflow
 from models.schema.risk_model import RiskFactors, RiskRecord, RiskReport
 from models.schema.threat_model import TechniqueReference, ThreatRecord, ThreatReport
+from project_paths import ProjectPaths
+from session_store import SessionStore
 
 
 def _write_artifacts(base_dir: Path) -> None:
@@ -118,3 +121,31 @@ def test_workflow_observability_writes_jsonl_trace(tmp_path: Path) -> None:
     tool_events = [row for row in rows if row["event"] == "tool_result"]
     assert tool_events
     assert any(event["tool_name"] == "get_risks" for event in tool_events)
+
+
+def test_workflow_observability_includes_active_manifest_metadata(tmp_path: Path) -> None:
+    _write_artifacts(tmp_path)
+    paths = ProjectPaths.from_root(tmp_path)
+    session_store = SessionStore(paths)
+    manifest_store = AnalysisManifestStore(paths, session_store=session_store)
+    manifest_store.create(
+        model_path=tmp_path / "examples" / "fintech_ai_platform.toml",
+        model_id="fintech-ai-demo",
+        threat_report_path=tmp_path / "models" / "outputs" / "threats" / "fintech-ai-demo_threats.json",
+        risk_report_path=tmp_path / "models" / "outputs" / "risks" / "fintech-ai-demo_risks.json",
+    )
+
+    trace_file = tmp_path / "models" / "outputs" / "traces" / "agent_runs.jsonl"
+    tracer = JsonlTraceRecorder(trace_file, manifest_store=manifest_store)
+    tools = AgentTools(
+        base_dir=tmp_path,
+        graph_runner=lambda _q, _p: [{"module_id": "api_gateway", "module_name": "API Gateway"}],
+    )
+    workflow = QueryWorkflow(tools=tools, tracer=tracer)
+
+    workflow.answer("What are the highest risks?")
+
+    rows = [json.loads(line) for line in trace_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert rows
+    assert all("analysis_manifest" in row for row in rows)
+    assert rows[0]["analysis_manifest"]["model_id"] == "fintech-ai-demo"

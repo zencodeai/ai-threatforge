@@ -43,7 +43,7 @@ Expected outcome:
 threatforge score-risks
 ```
 
-Because the active model is persisted in the shared session, the later CLI calls and the Streamlit UI can resolve the same threat and risk artifacts without relying on filename guessing.
+Because the active model and analysis manifest are persisted in the shared session, the later CLI calls and the Streamlit UI can resolve the same threat and risk artifacts without relying on filename guessing.
 Expected outcome:
 - Prioritized risks saved under `models/outputs/risks/`.
 - Each risk includes weighted score drivers and explanation text.

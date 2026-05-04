@@ -6,6 +6,7 @@ from models.schema.risk_model import RiskFactors, RiskRecord, RiskReport
 from models.schema.threat_model import TechniqueReference, ThreatRecord, ThreatReport
 from project_paths import ProjectPaths
 from session_store import SessionStore
+from analysis_manifest import AnalysisManifestStore
 from ui.data_access import (
     build_model_overview,
     latest_artifact,
@@ -173,3 +174,28 @@ def test_load_artifacts_prefers_session_paths(tmp_path: Path) -> None:
     assert risk_path == older_risk
     assert session["threat_report_path"] == "models/outputs/threats/aaa_threats.json"
     assert session["risk_report_path"] == "models/outputs/risks/aaa_risks.json"
+
+
+def test_load_artifacts_fall_back_to_active_manifest(tmp_path: Path) -> None:
+    _write_artifacts(tmp_path)
+    paths = ProjectPaths.from_root(tmp_path)
+    session = SessionStore(paths)
+    manifest_store = AnalysisManifestStore(paths, session_store=session)
+
+    threat_path = tmp_path / "models" / "outputs" / "threats" / "fintech-ai-demo_threats.json"
+    risk_path = tmp_path / "models" / "outputs" / "risks" / "fintech-ai-demo_risks.json"
+
+    manifest_store.create(
+        model_path=tmp_path / "examples" / "fintech_ai_platform.toml",
+        model_id="fintech-ai-demo",
+        threat_report_path=threat_path,
+        risk_report_path=risk_path,
+    )
+
+    threat_report, resolved_threat_path = load_threat_report(base_dir=tmp_path)
+    risk_report, resolved_risk_path = load_risk_report(base_dir=tmp_path)
+
+    assert threat_report is not None
+    assert risk_report is not None
+    assert resolved_threat_path == threat_path
+    assert resolved_risk_path == risk_path

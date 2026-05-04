@@ -45,7 +45,7 @@ The graph loader creates **9 architecture node types** (`System`, `SecurityDomai
 
 Schema enforcement is applied at the database level: **unique constraints** on every entity ID prevent duplicates, and **indexes** on `internet_exposed`, `ai_relevant`, `classification`, and `regulated` fields accelerate the filtered queries that threat heuristics depend on.
 
-Ten **pre-built named queries** cover the most common security analysis patterns:
+A library of **pre-built named queries** covers the most common security analysis patterns:
 
 | Query | Purpose |
 |---|---|
@@ -58,7 +58,7 @@ Ten **pre-built named queries** cover the most common security analysis patterns
 | `dependency_edges` | All module/datastore dependencies |
 | `trust_boundary_crossings` | All trust boundary definitions |
 
-Custom Cypher queries can also be executed directly through the agent tool layer.
+The agent tool layer exposes a stable subset of these queries through query IDs rather than raw Cypher text, keeping the graph layer as the single source of truth for analyst-facing graph retrieval.
 
 ### 3. Threat layer
 
@@ -157,7 +157,7 @@ The five tools cover the full analysis surface:
 
 | Tool | Data Source | Returns |
 |---|---|---|
-| `query_graph` | Neo4j (live Cypher) | Graph traversal results |
+| `query_graph` | Neo4j named queries (`GraphQueries.execute(query_id, params)`) | Graph traversal results |
 | `get_threats` | `*_threats.json` artifact | Filtered threat records |
 | `get_risks` | `*_risks.json` artifact | Top-N ranked risk records |
 | `lookup_technique` | In-memory mapping catalog | ATT&CK/ATLAS technique details |
@@ -175,7 +175,7 @@ The five tools cover the full analysis surface:
 | **Events** | `workflow_start`, `tool_result`, `workflow_end` |
 | **Responsibility** | Record every workflow invocation for audit, debugging, and performance review. The composite recorder pattern supports simultaneous local and remote tracing. |
 
-Observability is built on a **protocol-based recorder pattern** (`TraceRecorder` protocol) with four implementations:
+Observability is built on a **protocol-based recorder pattern** (`TraceRecorder` protocol) with four implementations. Local trace events also carry active analysis-manifest metadata when a manifest is present, so workflow traces can be tied back to the exact threat/risk artifact set that grounded the answer.
 
 - **`NullTraceRecorder`** — no-op, used in tests to avoid side effects.
 - **`JsonlTraceRecorder`** — appends structured JSON events to a local file. Each event carries a UTC timestamp, unique `run_id` (format: `run-{12-hex}`), the analyst question, tool responses, and the final composed answer.
@@ -195,7 +195,7 @@ The factory function `create_trace_recorder()` auto-detects the environment and 
 
 The UI is built with **Streamlit** for rapid prototyping with minimal frontend code. It uses Streamlit's native multipage pattern — each screen is a standalone module under `src/ui/pages/` that can be rendered independently or routed from the main app shell.
 
-The UI and CLI now share a small persisted **session layer** (`src/session_store.py`) that records the active model plus the current threat and risk artifact paths. This removes most reliance on "latest file" guessing and keeps analyst flows consistent across a Streamlit session and repeated CLI calls.
+The UI and CLI now share a small persisted **session layer** (`src/session_store.py`) that records the active model, active analysis manifest, and current threat/risk artifact paths. Manifest-backed resolution is preferred before any filesystem discovery fallback, which keeps analyst flows consistent across a Streamlit session and repeated CLI calls.
 
 The sidebar provides four interaction modes:
 - **Model selection** — choose from bundled example models or upload a custom TOML file.
@@ -205,7 +205,7 @@ The sidebar provides four interaction modes:
 
 The **Threats** screen displays enrichment indicators, severity/rule/enriched filters, and per-threat detail expanders showing framework mappings, suggested mitigations, related techniques, and evidence. The **Mappings** screen includes curated/suggested mapping browsers, a heuristic catalog, promote-to-curated controls, and a GraphRAG scoring weight editor.
 
-Data access is handled through `src/ui/data_access.py`, which loads Pydantic-validated models and JSON artifacts, builds summary views, extracts enrichment data, and resolves artifacts from the active shared session before falling back to discovery. All data flows are read-only — the UI never mutates analysis artifacts directly (except for promoting suggested mappings to curated rules).
+Data access is handled through `src/ui/data_access.py`, which loads Pydantic-validated models and JSON artifacts, builds summary views, extracts enrichment data, and resolves artifacts from the active shared session and analysis manifest before falling back to discovery. All data flows are read-only — the UI never mutates analysis artifacts directly (except for promoting suggested mappings to curated rules).
 
 ---
 
@@ -217,7 +217,7 @@ Data access is handled through `src/ui/data_access.py`, which loads Pydantic-val
 | **Local-first execution** | All data and analysis run on the developer's machine — no cloud dependency for the MVP. |
 | **Agent as interaction layer, not source of truth** | The query workflow adds value through presentation and routing; it does not invent new threats or scores. |
 | **Explicit JSON outputs** | `threats.json` and `risks.json` are first-class artifacts that downstream tools or CI pipelines can consume. |
-| **Shared persisted session** | CLI and UI share a small state file for active model and artifact paths, improving correctness without introducing a database-backed application state layer. |
+| **Shared persisted session + manifests** | CLI and UI share a small state file for the active model, manifest, and artifact paths, improving correctness without introducing a database-backed application state layer. |
 | **Optional observability** | Tracing is always available locally; LangSmith integration is opt-in to keep the core dependency footprint small. |
 
 ---

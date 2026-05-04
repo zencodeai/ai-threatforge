@@ -12,6 +12,7 @@ class ProjectPaths:
     data_dir: Path
     examples_dir: Path
     outputs_dir: Path
+    manifests_dir: Path
     threats_dir: Path
     risks_dir: Path
     mapping_rules: Path
@@ -32,6 +33,7 @@ class ProjectPaths:
             data_dir=data,
             examples_dir=root / "examples",
             outputs_dir=outputs,
+            manifests_dir=outputs / "manifests",
             threats_dir=outputs / "threats",
             risks_dir=outputs / "risks",
             mapping_rules=data / "mapping_rules.toml",

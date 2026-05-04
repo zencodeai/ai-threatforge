@@ -8,6 +8,10 @@ from pathlib import Path
 from typing import Any, Protocol
 from uuid import uuid4
 
+from analysis_manifest import AnalysisManifestStore
+from project_paths import ProjectPaths
+from session_store import SessionStore
+
 from .state import AgentAnswer, ToolResponse
 
 
@@ -45,9 +49,10 @@ class NullTraceRecorder:
 class JsonlTraceRecorder:
     """Writes workflow traces as JSONL events for local observability."""
 
-    def __init__(self, trace_file: str | Path):
+    def __init__(self, trace_file: str | Path, *, manifest_store: AnalysisManifestStore | None = None):
         self.trace_file = Path(trace_file)
         self.trace_file.parent.mkdir(parents=True, exist_ok=True)
+        self._manifest_store = manifest_store
 
     def on_workflow_start(self, run_id: str, question: str, actions: list[str]) -> None:
         self._append(
@@ -87,6 +92,10 @@ class JsonlTraceRecorder:
 
     def _append(self, payload: dict[str, Any]) -> None:
         payload["ts"] = datetime.now(timezone.utc).isoformat()
+        if self._manifest_store is not None:
+            manifest = self._manifest_store.current_metadata()
+            if manifest is not None:
+                payload["analysis_manifest"] = manifest
         with self.trace_file.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(payload, sort_keys=True))
             fh.write("\n")
@@ -161,7 +170,12 @@ def create_trace_recorder(base_dir: str | Path = ".") -> TraceRecorder:
     """Create local tracing and optional LangSmith tracing from environment."""
 
     base = Path(base_dir)
-    local = JsonlTraceRecorder(base / "models" / "outputs" / "traces" / "agent_runs.jsonl")
+    paths = ProjectPaths.from_root(base.resolve())
+    manifest_store = AnalysisManifestStore(paths, session_store=SessionStore(paths))
+    local = JsonlTraceRecorder(
+        base / "models" / "outputs" / "traces" / "agent_runs.jsonl",
+        manifest_store=manifest_store,
+    )
 
     use_langsmith = os.getenv("LANGSMITH_TRACING", "").lower() in {"1", "true", "yes"}
     if not use_langsmith:

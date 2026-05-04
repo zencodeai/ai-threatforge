@@ -17,6 +17,7 @@ class SessionState:
     session_id: str = "default"
     model_path: str | None = None
     model_id: str | None = None
+    manifest_path: str | None = None
     threat_report_path: str | None = None
     risk_report_path: str | None = None
     last_updated: str | None = None
@@ -69,13 +70,20 @@ class SessionStore:
     def resolve_risk_report_path(self) -> Path | None:
         return self._resolve_path(self.load().risk_report_path)
 
+    def resolve_manifest_path(self) -> Path | None:
+        return self._resolve_path(self.load().manifest_path)
+
     def set_model(self, model_path: str | Path, *, model_id: str | None = None) -> SessionState:
         return self.update(
             model_path=self._serialize_path(model_path),
             model_id=model_id,
+            manifest_path=None,
             threat_report_path=None,
             risk_report_path=None,
         )
+
+    def set_manifest(self, manifest_path: str | Path) -> SessionState:
+        return self.update(manifest_path=self._serialize_path(manifest_path))
 
     def set_threat_report(self, threat_report_path: str | Path) -> SessionState:
         return self.update(threat_report_path=self._serialize_path(threat_report_path))

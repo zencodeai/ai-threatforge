@@ -86,6 +86,8 @@ def _render_knowledge_status(*, paths: ProjectPaths = PATHS) -> None:
             f"threats={session.get('threat_report_path') or '—'} · "
             f"risks={session.get('risk_report_path') or '—'}"
         )
+    if session.get("manifest_path"):
+        st.sidebar.caption(f"Active manifest: `{session['manifest_path']}`")
 
     graphrag_on = _graphrag_available()
     if graphrag_on:

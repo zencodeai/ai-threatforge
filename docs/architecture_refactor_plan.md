@@ -36,7 +36,6 @@ Status: completed on `architecture-review`.
 Target modules:
 - `src/app/analysis_service.py`
 - `src/app/knowledge_service.py`
-- `src/app/query_service.py`
 
 Scope:
 - Move workflow orchestration out of `src/cli/main.py` and `src/ui/actions.py`.
@@ -50,13 +49,13 @@ Deliverables:
 - `AnalysisService.score_risks(threat_path)`
 - `AnalysisService.rebuild(model_path, clear_graph, enrich)`
 - `KnowledgeService.sync(...)`
-- `QueryService.answer(question, session=...)`
 
 Delivered in this phase:
 - Added shared application services in `src/app/analysis_service.py` and `src/app/knowledge_service.py`.
 - Switched CLI analysis and sync commands to the shared services.
 - Switched UI rebuild and sync actions to the same shared services.
 - Removed the default UI rebuild dependency on subprocess execution and `stdout` parsing.
+- Left query orchestration in the existing agent workflow; a dedicated `QueryService` was deferred because the current router/executor/composer split already provides a clear boundary.
 
 Primary tests:
 - CLI contract tests
@@ -151,6 +150,8 @@ Primary tests:
 
 ### Phase 5: Add operational artifacts and manifests
 
+Status: completed on `architecture-review`.
+
 Scope:
 - Record a manifest for each analysis run with model path, model id, output paths, and timestamps.
 - Use manifests instead of filename guessing for active artifacts.
@@ -160,7 +161,13 @@ Why later:
 - The new session layer already improves correctness.
 - Manifests are more valuable once services own orchestration.
 
-### Suggested implementation order
+Delivered in this phase:
+- Added persisted analysis run manifests under `models/outputs/manifests/`.
+- Recorded manifests from the analysis service and kept the active manifest in session state.
+- Switched report loading to prefer manifest-backed artifact paths before filesystem discovery.
+- Attached active manifest metadata to local observability trace events.
+
+### Implemented order
 
 1. Finish Phase 0 cleanup around session-aware path ownership.
 2. Extract `AnalysisService` and move UI rebuild off subprocess execution.
@@ -175,3 +182,4 @@ Why later:
 - Changing the active model clears stale artifacts automatically.
 - Sync invalidates stale technique index state.
 - Threat generation query count scales with heuristic dependencies, not the whole catalog.
+- Threat and risk artifact resolution prefers the active manifest before filesystem discovery.

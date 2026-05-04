@@ -63,7 +63,7 @@ Analyst questions are routed to tools via deterministic keyword matching, execut
 | `src/ui/` | Streamlit analyst interface (model overview, threats, risks, mappings, chat) |
 | `src/cli/` | Unified CLI (`threatforge` command) |
 | `data/threat_intel/` | Curated mapping rules, expansion config, auto-generated suggestions, knowledge-base SQLite |
-| `tests/` | 351 passing tests across 35 modules, plus 2 skipped integration checks |
+| `tests/` | 355 passing tests across 36 modules, plus 2 skipped integration checks |
 | `docs/` | Architecture narrative, walkthrough, demo script, diagrams |
 
 ---
@@ -127,13 +127,13 @@ threatforge ui
 | **Mappings** | Curated and suggested technique mappings, heuristic catalog, GraphRAG scoring weight config |
 | **Analyst Chat** | Natural-language Q&A grounded in graph, threat, and risk artifacts |
 
-The UI sidebar includes knowledge base sync status, a **GraphRAG enrichment** toggle for rebuilds, and a **Run Rebuild Workflow** action that re-executes the full pipeline (validate → load → threats → risks) in one click. The selected model and the most recent threat/risk artifacts are also persisted in a shared session so CLI and UI stay aligned.
+The UI sidebar includes knowledge base sync status, a **GraphRAG enrichment** toggle for rebuilds, and a **Run Rebuild Workflow** action that re-executes the full pipeline (validate → load → threats → risks) in one click. The selected model, active run manifest, and current threat/risk artifacts are persisted so CLI and UI stay aligned on the same analysis run.
 
 ---
 
 ## Observability
 
-Every query workflow invocation is traced end-to-end. Traces are written locally to `models/outputs/traces/agent_runs.jsonl` as structured events:
+Every query workflow invocation is traced end-to-end. Traces are written locally to `models/outputs/traces/agent_runs.jsonl` as structured events, and each event includes active analysis-manifest metadata when a run manifest is available:
 
 - **`workflow_start`** — analyst question, run ID, timestamp
 - **`tool_result`** — tool name, input parameters, response payload, confidence score
@@ -162,7 +162,7 @@ No code changes are needed — the factory function `create_trace_recorder()` au
 pytest -q
 ```
 
-351 passing tests across schema validation, graph operations, threat generation (44 heuristics), technique mapping, risk scoring, knowledge ingestion, GraphRAG scoring, threat enrichment, chunking, graph vector search, agent workflow, router/query dispatch, lazy snapshot resolution, knowledge provider refresh, observability, session persistence, artifact resolution, application services, and UI layers, with 2 skipped integration checks.
+355 passing tests across schema validation, graph operations, threat generation (44 heuristics), technique mapping, risk scoring, knowledge ingestion, GraphRAG scoring, threat enrichment, chunking, graph vector search, agent workflow, router/query dispatch, lazy snapshot resolution, knowledge provider refresh, analysis manifests, observability, session persistence, artifact resolution, application services, and UI layers, with 2 skipped integration checks.
 
 ---
 
@@ -200,7 +200,7 @@ pytest -q
 | UI | Streamlit ≥ 1.35 | Multipage analyst dashboard (5 screens) with knowledge sync, GraphRAG enrichment, and one-click rebuild |
 | Observability | JSONL local traces | Structured event log for every workflow invocation |
 | Observability (opt.) | LangSmith | Cloud trace export with parent-child run relationships |
-| Testing | pytest ≥ 8.0 | 351 passing tests across 35 modules, plus 2 skipped integration checks — schema, graph, analysis, knowledge, GraphRAG, agents, router/query dispatch, lazy snapshot resolution, knowledge provider refresh, sessions, artifact resolution, application services, UI |
+| Testing | pytest ≥ 8.0 | 355 passing tests across 36 modules, plus 2 skipped integration checks — schema, graph, analysis, knowledge, GraphRAG, agents, router/query dispatch, lazy snapshot resolution, knowledge provider refresh, analysis manifests, sessions, artifact resolution, application services, UI |
 
 ### Why these choices
 

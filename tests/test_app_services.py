@@ -5,6 +5,7 @@ from pathlib import Path
 
 from app.analysis_service import AnalysisService
 from app.knowledge_service import KnowledgeService
+from analysis_manifest import AnalysisManifestStore
 from knowledge.index import get_index, set_index
 from project_paths import ProjectPaths
 from session_store import SessionStore
@@ -89,3 +90,56 @@ def test_knowledge_service_sync_invalidates_provider_and_legacy_index(monkeypatc
     assert result.ok is True
     assert invalidated["provider"] is True
     assert get_index() is None
+
+
+def test_analysis_service_creates_and_updates_manifest(monkeypatch, tmp_path: Path) -> None:
+    paths = ProjectPaths.from_root(tmp_path)
+    session = SessionStore(paths)
+    service = AnalysisService(paths=paths, session_store=session)
+    manifest_store = AnalysisManifestStore(paths, session_store=session)
+
+    model_path = tmp_path / "examples" / "demo.toml"
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    model_path.write_text("[meta]\nmodel_id='demo'\n", encoding="utf-8")
+
+    threat_path = tmp_path / "models" / "outputs" / "threats" / "demo_threats.json"
+    threat_path.parent.mkdir(parents=True, exist_ok=True)
+    threat_path.write_text("{}", encoding="utf-8")
+
+    risk_path = tmp_path / "models" / "outputs" / "risks" / "demo_risks.json"
+    risk_path.parent.mkdir(parents=True, exist_ok=True)
+    risk_path.write_text("{}", encoding="utf-8")
+
+    import analysis.threat_outputs as threat_outputs
+    import analysis.risk_scoring as risk_scoring
+    from models.schema.risk_model import RiskReport
+    from models.schema.threat_model import ThreatReport
+
+    monkeypatch.setattr(
+        threat_outputs,
+        "generate_threat_report",
+        lambda *args, **kwargs: (
+            ThreatReport(model_id="demo", generated_at="2026-01-01T00:00:00+00:00", threat_count=0, threats=[]),
+            threat_path,
+        ),
+    )
+    monkeypatch.setattr(
+        risk_scoring,
+        "generate_risk_report_from_file",
+        lambda *args, **kwargs: (
+            RiskReport(model_id="demo", generated_at="2026-01-01T00:00:00+00:00", methodology_version="0.1", risk_count=0, risks=[]),
+            risk_path,
+        ),
+    )
+
+    gen = service.generate_threats(model_path)
+    score = service.score_risks()
+    manifest, manifest_path = manifest_store.current()
+
+    assert gen.ok is True
+    assert score.ok is True
+    assert manifest is not None
+    assert manifest_path is not None
+    assert manifest.model_id == "demo"
+    assert manifest.threat_report_path == "models/outputs/threats/demo_threats.json"
+    assert manifest.risk_report_path == "models/outputs/risks/demo_risks.json"

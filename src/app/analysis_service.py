@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from analysis_manifest import AnalysisManifestStore
 from knowledge.provider import KnowledgeProvider
 from project_paths import ProjectPaths
 from session_store import SessionStore
@@ -30,6 +31,7 @@ class AnalysisService:
         self.paths = paths or ProjectPaths.default()
         self.session_store = session_store or SessionStore(self.paths)
         self.knowledge_provider = KnowledgeProvider.from_paths(self.paths)
+        self.manifest_store = AnalysisManifestStore(self.paths, session_store=self.session_store)
 
     def validate_model(self, model_path: str | Path | None = None) -> ServiceResult:
         from models.schema.canonical_model import validate_canonical_model
@@ -92,6 +94,11 @@ class AnalysisService:
 
         self.session_store.set_model(resolved, model_id=report.model_id)
         self.session_store.set_threat_report(written)
+        self.manifest_store.create(
+            model_path=resolved,
+            model_id=report.model_id,
+            threat_report_path=written,
+        )
         return self._ok(
             f"GENERATED: {report.threat_count} threats\nOUTPUT: {written}",
             model_path=str(resolved),
@@ -116,6 +123,21 @@ class AnalysisService:
 
         self.session_store.set_threat_report(resolved)
         self.session_store.set_risk_report(written)
+        current_manifest_path = self.session_store.resolve_manifest_path()
+        if current_manifest_path is not None and current_manifest_path.exists():
+            self.manifest_store.update(
+                current_manifest_path,
+                model_id=report.model_id,
+                threat_report_path=resolved,
+                risk_report_path=written,
+            )
+        else:
+            self.manifest_store.create(
+                model_path=self.session_store.resolve_model_path(),
+                model_id=report.model_id,
+                threat_report_path=resolved,
+                risk_report_path=written,
+            )
 
         priority_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
         for risk in report.risks:
@@ -203,6 +225,10 @@ class AnalysisService:
         session_path = self.session_store.resolve_threat_report_path()
         if session_path is not None:
             return session_path
+
+        manifest_path = self.manifest_store.current_threat_report_path()
+        if manifest_path is not None:
+            return manifest_path
 
         path = ArtifactLocator(self.paths.root).latest_threats()
         if path is None:

@@ -95,6 +95,7 @@ def _cmd_session(args: argparse.Namespace) -> int:
         "session_id": state.session_id,
         "model_path": state.model_path,
         "model_id": state.model_id,
+        "manifest_path": state.manifest_path,
         "threat_report_path": state.threat_report_path,
         "risk_report_path": state.risk_report_path,
         "last_updated": state.last_updated,

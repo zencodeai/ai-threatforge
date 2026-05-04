@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol
 
+from analysis_manifest import AnalysisManifestStore
 from models.schema.risk_model import RiskReport
 from models.schema.threat_model import ThreatReport
 from project_paths import ProjectPaths
@@ -38,6 +39,10 @@ class FileReportRepository:
         self._base = Path(base_dir)
         self._locator = ArtifactLocator(self._base)
         self._session_store = session_store or SessionStore(ProjectPaths.from_root(self._base))
+        self._manifest_store = AnalysisManifestStore(
+            ProjectPaths.from_root(self._base),
+            session_store=self._session_store,
+        )
 
     def load_threat_report(
         self, path: str | Path | None = None,
@@ -45,7 +50,9 @@ class FileReportRepository:
         threat_path = (
             Path(path)
             if path
-            else self._session_store.resolve_threat_report_path() or self._locator.latest_threats()
+            else self._session_store.resolve_threat_report_path()
+            or self._manifest_store.current_threat_report_path()
+            or self._locator.latest_threats()
         )
         if threat_path is None or not threat_path.exists():
             return None, None
@@ -60,7 +67,9 @@ class FileReportRepository:
         risk_path = (
             Path(path)
             if path
-            else self._session_store.resolve_risk_report_path() or self._locator.latest_risks()
+            else self._session_store.resolve_risk_report_path()
+            or self._manifest_store.current_risk_report_path()
+            or self._locator.latest_risks()
         )
         if risk_path is None or not risk_path.exists():
             return None, None
