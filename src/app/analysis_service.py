@@ -1,4 +1,5 @@
 from __future__ import annotations
+"""Shared application service for the deterministic analysis pipeline."""
 
 import logging
 from dataclasses import dataclass, field
@@ -13,6 +14,8 @@ from session_store import SessionStore
 
 @dataclass(frozen=True)
 class ServiceError:
+    """Structured failure metadata returned by application services."""
+
     code: str
     message: str
     step: str
@@ -22,6 +25,8 @@ class ServiceError:
 
 @dataclass(frozen=True)
 class ServiceResult:
+    """Service result shared across CLI and UI boundaries."""
+
     ok: bool
     stdout: str
     stderr: str = ""
@@ -31,7 +36,7 @@ class ServiceResult:
 
 
 class AnalysisService:
-    """Shared analysis orchestration used by both CLI and UI."""
+    """Run validate/load/generate/score workflows against a shared session."""
 
     def __init__(
         self,
@@ -45,6 +50,7 @@ class AnalysisService:
         self.manifest_store = AnalysisManifestStore(self.paths, session_store=self.session_store)
 
     def validate_model(self, model_path: str | Path | None = None) -> ServiceResult:
+        """Validate the active model and persist it in the shared session."""
         from models.schema.canonical_model import validate_canonical_model
 
         try:
@@ -74,6 +80,7 @@ class AnalysisService:
         *,
         clear_graph: bool = True,
     ) -> ServiceResult:
+        """Load the active model into Neo4j and record it as the current session model."""
         from graph.graph_loader import load_model_into_graph
 
         try:
@@ -102,6 +109,7 @@ class AnalysisService:
         output_path: str | Path | None = None,
         enrich: bool = False,
     ) -> ServiceResult:
+        """Generate threats and create a manifest for the resulting artifact set."""
         from analysis.threat_outputs import generate_threat_report
 
         try:
@@ -141,6 +149,7 @@ class AnalysisService:
         threat_path: str | Path | None = None,
         output_path: str | Path | None = None,
     ) -> ServiceResult:
+        """Score risks from an explicit or session-resolved threat artifact."""
         from analysis.risk_scoring import generate_risk_report_from_file
 
         try:
@@ -209,6 +218,7 @@ class AnalysisService:
         clear_graph: bool = True,
         enrich: bool = False,
     ) -> list[tuple[str, ServiceResult]]:
+        """Run the full analysis pipeline and return ordered per-step results."""
         steps: list[tuple[str, ServiceResult]] = []
 
         result = self.validate_model(model_path)
@@ -232,6 +242,7 @@ class AnalysisService:
         return steps
 
     def resolve_model_path(self, model: str | Path | None) -> Path:
+        """Resolve a model path from explicit input or the persisted session."""
         if model is not None:
             return Path(model)
         session_model = self.session_store.resolve_model_path()
@@ -243,6 +254,7 @@ class AnalysisService:
         )
 
     def record_model_session(self, model_path: str | Path) -> None:
+        """Persist the current model path and best-effort model metadata."""
         from models.schema.canonical_model import load_canonical_model
 
         resolved = Path(model_path)
@@ -258,6 +270,7 @@ class AnalysisService:
             self.session_store.set_model(resolved)
 
     def default_threat_path(self) -> Path:
+        """Resolve the active threat artifact from session, manifest, or latest output."""
         from artifact_locator import ArtifactLocator
 
         session_path = self.session_store.resolve_threat_report_path()
@@ -279,6 +292,7 @@ class AnalysisService:
 
     @staticmethod
     def _ok(stdout: str, **data: Any) -> ServiceResult:
+        """Build a successful service result."""
         return ServiceResult(ok=True, stdout=stdout, returncode=0, data=data)
 
     @staticmethod
@@ -290,6 +304,7 @@ class AnalysisService:
         exc: Exception | None = None,
         **data: Any,
     ) -> ServiceResult:
+        """Build a failed service result and log the underlying exception when present."""
         if exc is not None:
             logging.getLogger(__name__).exception(
                 "Service step failed",

@@ -135,7 +135,7 @@ def _cmd_ui(args: argparse.Namespace) -> int:
         print("Streamlit is not installed. Install with: pip install -e '.[ui]'", file=sys.stderr)
         return 1
 
-    app_path = str(Path(__file__).resolve().parent.parent / "ui" / "app.py")
+    app_path = str(Path(__file__).resolve().parent.parent / "ui" / "streamlit_app.py")
     sys.argv = ["streamlit", "run", app_path, "--server.headless=true"]
     stcli.main()
     return 0

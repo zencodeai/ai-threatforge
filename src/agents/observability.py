@@ -12,7 +12,7 @@ from analysis_manifest import AnalysisManifestStore
 from project_paths import ProjectPaths
 from session_store import SessionStore
 
-from .state import AgentAnswer, ToolResponse
+from .workflow_models import AgentAnswer, ToolResponse
 
 
 class TraceRecorder(Protocol):

@@ -1,4 +1,5 @@
 from __future__ import annotations
+"""UI action adapters over the shared service layer."""
 
 import subprocess
 import sys
@@ -12,6 +13,8 @@ from project_paths import ProjectPaths
 
 @dataclass(frozen=True)
 class ActionResult:
+    """UI-friendly wrapper around either subprocess or service execution."""
+
     ok: bool
     command: str
     returncode: int
@@ -23,6 +26,7 @@ Executor = Callable[[Sequence[str], Path], ActionResult]
 
 
 def _default_executor(command: Sequence[str], cwd: Path) -> ActionResult:
+    """Execute a CLI command in a subprocess."""
     completed = subprocess.run(
         list(command),
         cwd=cwd,
@@ -40,6 +44,7 @@ def _default_executor(command: Sequence[str], cwd: Path) -> ActionResult:
 
 
 def _action_from_service(command: str, result: ServiceResult) -> ActionResult:
+    """Convert a service-layer result into the UI action result shape."""
     return ActionResult(
         ok=result.ok,
         command=command,
@@ -55,6 +60,7 @@ def run_command(
     executor: Executor | None = None,
     cwd: Path | None = None,
 ) -> ActionResult:
+    """Run CLI arguments through the configured executor abstraction."""
     command = [sys.executable, "-m", "cli.main", *cli_args]
     runner = executor or _default_executor
     return runner(command, cwd or ProjectPaths.default().root)
@@ -65,6 +71,7 @@ def validate_model(
     executor: Executor | None = None,
     analysis_service: AnalysisService | None = None,
 ) -> ActionResult:
+    """Validate a model through either the service layer or executor path."""
     if executor is not None:
         return run_command(["validate", "--model", str(model_path)], executor=executor)
     result = (analysis_service or AnalysisService()).validate_model(model_path)
@@ -77,6 +84,7 @@ def load_graph(
     executor: Executor | None = None,
     analysis_service: AnalysisService | None = None,
 ) -> ActionResult:
+    """Load the current model into Neo4j through the selected execution path."""
     if executor is not None:
         args = ["load-graph", "--model", str(model_path)]
         if clear_graph:
@@ -94,6 +102,7 @@ def generate_threats(
     executor: Executor | None = None,
     analysis_service: AnalysisService | None = None,
 ) -> ActionResult:
+    """Generate threats through either the service layer or executor path."""
     if executor is not None:
         args = ["generate-threats", "--model", str(model_path)]
         if enrich:
@@ -110,6 +119,7 @@ def score_risks(
     executor: Executor | None = None,
     analysis_service: AnalysisService | None = None,
 ) -> ActionResult:
+    """Score risks for an explicit or session-resolved threat artifact."""
     if executor is not None:
         args = ["score-risks"]
         if threat_path is not None:
@@ -130,6 +140,7 @@ def rebuild_analysis(
     executor: Executor | None = None,
     analysis_service: AnalysisService | None = None,
 ) -> list[tuple[str, ActionResult]]:
+    """Run the full rebuild workflow and return ordered per-step results."""
     if executor is not None:
         steps: list[tuple[str, ActionResult]] = []
 
@@ -149,6 +160,8 @@ def rebuild_analysis(
             return steps
 
         threat_path = None
+        # The executor path still derives the generated threat artifact from
+        # CLI-style output so subprocess-based tests can exercise the full flow.
         for line in result.stdout.splitlines():
             if line.startswith("OUTPUT: "):
                 threat_path = Path(line.removeprefix("OUTPUT: ").strip())
@@ -183,6 +196,7 @@ def sync_knowledge(
     executor: Executor | None = None,
     knowledge_service: KnowledgeService | None = None,
 ) -> ActionResult:
+    """Sync ATT&CK / ATLAS knowledge from the UI."""
     if executor is not None:
         args = [
             "sync",
@@ -211,6 +225,7 @@ def sync_knowledge(
 
 
 def get_sync_status(*, executor: Executor | None = None) -> ActionResult:
+    """Return sync status in the same shape as other UI actions."""
     if executor is not None:
         return run_command(["sync", "--status"], executor=executor)
 

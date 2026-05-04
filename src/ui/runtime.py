@@ -1,4 +1,5 @@
 from __future__ import annotations
+"""Construction of the shared runtime object graph for the Streamlit UI."""
 
 from dataclasses import dataclass
 
@@ -10,6 +11,8 @@ from session_store import SessionStore
 
 @dataclass(frozen=True)
 class UiRuntime:
+    """Explicit runtime dependencies for one UI process."""
+
     paths: ProjectPaths
     session_store: SessionStore
     report_repo: FileReportRepository
@@ -22,6 +25,7 @@ def build_ui_runtime(
     paths: ProjectPaths | None = None,
     session_store: SessionStore | None = None,
 ) -> UiRuntime:
+    """Build the shared services and repositories used by the UI shell and pages."""
     resolved_paths = paths or ProjectPaths.default()
     resolved_session = session_store or SessionStore(resolved_paths)
     report_repo = FileReportRepository(resolved_paths.root, session_store=resolved_session)

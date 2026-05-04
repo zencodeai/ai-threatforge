@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .state import AgentAnswer, AgentState
+from .workflow_models import AgentAnswer, AgentState
 
 
 class AnswerComposer:

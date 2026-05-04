@@ -14,7 +14,7 @@ from .mapping_loader import (
     load_suggestions_config,
 )
 from .mapping_types import TechniqueMapping
-from .threat_generation import THREAT_HEURISTICS
+from .threat_heuristics import THREAT_HEURISTICS
 
 if TYPE_CHECKING:
     from graph.neo4j_client import Neo4jClient

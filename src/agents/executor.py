@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .router import RoutedAction
-from .state import ToolError, ToolResponse
+from .workflow_models import ToolError, ToolResponse
 from .tool_protocol import ToolRegistry
 from .tools import AgentTools
 

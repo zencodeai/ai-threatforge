@@ -1,4 +1,5 @@
 from __future__ import annotations
+"""Read and write helpers for mapping-focused UI screens."""
 
 import tomllib
 from pathlib import Path
@@ -20,6 +21,7 @@ def load_sync_status(
     *,
     paths: ProjectPaths | None = None,
 ) -> dict[str, str]:
+    """Return current knowledge-sync status for the mappings page."""
     return KnowledgeService(paths=_resolve_paths(paths)).status()
 
 
@@ -28,6 +30,7 @@ def curated_mapping_rows(
     *,
     rules_path: Path | None = None,
 ) -> list[dict[str, str]]:
+    """Load curated mappings as simple rows for table rendering."""
     rules_path = rules_path or _default_paths().mapping_rules
     if not rules_path.exists():
         return []
@@ -52,6 +55,7 @@ def suggested_mapping_rows(
     *,
     suggestions_path: Path | None = None,
 ) -> list[dict[str, object]]:
+    """Load suggested mappings as simple rows for table rendering."""
     suggestions_path = suggestions_path or _default_paths().mapping_suggestions
     if not suggestions_path.exists():
         return []
@@ -74,6 +78,7 @@ def suggested_mapping_rows(
 
 
 def heuristic_rows() -> list[dict[str, str]]:
+    """Return discovered heuristics in a compact UI-friendly form."""
     from analysis.heuristics import discovered_heuristics
 
     rows: list[dict[str, str]] = []
@@ -93,6 +98,7 @@ def load_mapping_config(
     *,
     config_path: Path | None = None,
 ) -> dict[str, object]:
+    """Load mapping configuration with defaults for missing config files."""
     config_path = config_path or _default_paths().mapping_config
     if not config_path.exists():
         return {
@@ -109,6 +115,7 @@ def save_mapping_config(
     *,
     config_path: Path | None = None,
 ) -> None:
+    """Persist mapping configuration edited through the UI."""
     config_path = config_path or _default_paths().mapping_config
     expansion = config.get("expansion", {})
     suggestions = config.get("suggestions", {})
@@ -160,6 +167,7 @@ def promote_suggestion(
     rules_path: Path | None = None,
     suggestions_path: Path | None = None,
 ) -> bool:
+    """Promote one suggested mapping into the curated rules file."""
     defaults = _default_paths()
     rules_path = rules_path or defaults.mapping_rules
     suggestions_path = suggestions_path or defaults.mapping_suggestions

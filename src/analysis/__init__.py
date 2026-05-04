@@ -1,4 +1,4 @@
-from .threat_generation import ThreatHeuristic, THREAT_HEURISTICS
+from .threat_heuristics import ThreatHeuristic, THREAT_HEURISTICS
 from .mapping_catalog import (
     get_all_technique_mappings,
     get_rule_technique_mappings,

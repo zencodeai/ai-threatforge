@@ -1,7 +1,7 @@
 """Auto-discovery of heuristic plugins.
 
 Drop a ``th_*.py`` module into this package **or** a ``rules/th_*.toml`` file
-and both the :class:`~analysis.threat_generation.ThreatHeuristic` definition and
+and both the :class:`~analysis.threat_heuristics.ThreatHeuristic` definition and
 a matching materializer will be picked up automatically at import time.
 
 Python modules take precedence when a rule_id is defined in both formats.
@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..materializer_registry import ThreatMaterializer
-    from ..threat_generation import ThreatHeuristic
+    from ..threat_heuristics import ThreatHeuristic
 
 __all__ = [
     "discovered_heuristics",
@@ -40,7 +40,7 @@ def _load_toml(path: Path) -> dict[str, Any]:
 
 
 def _heuristic_from_toml(data: dict[str, Any]) -> ThreatHeuristic:
-    from ..threat_generation import ThreatHeuristic
+    from ..threat_heuristics import ThreatHeuristic
 
     h = data["heuristic"]
     return ThreatHeuristic(

@@ -1,10 +1,11 @@
 from __future__ import annotations
+"""Deterministic analyst-query workflow orchestration."""
 
 from .composer import AnswerComposer
 from .executor import ActionExecutor
 from .observability import TraceRecorder, create_trace_recorder, new_run_id
 from .router import QueryRouter, RoutedAction
-from .state import AgentAnswer, AgentState, ToolCallRecord
+from .workflow_models import AgentAnswer, AgentState, ToolCallRecord
 from .tools import AgentTools
 
 
@@ -19,6 +20,7 @@ class QueryWorkflow:
         self._composer = AnswerComposer()
 
     def answer(self, question: str) -> tuple[AgentAnswer, AgentState]:
+        """Answer a question and return both the answer and full tool-call state."""
         run_id = new_run_id()
         state = AgentState(question=question)
         try:

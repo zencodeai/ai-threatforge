@@ -1,4 +1,5 @@
 from __future__ import annotations
+"""Shared application service for knowledge sync and status access."""
 
 import logging
 from pathlib import Path
@@ -11,7 +12,7 @@ from .analysis_service import ServiceError, ServiceResult
 
 
 class KnowledgeService:
-    """Shared knowledge-sync orchestration used by CLI and UI."""
+    """Run ATT&CK / ATLAS sync operations for both CLI and UI callers."""
 
     def __init__(self, *, paths: ProjectPaths | None = None) -> None:
         self.paths = paths or ProjectPaths.default()
@@ -30,6 +31,12 @@ class KnowledgeService:
         map_top_k: int = 10,
         map_output: Path | None = None,
     ) -> ServiceResult:
+        """Sync local and optional graph-backed knowledge state.
+
+        This is the single orchestration surface for refreshing ATT&CK / ATLAS
+        data. On success it invalidates cached indexes so later reads observe
+        the new state.
+        """
         from knowledge.sync import sync
 
         try:
@@ -96,6 +103,7 @@ class KnowledgeService:
         )
 
     def status(self) -> dict[str, str]:
+        """Return the current sync status for the configured workspace."""
         from knowledge.sync import sync_status
 
         return sync_status(

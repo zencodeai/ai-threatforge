@@ -7,7 +7,7 @@ from analysis.mapping_catalog import (
 )
 from analysis.mapping_engine import map_rule_to_techniques
 from analysis.mapping_types import TechniqueMapping
-from analysis.threat_generation import THREAT_HEURISTICS
+from analysis.threat_heuristics import THREAT_HEURISTICS
 
 
 def test_every_rule_has_mapping() -> None:

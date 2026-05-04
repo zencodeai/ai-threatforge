@@ -1,4 +1,5 @@
 from __future__ import annotations
+"""Read-only helpers for report, model, and session data used by the UI."""
 
 import logging
 from pathlib import Path
@@ -27,6 +28,7 @@ def _build_repo(base_dir: Path) -> FileReportRepository:
 
 
 def list_example_models(base_dir: Path | None = None) -> list[Path]:
+    """Return bundled example models available for selection in the UI."""
     base_dir = base_dir or _default_paths().root
     examples_dir = base_dir / "examples"
     if not examples_dir.exists():
@@ -35,6 +37,7 @@ def list_example_models(base_dir: Path | None = None) -> list[Path]:
 
 
 def load_model(model_path: str | Path) -> CanonicalModel:
+    """Load and validate a canonical model for display."""
     return load_canonical_model(model_path)
 
 
@@ -42,6 +45,7 @@ def load_active_session(
     *,
     paths: ProjectPaths | None = None,
 ) -> dict[str, str | None]:
+    """Return the active shared-session state as a simple display dictionary."""
     store = SessionStore(_resolve_paths(paths))
     try:
         state = store.load()
@@ -68,6 +72,7 @@ def load_active_session(
 
 
 def build_model_overview(model: CanonicalModel) -> dict[str, object]:
+    """Project a full model into a compact summary for the overview page."""
     return {
         "model_id": model.meta.model_id,
         "schema_version": model.meta.schema_version,
@@ -87,6 +92,7 @@ def build_model_overview(model: CanonicalModel) -> dict[str, object]:
 
 
 def latest_artifact(base_dir: Path, folder: str, suffix: str) -> Path | None:
+    """Return the latest artifact when manifest-backed resolution is not used."""
     return ArtifactLocator(base_dir).latest(folder, suffix)
 
 
@@ -96,6 +102,11 @@ def load_threat_report(
     base_dir: Path | None = None,
     repo: ReportRepository | None = None,
 ) -> tuple[ThreatReport | None, Path | None]:
+    """Load the active or explicit threat report for UI display.
+
+    UI callers receive ``(None, None)`` on load failure so pages can render an
+    empty state rather than raising.
+    """
     resolved_base_dir = base_dir or _default_paths().root
     r = repo or _build_repo(resolved_base_dir)
     try:
@@ -111,6 +122,7 @@ def load_risk_report(
     base_dir: Path | None = None,
     repo: ReportRepository | None = None,
 ) -> tuple[RiskReport | None, Path | None]:
+    """Load the active or explicit risk report for UI display."""
     resolved_base_dir = base_dir or _default_paths().root
     r = repo or _build_repo(resolved_base_dir)
     try:
@@ -121,6 +133,7 @@ def load_risk_report(
 
 
 def threat_rows(report: ThreatReport, limit: int | None = None) -> list[dict[str, object]]:
+    """Flatten a threat report into table-friendly rows."""
     rows = [
         {
             "threat_id": threat.threat_id,
@@ -142,6 +155,7 @@ def threat_rows(report: ThreatReport, limit: int | None = None) -> list[dict[str
 
 
 def mitigation_rows(threat: ThreatRecord) -> list[dict[str, str]]:
+    """Flatten mitigation enrichment for a single threat detail view."""
     return [
         {
             "mitigation_id": m.mitigation_id,
@@ -155,6 +169,7 @@ def mitigation_rows(threat: ThreatRecord) -> list[dict[str, str]]:
 
 
 def related_technique_rows(threat: ThreatRecord) -> list[dict[str, object]]:
+    """Flatten related-technique enrichment for a single threat detail view."""
     return [
         {
             "technique_id": r.technique_id,
@@ -168,6 +183,7 @@ def related_technique_rows(threat: ThreatRecord) -> list[dict[str, object]]:
 
 
 def risk_rows(report: RiskReport, limit: int | None = None) -> list[dict[str, object]]:
+    """Flatten a risk report into table-friendly rows."""
     rows = [
         {
             "risk_id": risk.risk_id,

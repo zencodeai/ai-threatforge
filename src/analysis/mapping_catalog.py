@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .mapping_loader import load_curated_mappings
 from .mapping_types import TechniqueMapping
-from .threat_generation import THREAT_HEURISTICS
+from .threat_heuristics import THREAT_HEURISTICS
 
 
 def get_rule_technique_mappings(rule_id: str) -> tuple[TechniqueMapping, ...]:

@@ -1,4 +1,10 @@
 from __future__ import annotations
+"""Lazy snapshot resolution for threat generation.
+
+Each heuristic materializer declares the graph-derived views it needs. This
+resolver loads those views on demand and caches them for the duration of a
+single threat-generation run.
+"""
 
 from collections.abc import Mapping
 from typing import Any, Callable, Iterator
@@ -69,11 +75,13 @@ class ThreatSnapshotResolver(Mapping[str, SnapshotRows]):
         *,
         fetchers: dict[str, SnapshotFetcher] | None = None,
     ) -> None:
+        """Create a resolver bound to graph queries and a snapshot-fetcher catalog."""
         self._queries = queries
         self._fetchers = fetchers or SNAPSHOT_FETCHERS
         self._cache: dict[str, SnapshotRows] = {}
 
     def __getitem__(self, key: str) -> SnapshotRows:
+        """Resolve and cache a named snapshot view."""
         if key not in self._fetchers:
             raise KeyError(key)
         if key not in self._cache:
@@ -87,13 +95,16 @@ class ThreatSnapshotResolver(Mapping[str, SnapshotRows]):
         return len(self._cache)
 
     def get(self, key: str, default: SnapshotRows | None = None) -> SnapshotRows | None:
+        """Return a resolved view without raising for unknown keys."""
         if key not in self._fetchers:
             return default
         return self[key]
 
     def preload(self, keys: tuple[str, ...] | list[str] | set[str]) -> None:
+        """Warm the cache for a materializer's declared dependencies."""
         for key in keys:
             self[key]
 
     def resolved_keys(self) -> tuple[str, ...]:
+        """Return the snapshot keys that were actually used in the current run."""
         return tuple(self._cache.keys())

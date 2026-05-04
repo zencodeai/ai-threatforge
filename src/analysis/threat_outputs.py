@@ -18,7 +18,7 @@ from project_paths import ProjectPaths
 from .mapping_engine import map_rule_to_techniques
 from .materializer_registry import all_materializers
 from .snapshot_resolver import ThreatSnapshotResolver
-from .threat_generation import THREAT_HEURISTICS
+from .threat_heuristics import THREAT_HEURISTICS
 
 def _timestamp() -> str:
     return datetime.now(UTC).isoformat()

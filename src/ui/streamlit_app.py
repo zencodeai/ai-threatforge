@@ -10,7 +10,7 @@ from session_store import SessionStore
 from ui.mapping_data import load_sync_status
 from ui.report_data import list_example_models, load_active_session
 from ui.runtime import UiRuntime, build_ui_runtime
-from ui.actions import rebuild_analysis, sync_knowledge
+from ui.ui_actions import rebuild_analysis, sync_knowledge
 from ui.pages import chat, mappings, model_overview, risks, threats
 
 

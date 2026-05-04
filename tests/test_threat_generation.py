@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from analysis.threat_generation import THREAT_HEURISTICS, get_threat_heuristics
+from analysis.threat_heuristics import THREAT_HEURISTICS, get_threat_heuristics
 
 
 def test_heuristic_catalog_has_minimum_rules() -> None:
