@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from .index import TechniqueIndex
 from .models import Mitigation, Tactic, Technique
 from .store import DEFAULT_DB_PATH, TechniqueStore
 from .sync_attack import (
@@ -258,6 +259,7 @@ def sync(
             counts["suggestions"] = suggestion_counts["_total"]
             counts["suggestion_counts"] = suggestion_counts
 
+    TechniqueIndex.reset()
     return counts
 
 

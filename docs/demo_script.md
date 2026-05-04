@@ -9,7 +9,7 @@ Security architects, engineering leaders, and hiring reviewers evaluating AI + s
 3. Confirm Streamlit app launches.
 4. Keep these files ready:
 - `examples/fintech_ai_platform.toml`
-- latest threat and risk artifacts in `models/outputs/`
+- the active threat and risk artifacts recorded by the current analysis manifest in `models/outputs/`
 
 ## Script flow
 ### 1. Open with the problem (1 minute)
@@ -39,6 +39,7 @@ Security architects, engineering leaders, and hiring reviewers evaluating AI + s
 - Ask one risk question and one technique question.
 - Show evidence references and tool call payloads.
 - Mention observability traces (local JSONL / optional LangSmith).
+- Note that chat quality is guarded by versioned golden prompt fixtures rather than ad hoc demos.
 
 ## Closing points
 - This MVP demonstrates practical AI-assisted security architecture analysis.

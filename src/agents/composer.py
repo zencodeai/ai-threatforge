@@ -62,11 +62,10 @@ class AnswerComposer:
                         evidence_refs.append(f"technique:{technique_id}")
 
             elif call.name == "query_graph":
-                lines.append(
-                    f"Graph evidence returned {len(response.evidence)} row(s) for the routed query."
-                )
-                for idx, _row in enumerate(response.evidence[:3], start=1):
-                    evidence_refs.append(f"graph:row-{idx}")
+                graph_intent = call.tool_input.get("graph_intent")
+                lines.append(self._compose_graph_summary(graph_intent, response.evidence))
+                for row in response.evidence[:3]:
+                    evidence_refs.append(self._graph_evidence_ref(graph_intent, row))
 
             elif call.name == "search_knowledge":
                 lines.append(
@@ -88,3 +87,44 @@ class AnswerComposer:
         dedup_refs = list(dict.fromkeys(evidence_refs))
         dedup_limits = list(dict.fromkeys(limitations))
         return AgentAnswer(answer=answer_text, evidence_refs=dedup_refs, limitations=dedup_limits)
+
+    @staticmethod
+    def _compose_graph_summary(graph_intent: str | None, evidence: list[dict]) -> str:
+        shown = evidence[:3]
+        extra = len(evidence) - len(shown)
+
+        if graph_intent == "trust_boundaries":
+            details = [
+                f"{row.get('trust_boundary')}: {row.get('from_domain')} -> {row.get('to_domain')}"
+                for row in shown
+            ]
+            suffix = f" and {extra} more." if extra > 0 else "."
+            return "Trust boundary crossings: " + "; ".join(details) + suffix
+
+        if graph_intent == "dependencies":
+            details = [
+                f"{row.get('source')} -> {row.get('target')} ({row.get('relationship')})"
+                for row in shown
+            ]
+            suffix = f" and {extra} more." if extra > 0 else "."
+            return "Dependency edges: " + "; ".join(details) + suffix
+
+        if graph_intent == "internet_exposure":
+            details = [
+                f"{row.get('module_id')} ({row.get('module_type')})"
+                for row in shown
+            ]
+            suffix = f" and {extra} more." if extra > 0 else "."
+            return "Internet-exposed modules: " + "; ".join(details) + suffix
+
+        return f"Graph evidence returned {len(evidence)} row(s)."
+
+    @staticmethod
+    def _graph_evidence_ref(graph_intent: str | None, row: dict) -> str:
+        if graph_intent == "trust_boundaries":
+            return f"graph:trust_boundary:{row.get('trust_boundary')}"
+        if graph_intent == "dependencies":
+            return f"graph:dependency:{row.get('source')}->{row.get('target')}"
+        if graph_intent == "internet_exposure":
+            return f"graph:module:{row.get('module_id')}"
+        return "graph:row"

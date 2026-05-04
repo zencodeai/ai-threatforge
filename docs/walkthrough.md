@@ -31,6 +31,7 @@ Expected outcome:
 
 ### Step 3. Generate threats
 ```bash
+threatforge session --model examples/fintech_ai_platform.toml
 threatforge generate-threats --model examples/fintech_ai_platform.toml
 ```
 Expected outcome:
@@ -41,6 +42,8 @@ Expected outcome:
 ```bash
 threatforge score-risks
 ```
+
+Because the active model and analysis manifest are persisted in the shared session, the later CLI calls and the Streamlit UI can resolve the same threat and risk artifacts without relying on filename guessing.
 Expected outcome:
 - Prioritized risks saved under `models/outputs/risks/`.
 - Each risk includes weighted score drivers and explanation text.
@@ -72,6 +75,7 @@ threatforge ui
 Expected outcome:
 - Analyst can ask natural-language questions from the Chat page.
 - Responses include evidence references from graph, threat, and risk artifacts.
+- Deterministic query quality is regression-tested with golden prompt suites in `tests/fixtures/nlp_quality/`.
 
 ## Example analyst prompts
 - "What are the highest risks and why?"

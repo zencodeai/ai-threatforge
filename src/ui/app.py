@@ -1,26 +1,35 @@
 from __future__ import annotations
 
 import os
-import tempfile
 from pathlib import Path
 
 import streamlit as st
 
 from project_paths import ProjectPaths
+from session_store import SessionStore
 from ui.actions import rebuild_analysis, sync_knowledge
-from ui.data_access import list_example_models, load_sync_status
+from ui.data_access import list_example_models, load_active_session, load_sync_status
 from ui.pages import chat, mappings, model_overview, risks, threats
 
-ROOT = ProjectPaths.default().root
+PATHS = ProjectPaths.default()
+ROOT = PATHS.root
+SESSION_STORE = SessionStore(PATHS)
 
 
-def _resolve_model_path(uploaded_file, selected_example: Path | None) -> Path | None:
+def _resolve_model_path(
+    uploaded_file,
+    selected_example: Path | None,
+    *,
+    session_store: SessionStore = SESSION_STORE,
+) -> Path | None:
     if uploaded_file is not None:
-        suffix = Path(uploaded_file.name).suffix or ".toml"
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            tmp.write(uploaded_file.getvalue())
-            return Path(tmp.name)
-    return selected_example
+        saved = session_store.set_uploaded_model(uploaded_file.name, uploaded_file.getvalue())
+        session_store.set_model(saved)
+        return saved
+    if selected_example is not None:
+        session_store.set_model(selected_example)
+        return selected_example
+    return session_store.resolve_model_path()
 
 
 def _graphrag_available() -> bool:
@@ -28,8 +37,15 @@ def _graphrag_available() -> bool:
     return os.environ.get("THREATFORGE_GRAPHRAG", "") == "1"
 
 
-def _render_pipeline_controls(model_path: Path | None) -> None:
+def _render_pipeline_controls(
+    model_path: Path | None,
+    *,
+    paths: ProjectPaths = PATHS,
+) -> None:
     st.sidebar.markdown("### Rebuild Analysis")
+    session = load_active_session(paths=paths)
+    if session.get("model_path"):
+        st.sidebar.caption(f"Session model: `{session['model_path']}`")
     clear_graph = st.sidebar.checkbox("Clear graph before load", value=True)
     enrich = st.sidebar.checkbox(
         "GraphRAG enrichment",
@@ -59,9 +75,19 @@ def _render_pipeline_controls(model_path: Path | None) -> None:
                     st.code(result.stderr)
 
 
-def _render_knowledge_status() -> None:
+def _render_knowledge_status(*, paths: ProjectPaths = PATHS) -> None:
     st.sidebar.markdown("### Knowledge Base")
     status = load_sync_status()
+    session = load_active_session(paths=paths)
+
+    if session.get("threat_report_path") or session.get("risk_report_path"):
+        st.sidebar.caption(
+            "Session artifacts: "
+            f"threats={session.get('threat_report_path') or '—'} · "
+            f"risks={session.get('risk_report_path') or '—'}"
+        )
+    if session.get("manifest_path"):
+        st.sidebar.caption(f"Active manifest: `{session['manifest_path']}`")
 
     graphrag_on = _graphrag_available()
     if graphrag_on:
@@ -124,20 +150,24 @@ def _render_knowledge_status() -> None:
                 st.code(result.stderr)
 
 
-def main() -> None:
+def render_app(
+    *,
+    paths: ProjectPaths = PATHS,
+    session_store: SessionStore = SESSION_STORE,
+) -> None:
     st.set_page_config(page_title="Threat Forge AI", page_icon="TF", layout="wide")
     st.title("Threat Forge AI - MVP Analyst Interface")
 
-    example_models = list_example_models(ROOT)
+    example_models = list_example_models(paths.root)
     example_labels = [path.name for path in example_models]
     selected_label = st.sidebar.selectbox("Example model", ["(none)", *example_labels], index=1 if example_labels else 0)
     selected_example = None if selected_label == "(none)" else next(path for path in example_models if path.name == selected_label)
 
     uploaded_model = st.sidebar.file_uploader("Upload model (.toml)", type=["toml"])
-    model_path = _resolve_model_path(uploaded_model, selected_example)
+    model_path = _resolve_model_path(uploaded_model, selected_example, session_store=session_store)
 
-    _render_knowledge_status()
-    _render_pipeline_controls(model_path)
+    _render_knowledge_status(paths=paths)
+    _render_pipeline_controls(model_path, paths=paths)
 
     page = st.sidebar.radio(
         "Screen",
@@ -151,13 +181,17 @@ def main() -> None:
         else:
             model_overview.render(model_path)
     elif page == "Threats":
-        threats.render(ROOT)
+        threats.render(paths.root)
     elif page == "Risks":
-        risks.render(ROOT)
+        risks.render(paths.root)
     elif page == "Mappings":
-        mappings.render(ROOT)
+        mappings.render(paths.root)
     else:
-        chat.render(ROOT)
+        chat.render(paths.root)
+
+
+def main() -> None:
+    render_app()
 
 
 if __name__ == "__main__":

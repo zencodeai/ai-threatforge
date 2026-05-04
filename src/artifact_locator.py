@@ -10,12 +10,17 @@ class ArtifactLocator:
         self._base = Path(base_dir)
 
     def latest(self, folder: str, suffix: str) -> Path | None:
-        """Return the lexicographically last file matching *suffix in folder, or None."""
+        """Return the most recently modified file matching *suffix in folder, or None."""
         target = self._base / folder
         if not target.exists():
             return None
-        candidates = sorted(target.glob(f"*{suffix}"))
-        return candidates[-1] if candidates else None
+        candidates = list(target.glob(f"*{suffix}"))
+        if not candidates:
+            return None
+        return max(
+            candidates,
+            key=lambda path: (path.stat().st_mtime_ns, path.name),
+        )
 
     def latest_threats(self) -> Path | None:
         return self.latest("models/outputs/threats", "_threats.json")

@@ -5,6 +5,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from graph.graph_queries import AGENT_GRAPH_QUERY_IDS
+
 
 @dataclass(frozen=True)
 class RoutedAction:
@@ -32,7 +34,7 @@ class QueryRouter:
                 )
             )
 
-        if any(token in q for token in ("risk", "risks", "priority", "highest")):
+        if self._contains_any(q, ("risk", "risks", "priority", "highest")):
             actions.append(
                 RoutedAction(
                     name="get_risks",
@@ -41,11 +43,13 @@ class QueryRouter:
                 )
             )
 
-        if any(token in q for token in ("threat", "threats", "rule", "rules")):
+        if self._contains_any(q, ("threat", "threats", "rule", "rules")):
             filter_by: dict[str, Any] = {}
             module = self._extract_module_hint(question)
             if module:
                 filter_by["target_id"] = module
+            if "atlas" in q or "ai" in q:
+                filter_by["framework"] = "ATLAS"
             actions.append(
                 RoutedAction(
                     name="get_threats",
@@ -54,17 +58,21 @@ class QueryRouter:
                 )
             )
 
-        if any(token in q for token in ("graph", "dependency", "dependencies", "trust boundary", "internet exposed")):
-            cypher = self._graph_query_for_question(q)
+        graph_intent = self._graph_intent_for_question(q)
+        if graph_intent is not None:
             actions.append(
                 RoutedAction(
                     name="query_graph",
                     tool_name="query_graph",
-                    tool_input={"query": cypher, "params": None},
+                    tool_input={
+                        "query_id": AGENT_GRAPH_QUERY_IDS[graph_intent],
+                        "params": None,
+                        "graph_intent": graph_intent,
+                    },
                 )
             )
 
-        if any(token in q for token in ("why", "explain", "how", "atlas", "attack", "mitre")):
+        if self._contains_any(q, ("why", "explain", "how", "atlas", "attack", "mitre")):
             actions.append(
                 RoutedAction(
                     name="search_knowledge",
@@ -85,33 +93,36 @@ class QueryRouter:
 
     @staticmethod
     def _extract_module_hint(question: str) -> str | None:
-        match = re.search(r"\b(?:module|about|for)\s+([a-z][a-z0-9_\-]+)\b", question, re.IGNORECASE)
+        match = re.search(r"\bfor\s+module\s+([a-z][a-z0-9_\-]+)\b", question, re.IGNORECASE)
+        if match:
+            return match.group(1)
+
+        match = re.search(r"\bmodule\s+([a-z][a-z0-9_\-]+)\b", question, re.IGNORECASE)
+        if match:
+            return match.group(1)
+
+        match = re.search(r"\b(?:about|for)\s+([a-z][a-z0-9_\-]+)\b", question, re.IGNORECASE)
         return match.group(1) if match else None
 
     @staticmethod
-    def _graph_query_for_question(question_lower: str) -> str:
+    def _graph_intent_for_question(question_lower: str) -> str | None:
         if "trust boundary" in question_lower:
-            return (
-                "MATCH (tb:TrustBoundary)-[:CROSSES_FROM]->(from:SecurityDomain), "
-                "(tb)-[:CROSSES_TO]->(to:SecurityDomain) "
-                "RETURN tb.id AS trust_boundary, from.id AS from_domain, to.id AS to_domain "
-                "ORDER BY trust_boundary"
-            )
+            return "trust_boundaries"
 
-        if "dependency" in question_lower:
-            return (
-                "MATCH (s:Module)-[r:DEPENDS_ON]->(t) "
-                "RETURN s.id AS source, t.id AS target, r.relationship AS relationship "
-                "ORDER BY source, target"
-            )
+        if "dependency" in question_lower or "dependencies" in question_lower:
+            return "dependencies"
 
-        return (
-            "MATCH (m:Module) "
-            "WHERE m.internet_exposed = true "
-            "RETURN m.id AS module_id, m.name AS module_name, m.module_type AS module_type "
-            "ORDER BY m.id"
+        if "graph" in question_lower or "internet exposed" in question_lower:
+            return "internet_exposure"
+
+        return None
+
+    @staticmethod
+    def _contains_any(question_lower: str, terms: tuple[str, ...]) -> bool:
+        return any(
+            re.search(rf"\b{re.escape(term)}\b", question_lower)
+            for term in terms
         )
-
 
 def _action_key(action: RoutedAction) -> str:
     return f"{action.tool_name}:{json.dumps(action.tool_input, sort_keys=True, default=str)}"

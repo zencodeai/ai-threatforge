@@ -16,3 +16,6 @@ __all__ = [
     "sync",
     "sync_status",
 ]
+from .provider import KnowledgeProvider
+
+__all__ = ["KnowledgeProvider"]

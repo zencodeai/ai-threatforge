@@ -1,0 +1,53 @@
+{
+  "thresholds": {
+    "answer_nonempty_rate": 1.0,
+    "expected_tool_coverage_rate": 1.0,
+    "grounded_reference_rate": 1.0,
+    "required_phrase_rate": 1.0,
+    "clean_answer_rate": 1.0
+  },
+  "cases": [
+    {
+      "question": "What are the highest risks right now?",
+      "expected_tools": ["get_risks"],
+      "required_answer_phrases": ["Top risk:", "api_gateway", "critical"],
+      "required_ref_prefixes": ["risk:"]
+    },
+    {
+      "question": "Show threats for module api_gateway",
+      "expected_tools": ["get_threats"],
+      "required_answer_phrases": ["TH-001", "api_gateway"],
+      "required_ref_prefixes": ["threat:"]
+    },
+    {
+      "question": "What does technique T1190 mean for this model?",
+      "expected_tools": ["lookup_technique"],
+      "required_answer_phrases": ["T1190", "Exploit Public-Facing Application"],
+      "required_ref_prefixes": ["technique:"]
+    },
+    {
+      "question": "Which trust boundary crossings are present in the graph?",
+      "expected_tools": ["query_graph"],
+      "required_answer_phrases": ["internet_boundary: client -> edge"],
+      "required_ref_prefixes": ["graph:trust_boundary:"]
+    },
+    {
+      "question": "What dependencies exist between modules?",
+      "expected_tools": ["query_graph"],
+      "required_answer_phrases": ["api_gateway -> payment_service (calls)"],
+      "required_ref_prefixes": ["graph:dependency:"]
+    },
+    {
+      "question": "Show internet exposed modules from the graph",
+      "expected_tools": ["query_graph"],
+      "required_answer_phrases": ["Internet-exposed modules:", "api_gateway (gateway)"],
+      "required_ref_prefixes": ["graph:module:"]
+    },
+    {
+      "question": "What AI-specific threats are mapped to ATLAS?",
+      "expected_tools": ["get_threats", "search_knowledge"],
+      "required_answer_phrases": ["TH-004", "fraud_model_service"],
+      "required_ref_prefixes": ["threat:", "knowledge:"]
+    }
+  ]
+}

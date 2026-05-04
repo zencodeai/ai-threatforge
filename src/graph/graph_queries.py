@@ -4,10 +4,32 @@ from pathlib import Path
 
 from .neo4j_client import Neo4jClient, Neo4jConfig
 
+AGENT_GRAPH_QUERY_IDS = {
+    "internet_exposure": "internet_exposed_modules",
+    "dependencies": "dependency_edges",
+    "trust_boundaries": "trust_boundary_crossings",
+}
+
+GRAPH_QUERY_METHODS = {
+    "internet_exposed_modules": "internet_exposed_modules",
+    "dependency_edges": "dependency_edges",
+    "trust_boundary_crossings": "trust_boundary_crossings",
+}
+
 
 class GraphQueries:
     def __init__(self, client: Neo4jClient):
         self.client = client
+
+    def execute(self, query_id: str, params: dict | None = None) -> list[dict]:
+        """Execute a named graph query by stable query ID."""
+        method_name = GRAPH_QUERY_METHODS.get(query_id)
+        if method_name is None:
+            raise ValueError(f"Unknown graph query id: {query_id}")
+        method = getattr(self, method_name)
+        if params:
+            return method(**params)
+        return method()
 
     def internet_exposed_modules(self) -> list[dict]:
         return self.client.run_query(

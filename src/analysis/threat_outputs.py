@@ -3,16 +3,20 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from graph.graph_queries import GraphQueries
 from graph.neo4j_client import Neo4jClient, Neo4jConfig
+from knowledge.provider import KnowledgeProvider
 from models.schema.canonical_model import CanonicalModel, load_canonical_model
 from models.schema.threat_model import TechniqueReference, ThreatRecord, ThreatReport
+from project_paths import ProjectPaths
 
 from .materializer_registry import all_materializers, auto_discover
+from .snapshot_resolver import ThreatSnapshotResolver
 from .technique_mapping import map_rule_to_techniques
 from .threat_generation import THREAT_HEURISTICS
 
@@ -35,63 +39,8 @@ def _sorted_unique(values: list[str]) -> list[str]:
     return sorted({value for value in values if value})
 
 
-def _build_snapshot(queries: GraphQueries) -> dict[str, list[dict[str, Any]]]:
-    return {
-        "internet_modules": queries.internet_exposed_modules(),
-        "sensitive_workflows": queries.workflows_involving_sensitive_data(),
-        "attack_paths": queries.low_to_high_trust_attack_paths(),
-        "high_priv_modules": queries.high_privilege_externally_reachable_modules(),
-        "ai_dependencies": queries.modules_depending_on_ai_services(),
-        "critical_workflows": queries.risks_targeting_critical_workflows_view(),
-        "regulated_data": queries.threats_affecting_regulated_data_view(),
-        "dependency_edges": queries.dependency_edges(),
-        "trust_boundaries": queries.trust_boundary_crossings(),
-        "boundary_objects": queries.high_value_objects_crossing_boundaries(),
-        # STRIDE expansion queries
-        "unverified_actor_workflows": queries.unverified_actor_workflows(),
-        "sensitive_writes": queries.module_writes_to_sensitive_datastore(),
-        "exposed_fan_out": queries.exposed_module_fan_out(),
-        "privilege_escalation": queries.privilege_escalation_dependencies(),
-        "cross_domain_stores": queries.cross_domain_datastore_access(),
-        "workflow_module_concentration": queries.workflow_module_concentration(),
-        "regulated_ai_data": queries.regulated_ai_data(),
-        # CAPEC expansion queries (Phase 2)
-        "transitive_priv_escalation": queries.transitive_privilege_escalation(),
-        "actor_privileged_modules": queries.actor_to_privileged_module(),
-        "cross_trust_writes": queries.cross_trust_write_access(),
-        "credential_low_trust": queries.credential_in_low_trust_workflow(),
-        "high_fan_in": queries.high_fan_in_targets(),
-        "workflow_trust_span": queries.workflow_trust_span(),
-        "actor_regulated_access": queries.actor_regulated_data_access(),
-        "untrusted_ai_store": queries.untrusted_ai_datastore_access(),
-        "multi_domain_chain": queries.multi_domain_dependency_chain(),
-        "exposed_transitive_stores": queries.exposed_transitive_datastore_access(),
-        # Schema enrichment queries (Phase 3)
-        "unauth_actor_modules": queries.unauthenticated_actor_modules(),
-        "unencrypted_boundary": queries.unencrypted_boundary_flows(),
-        "exposed_no_validation": queries.exposed_without_input_validation(),
-        "exposed_no_rate_limit": queries.exposed_without_rate_limiting(),
-        "critical_unlogged": queries.critical_workflow_unlogged_modules(),
-        "unencrypted_sensitive_store": queries.unencrypted_sensitive_datastore_flow(),
-        "bidirectional_boundary": queries.bidirectional_boundary_flows(),
-        "api_across_boundary": queries.api_endpoints_across_boundary(),
-        "unauth_chain_privileged": queries.unauthenticated_chain_to_privileged(),
-        "mobile_edge_regulated": queries.mobile_edge_regulated_data(),
-        # Control-gap detection queries (Phase 4)
-        "no_flow_enforcement": queries.boundary_without_flow_enforcement(),
-        "no_access_control": queries.actor_workflow_without_access_control(),
-        "no_boundary_protection": queries.boundary_without_protection_module(),
-        "no_encryption_service": queries.sensitive_flow_without_encryption_service(),
-        "no_auth_service": queries.actor_to_backend_without_auth_service(),
-        "no_validation_service": queries.exposed_path_without_validation_service(),
-        "no_audit_module": queries.critical_workflow_without_audit(),
-        "no_encryption_at_rest": queries.classified_store_without_encryption_at_rest(),
-        "no_change_control": queries.privileged_module_without_change_control(),
-        "spof_no_contingency": queries.spof_without_contingency(),
-    }
-
-
-def _technique_refs(rule_id: str) -> list[TechniqueReference]:
+def _technique_refs(rule_id: str, *, knowledge_provider: KnowledgeProvider | None = None) -> list[TechniqueReference]:
+    index = knowledge_provider.maybe_get_index() if knowledge_provider is not None else None
     return [
         TechniqueReference(**{
             "framework": mapping.framework,
@@ -101,7 +50,7 @@ def _technique_refs(rule_id: str) -> list[TechniqueReference]:
             "mapping_rationale": mapping.mapping_rationale,
             "mapping_type": mapping.mapping_type,
         })
-        for mapping in map_rule_to_techniques(rule_id)
+        for mapping in map_rule_to_techniques(rule_id, index=index)
     ]
 
 
@@ -111,14 +60,18 @@ def _heuristic(rule_id: str):
 
 def build_threat_report_from_snapshot(
     model: CanonicalModel,
-    snapshot: dict[str, list[dict[str, Any]]],
+    snapshot: Mapping[str, list[dict[str, Any]]],
     *,
     neo4j_client: Neo4jClient | None = None,
+    knowledge_provider: KnowledgeProvider | None = None,
 ) -> ThreatReport:
     now = _timestamp()
     threats: list[ThreatRecord] = []
 
     for materializer in all_materializers():
+        required_keys = getattr(materializer, "required_snapshot_keys", ())
+        if hasattr(snapshot, "preload"):
+            snapshot.preload(required_keys)  # type: ignore[union-attr]
         rule = _heuristic(materializer.rule_id)
         threats.extend(
             materializer.materialize(
@@ -126,7 +79,10 @@ def build_threat_report_from_snapshot(
                 model,
                 snapshot,
                 now=now,
-                technique_refs_fn=_technique_refs,
+                technique_refs_fn=lambda rule_id: _technique_refs(
+                    rule_id,
+                    knowledge_provider=knowledge_provider,
+                ),
                 stable_id_fn=_stable_threat_id,
                 sorted_unique_fn=_sorted_unique,
             )
@@ -169,17 +125,22 @@ def generate_threat_report(
     output_path: str | Path | None = None,
     *,
     enrich: bool = False,
+    knowledge_provider: KnowledgeProvider | None = None,
 ) -> tuple[ThreatReport, Path]:
     model = load_canonical_model(model_path)
+    provider = knowledge_provider or KnowledgeProvider.from_paths(ProjectPaths.default())
 
     config = Neo4jConfig.from_env()
     with Neo4jClient(config) as client:
         client.verify_connectivity()
         queries = GraphQueries(client)
-        snapshot = _build_snapshot(queries)
+        snapshot = ThreatSnapshotResolver(queries)
 
         report = build_threat_report_from_snapshot(
-            model, snapshot, neo4j_client=client if enrich else None,
+            model,
+            snapshot,
+            neo4j_client=client if enrich else None,
+            knowledge_provider=provider,
         )
 
     if output_path is None:

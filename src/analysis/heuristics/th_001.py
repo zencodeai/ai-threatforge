@@ -34,6 +34,7 @@ HEURISTIC = ThreatHeuristic(
 
 class TH001Materializer:
     rule_id = "TH-001"
+    required_snapshot_keys = ("internet_modules", "sensitive_workflows")
 
     def materialize(
         self,

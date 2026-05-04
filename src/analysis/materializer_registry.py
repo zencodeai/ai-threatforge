@@ -12,6 +12,7 @@ class ThreatMaterializer(Protocol):
     """Protocol for turning a graph snapshot row into threat records for a single heuristic."""
 
     rule_id: str
+    required_snapshot_keys: tuple[str, ...]
 
     def materialize(
         self,

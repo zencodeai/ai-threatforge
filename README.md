@@ -41,7 +41,7 @@ The pipeline flows through seven layers, each with a single responsibility and w
   <img src="docs/diagrams/query_workflow.svg" alt="Query workflow routing diagram" width="720" />
 </p>
 
-Analyst questions are routed to tools via deterministic keyword matching, executed against the analysis artifacts, and composed into answers with evidence references and stated limitations.
+Analyst questions are routed to tools via deterministic keyword matching, executed against the analysis artifacts, and composed into answers with evidence references and stated limitations. Query quality is regression-tested with versioned golden prompt suites covering both synthetic fixtures and the checked-in fintech example artifacts.
 
 ---
 
@@ -63,7 +63,7 @@ Analyst questions are routed to tools via deterministic keyword matching, execut
 | `src/ui/` | Streamlit analyst interface (model overview, threats, risks, mappings, chat) |
 | `src/cli/` | Unified CLI (`threatforge` command) |
 | `data/threat_intel/` | Curated mapping rules, expansion config, auto-generated suggestions, knowledge-base SQLite |
-| `tests/` | 340 tests across 27 modules |
+| `tests/` | 355 passing tests across 36 modules, plus 2 skipped integration checks |
 | `docs/` | Architecture narrative, walkthrough, demo script, diagrams |
 
 ---
@@ -99,11 +99,13 @@ threatforge sync --status          # check current sync state
 
 ```bash
 threatforge validate --model examples/fintech_ai_platform.toml
+threatforge session --model examples/fintech_ai_platform.toml  # persist the active model for CLI + UI
 set -a && source .env && set +a
-threatforge load-graph --model examples/fintech_ai_platform.toml --clear
-threatforge generate-threats --model examples/fintech_ai_platform.toml
-threatforge generate-threats --model examples/fintech_ai_platform.toml --enrich  # add mitigations + related techniques
+threatforge load-graph --clear
+threatforge generate-threats
+threatforge generate-threats --enrich  # add mitigations + related techniques
 threatforge score-risks
+threatforge session  # inspect the active shared session
 ```
 
 ### 5. Launch the analyst UI
@@ -125,13 +127,13 @@ threatforge ui
 | **Mappings** | Curated and suggested technique mappings, heuristic catalog, GraphRAG scoring weight config |
 | **Analyst Chat** | Natural-language Q&A grounded in graph, threat, and risk artifacts |
 
-The UI sidebar includes knowledge base sync status, a **GraphRAG enrichment** toggle for rebuilds, and a **Run Rebuild Workflow** action that re-executes the full pipeline (validate → load → threats → risks) in one click.
+The UI sidebar includes knowledge base sync status, a **GraphRAG enrichment** toggle for rebuilds, and a **Run Rebuild Workflow** action that re-executes the full pipeline (validate → load → threats → risks) in one click. The selected model, active run manifest, and current threat/risk artifacts are persisted so CLI and UI stay aligned on the same analysis run.
 
 ---
 
 ## Observability
 
-Every query workflow invocation is traced end-to-end. Traces are written locally to `models/outputs/traces/agent_runs.jsonl` as structured events:
+Every query workflow invocation is traced end-to-end. Traces are written locally to `models/outputs/traces/agent_runs.jsonl` as structured events, and each event includes active analysis-manifest metadata when a run manifest is available:
 
 - **`workflow_start`** — analyst question, run ID, timestamp
 - **`tool_result`** — tool name, input parameters, response payload, confidence score
@@ -160,7 +162,7 @@ No code changes are needed — the factory function `create_trace_recorder()` au
 pytest -q
 ```
 
-325 tests across schema validation, graph operations, threat generation (44 heuristics), technique mapping, risk scoring, knowledge ingestion, GraphRAG scoring, threat enrichment, chunking, graph vector search, agent workflow, observability, and UI layers.
+355 passing tests across schema validation, graph operations, threat generation (44 heuristics), technique mapping, risk scoring, knowledge ingestion, GraphRAG scoring, threat enrichment, chunking, graph vector search, agent workflow, router/query dispatch, lazy snapshot resolution, knowledge provider refresh, analysis manifests, observability, session persistence, artifact resolution, application services, and UI layers, with 2 skipped integration checks.
 
 ---
 
@@ -169,6 +171,7 @@ pytest -q
 | Document | Description |
 |---|---|
 | [Architecture](docs/architecture.md) | Component breakdown, trade-offs, and extension seams |
+| [Architecture Refactor Plan](docs/architecture_refactor_plan.md) | Ordered roadmap for service extraction, query centralization, lazy threat snapshots, and path ownership cleanup |
 | [Walkthrough](docs/walkthrough.md) | End-to-end fintech demo case study with example prompts |
 | [Demo Script](docs/demo_script.md) | Timed 10–12 minute presentation talk-track |
 | [Domain Model](docs/domain_model.md) | Canonical TOML model definition and cross-reference rules |
@@ -179,6 +182,7 @@ pytest -q
 | [GraphRAG Design](docs/design_graphrag.md) | Neo4j GraphRAG integration: knowledge graph, chunking, vector search, enhanced scoring, threat enrichment |
 | [GraphRAG Migration](docs/migration_graphrag.md) | Final-state setup guide for the graph-backed suggestion and enrichment pipeline |
 | [Heuristic Expansion](docs/design_heuristics.md) | STRIDE, CAPEC, schema enrichment, and NIST 800-53 heuristic expansion strategy |
+| [NLP Quality Fixtures](tests/fixtures/nlp_quality/README.md) | Golden prompt suites and quality metrics for deterministic query workflow regression testing |
 | [Diagrams](docs/diagrams/) | Mermaid sources (.mmd) exported to SVG — pipeline, workflow, risk scoring, project layout, knowledge ingestion |
 
 ---
@@ -196,7 +200,7 @@ pytest -q
 | UI | Streamlit ≥ 1.35 | Multipage analyst dashboard (5 screens) with knowledge sync, GraphRAG enrichment, and one-click rebuild |
 | Observability | JSONL local traces | Structured event log for every workflow invocation |
 | Observability (opt.) | LangSmith | Cloud trace export with parent-child run relationships |
-| Testing | pytest ≥ 8.0 | 325 tests across 25 modules — schema, graph, analysis, knowledge, GraphRAG, agents, UI |
+| Testing | pytest ≥ 8.0 | 355 passing tests across 36 modules, plus 2 skipped integration checks — schema, graph, analysis, knowledge, GraphRAG, agents, router/query dispatch, lazy snapshot resolution, knowledge provider refresh, analysis manifests, sessions, artifact resolution, application services, UI |
 
 ### Why these choices
 

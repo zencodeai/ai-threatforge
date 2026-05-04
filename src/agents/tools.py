@@ -7,11 +7,13 @@ from typing import Any, Callable
 from analysis.technique_mapping import get_all_technique_mappings
 from analysis.threat_generation import THREAT_HEURISTICS
 from artifact_locator import ArtifactLocator
+from graph.graph_queries import GraphQueries
 from graph.neo4j_client import Neo4jClient, Neo4jConfig
-from knowledge.index import TechniqueIndex
+from knowledge.provider import KnowledgeProvider
 from models.schema.risk_model import RiskReport
 from models.schema.threat_model import ThreatReport
 from report_repository import FileReportRepository, ReportRepository
+from project_paths import ProjectPaths
 
 from .state import ToolError, ToolResponse
 from .tool_protocol import Tool, ToolRegistry
@@ -27,7 +29,7 @@ class _QueryGraphTool:
 
     def run(self, tool_input: dict[str, Any]) -> ToolResponse:
         return self._tools.query_graph(
-            tool_input["query"],
+            tool_input["query_id"],
             tool_input.get("params"),
         )
 
@@ -85,11 +87,15 @@ class AgentTools:
         base_dir: str | Path = ".",
         graph_runner: GraphRunner | None = None,
         report_repo: ReportRepository | None = None,
+        knowledge_provider: KnowledgeProvider | None = None,
     ):
         self.base_dir = Path(base_dir)
         self._graph_runner = graph_runner
         self._locator = ArtifactLocator(self.base_dir)
         self._repo = report_repo or FileReportRepository(self.base_dir)
+        self._knowledge_provider = knowledge_provider or KnowledgeProvider.from_paths(
+            ProjectPaths.from_root(self.base_dir.resolve()),
+        )
 
     def _ok(
         self,
@@ -125,22 +131,22 @@ class AgentTools:
     def _latest_artifact(self, folder: str, suffix: str) -> Path | None:
         return self._locator.latest(folder, suffix)
 
-    def _default_graph_runner(self, query: str, params: dict[str, Any] | None) -> list[dict[str, Any]]:
+    def _default_graph_runner(self, query_id: str, params: dict[str, Any] | None) -> list[dict[str, Any]]:
         config = Neo4jConfig.from_env()
         with Neo4jClient(config) as client:
             client.verify_connectivity()
-            return client.run_query(query, params)
+            return GraphQueries(client).execute(query_id, params)
 
-    def query_graph(self, query: str, params: dict[str, Any] | None = None) -> ToolResponse:
+    def query_graph(self, query_id: str, params: dict[str, Any] | None = None) -> ToolResponse:
         runner = self._graph_runner or self._default_graph_runner
         try:
-            rows = runner(query, params)
+            rows = runner(query_id, params)
         except Exception as exc:  # pragma: no cover - defensive pass-through
             return self._error(
                 "neo4j",
                 "GRAPH_QUERY_FAILED",
                 "Failed to execute graph query",
-                details={"exception": str(exc)},
+                details={"exception": str(exc), "query_id": query_id},
             )
 
         confidence = 0.9 if rows else 0.4
@@ -148,7 +154,7 @@ class AgentTools:
             "neo4j",
             rows,
             confidence=confidence,
-            meta={"rows": len(rows)},
+            meta={"rows": len(rows), "query_id": query_id},
         )
 
     def get_threats(
@@ -173,7 +179,7 @@ class AgentTools:
             rows = [
                 row
                 for row in rows
-                if all(row.get(key) == value for key, value in filter_by.items())
+                if self._matches_threat_filter(row, filter_by)
             ]
 
         if top_n is not None:
@@ -186,6 +192,24 @@ class AgentTools:
             confidence=confidence,
             meta={"path": str(threat_path), "count": len(rows)},
         )
+
+    @staticmethod
+    def _matches_threat_filter(row: dict[str, Any], filter_by: dict[str, Any]) -> bool:
+        for key, value in filter_by.items():
+            if key == "framework":
+                frameworks = {
+                    mapping.get("framework")
+                    for mapping in row.get("framework_mappings", [])
+                    if mapping.get("framework")
+                }
+                if value not in frameworks:
+                    return False
+                continue
+
+            if row.get(key) != value:
+                return False
+
+        return True
 
     def get_risks(
         self,
@@ -228,8 +252,8 @@ class AgentTools:
 
         # Try the knowledge base first
         try:
-            index = TechniqueIndex.get()
-            if index.is_populated():
+            index = self._knowledge_provider.maybe_get_index()
+            if index is not None:
                 tech = index.lookup(technique_id)
                 if tech:
                     matches = [{
@@ -296,8 +320,8 @@ class AgentTools:
 
         # Use knowledge base if available, otherwise fall back to curated mappings
         try:
-            index = TechniqueIndex.get()
-            if index.is_populated():
+            index = self._knowledge_provider.maybe_get_index()
+            if index is not None:
                 kb_results = index.search(query, top_k=top_k)
                 for tech in kb_results:
                     corpus.append(

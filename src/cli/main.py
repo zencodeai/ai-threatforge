@@ -6,6 +6,9 @@ import os
 import sys
 from pathlib import Path
 
+from app import AnalysisService, KnowledgeService
+from project_paths import ProjectPaths
+from session_store import SessionStore
 from toml_utils import toml_string
 
 
@@ -20,132 +23,109 @@ def _graphrag_enabled(args: argparse.Namespace) -> bool:
     return os.environ.get("THREATFORGE_GRAPHRAG", "") == "1"
 
 
-def _cmd_validate(args: argparse.Namespace) -> int:
-    from models.schema.canonical_model import validate_canonical_model
+def _session_store() -> SessionStore:
+    return SessionStore(ProjectPaths.default())
 
-    ok, message = validate_canonical_model(args.model)
-    if ok:
-        print(f"VALID: {args.model}")
-        return 0
-    print(f"INVALID: {args.model}")
-    print(message)
-    return 1
+
+def _analysis_service() -> AnalysisService:
+    store = _session_store()
+    return AnalysisService(paths=store.paths, session_store=store)
+
+
+def _knowledge_service() -> KnowledgeService:
+    return KnowledgeService(paths=ProjectPaths.default())
+
+
+def _cmd_validate(args: argparse.Namespace) -> int:
+    result = _analysis_service().validate_model(args.model)
+    if result.stdout:
+        print(result.stdout)
+    if result.stderr:
+        print(result.stderr)
+    return result.returncode
 
 
 def _cmd_load_graph(args: argparse.Namespace) -> int:
-    from graph.graph_loader import load_model_into_graph
-
-    try:
-        stats = load_model_into_graph(args.model, clear_graph=args.clear)
-    except Exception as exc:
-        print(f"FAILED: {exc}")
-        return 1
-    print(f"LOADED: nodes={stats.nodes_created} relationships={stats.relationships_created}")
-    return 0
+    result = _analysis_service().load_graph(args.model, clear_graph=args.clear)
+    if result.stdout:
+        print(result.stdout)
+    if result.stderr:
+        print(result.stderr)
+    return result.returncode
 
 
 def _cmd_generate_threats(args: argparse.Namespace) -> int:
-    from analysis.threat_outputs import generate_threat_report
-
-    try:
-        report, path = generate_threat_report(
-            args.model, args.output,
-            enrich=_graphrag_enabled(args),
-        )
-    except Exception as exc:
-        print(f"FAILED: {exc}")
-        return 1
-    print(f"GENERATED: {report.threat_count} threats")
-    print(f"OUTPUT: {path}")
-    return 0
-
-
-def _default_threat_path() -> Path:
-    from artifact_locator import ArtifactLocator
-
-    path = ArtifactLocator(Path(".")).latest_threats()
-    if path is None:
-        raise FileNotFoundError(
-            "No threat artifacts found in models/outputs/threats/. "
-            "Run 'threatforge generate-threats' first or pass --threats."
-        )
-    return path
+    result = _analysis_service().generate_threats(
+        args.model,
+        output_path=args.output,
+        enrich=_graphrag_enabled(args),
+    )
+    if result.stdout:
+        print(result.stdout)
+    if result.stderr:
+        print(result.stderr)
+    return result.returncode
 
 
 def _cmd_score_risks(args: argparse.Namespace) -> int:
-    from analysis.risk_scoring import generate_risk_report_from_file
+    result = _analysis_service().score_risks(
+        threat_path=args.threats,
+        output_path=args.output,
+    )
+    if result.stdout:
+        print(result.stdout)
+    if result.stderr:
+        print(result.stderr)
+    return result.returncode
 
-    try:
-        threat_path = args.threats or _default_threat_path()
-        report, output_path = generate_risk_report_from_file(threat_path, args.output)
-    except Exception as exc:
-        print(f"FAILED: {exc}")
-        return 1
 
-    priority_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
-    for risk in report.risks:
-        priority_counts[risk.priority] += 1
+def _cmd_session(args: argparse.Namespace) -> int:
+    store = _session_store()
 
-    print(f"THREATS INPUT: {threat_path}")
-    print(f"GENERATED: {report.risk_count} risks")
-    print("PRIORITIES:")
-    print(f"  critical: {priority_counts['critical']}")
-    print(f"  high: {priority_counts['high']}")
-    print(f"  medium: {priority_counts['medium']}")
-    print(f"  low: {priority_counts['low']}")
-    print("TOP RISKS:")
-    for risk in report.risks[:5]:
-        top_driver = risk.drivers[0].factor if risk.drivers else "n/a"
-        print(
-            f"  {risk.risk_id} | score={risk.risk_score:.2f} | "
-            f"priority={risk.priority} | target={risk.target_id} | driver={top_driver}"
-        )
-    print(f"OUTPUT: {output_path}")
+    if args.clear:
+        store.clear()
+        print("CLEARED: default session")
+        return 0
+
+    if args.model is not None:
+        _analysis_service().record_model_session(args.model)
+
+    state = store.load()
+    print(json.dumps({
+        "session_id": state.session_id,
+        "model_path": state.model_path,
+        "model_id": state.model_id,
+        "manifest_path": state.manifest_path,
+        "threat_report_path": state.threat_report_path,
+        "risk_report_path": state.risk_report_path,
+        "last_updated": state.last_updated,
+    }, indent=2))
     return 0
 
 
 def _cmd_sync(args: argparse.Namespace) -> int:
-    from knowledge.sync import sync, sync_status
-
     if args.status:
-        info = sync_status()
+        info = _knowledge_service().status()
         for key, value in info.items():
             print(f"  {key}: {value}")
         return 0
 
-    try:
-        counts = sync(
-            attack_version=args.attack_version,
-            atlas_version=args.atlas_version,
-            offline_dir=args.offline,
-            embed=args.embed,
-            neo4j=args.neo4j,
-            map_heuristics=args.map_heuristics,
-            map_threshold=args.map_threshold,
-            map_top_k=args.map_top_k,
-            map_output=args.map_output,
-        )
-    except Exception as exc:
-        print(f"FAILED: {exc}")
-        return 1
-
-    print("SYNC COMPLETE")
-    print(f"  tactics:     {counts['tactics']}")
-    print(f"  techniques:  {counts['techniques']}")
-    print(f"  mitigations: {counts['mitigations']}")
-    if "neo4j_techniques" in counts:
-        print(f"  neo4j:")
-        print(f"    techniques:  {counts['neo4j_techniques']}")
-        print(f"    tactics:     {counts['neo4j_tactics']}")
-        print(f"    mitigations: {counts['neo4j_mitigations']}")
-        print(f"    rules:       {counts['neo4j_heuristic_rules']}")
-        print(f"    maps_to:     {counts['neo4j_maps_to']}")
-        print(f"    ctrl_bridges:{counts['neo4j_implements_control']}")
-        if counts.get("neo4j_text_chunks"):
-            print(f"    text_chunks: {counts['neo4j_text_chunks']}")
-    if "suggestions" in counts:
-        print(f"  suggestions: {counts['suggestions']}")
-    return 0
+    result = _knowledge_service().sync(
+        attack_version=args.attack_version,
+        atlas_version=args.atlas_version,
+        offline_dir=args.offline,
+        embed=args.embed,
+        neo4j=args.neo4j,
+        map_heuristics=args.map_heuristics,
+        map_threshold=args.map_threshold,
+        map_top_k=args.map_top_k,
+        map_output=args.map_output,
+    )
+    if result.stdout:
+        print(result.stdout)
+    if result.stderr:
+        print(result.stderr)
+    return result.returncode
 
 
 def _cmd_ui(args: argparse.Namespace) -> int:
@@ -272,16 +252,16 @@ def main(argv: list[str] | None = None) -> int:
 
     # validate
     p_val = sub.add_parser("validate", help="Validate a canonical TOML model")
-    p_val.add_argument("--model", required=True, type=Path, help="Path to TOML model file")
+    p_val.add_argument("--model", required=False, type=Path, help="Path to TOML model file")
 
     # load-graph
     p_lg = sub.add_parser("load-graph", help="Load canonical model into Neo4j")
-    p_lg.add_argument("--model", required=True, type=Path, help="Path to canonical TOML model")
+    p_lg.add_argument("--model", required=False, type=Path, help="Path to canonical TOML model")
     p_lg.add_argument("--clear", action="store_true", help="Clear existing graph data first")
 
     # generate-threats
     p_gt = sub.add_parser("generate-threats", help="Generate structured threat outputs")
-    p_gt.add_argument("--model", required=True, type=Path, help="Path to canonical TOML model")
+    p_gt.add_argument("--model", required=False, type=Path, help="Path to canonical TOML model")
     p_gt.add_argument("--output", type=Path, default=None, help="Output file path for threats JSON")
     p_gt.add_argument("--enrich", action="store_true", help="Enable GraphRAG threat enrichment (requires Neo4j)")
 
@@ -292,6 +272,11 @@ def main(argv: list[str] | None = None) -> int:
 
     # ui
     sub.add_parser("ui", help="Launch the Streamlit analyst interface")
+
+    # session
+    p_session = sub.add_parser("session", help="Inspect or update the shared CLI/UI session")
+    p_session.add_argument("--model", type=Path, default=None, help="Set the active model path for the session")
+    p_session.add_argument("--clear", action="store_true", help="Clear the persisted session")
 
     # sync
     p_sync = sub.add_parser("sync", help="Sync MITRE ATT&CK and ATLAS knowledge base")
@@ -327,6 +312,7 @@ def main(argv: list[str] | None = None) -> int:
         "generate-threats": _cmd_generate_threats,
         "score-risks": _cmd_score_risks,
         "ui": _cmd_ui,
+        "session": _cmd_session,
         "sync": _cmd_sync,
         "suggest-mappings": _cmd_suggest_mappings,
     }
