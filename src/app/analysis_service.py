@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -11,12 +12,22 @@ from session_store import SessionStore
 
 
 @dataclass(frozen=True)
+class ServiceError:
+    code: str
+    message: str
+    step: str
+    exception_type: str | None = None
+    details: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class ServiceResult:
     ok: bool
     stdout: str
     stderr: str = ""
     returncode: int = 0
     data: dict[str, Any] = field(default_factory=dict)
+    error: ServiceError | None = None
 
 
 class AnalysisService:
@@ -39,14 +50,21 @@ class AnalysisService:
         try:
             resolved = self.resolve_model_path(model_path)
         except Exception as exc:
-            return self._error(str(exc))
+            return self._error(
+                "MODEL_RESOLUTION_FAILED",
+                str(exc),
+                step="validate_model",
+                exc=exc,
+            )
 
         ok, message = validate_canonical_model(resolved)
         if ok:
             self.record_model_session(resolved)
             return self._ok(f"VALID: {resolved}", model_path=str(resolved))
         return self._error(
+            "MODEL_VALIDATION_FAILED",
             f"INVALID: {resolved}\n{message}",
+            step="validate_model",
             model_path=str(resolved),
         )
 
@@ -62,7 +80,12 @@ class AnalysisService:
             resolved = self.resolve_model_path(model_path)
             stats = load_model_into_graph(resolved, clear_graph=clear_graph)
         except Exception as exc:
-            return self._error(str(exc))
+            return self._error(
+                "GRAPH_LOAD_FAILED",
+                str(exc),
+                step="load_graph",
+                exc=exc,
+            )
 
         self.record_model_session(resolved)
         return self._ok(
@@ -90,7 +113,12 @@ class AnalysisService:
                 knowledge_provider=self.knowledge_provider,
             )
         except Exception as exc:
-            return self._error(str(exc))
+            return self._error(
+                "THREAT_GENERATION_FAILED",
+                str(exc),
+                step="generate_threats",
+                exc=exc,
+            )
 
         self.session_store.set_model(resolved, model_id=report.model_id)
         self.session_store.set_threat_report(written)
@@ -119,7 +147,12 @@ class AnalysisService:
             resolved = Path(threat_path) if threat_path is not None else self.default_threat_path()
             report, written = generate_risk_report_from_file(resolved, output_path)
         except Exception as exc:
-            return self._error(str(exc))
+            return self._error(
+                "RISK_SCORING_FAILED",
+                str(exc),
+                step="score_risks",
+                exc=exc,
+            )
 
         self.session_store.set_threat_report(resolved)
         self.session_store.set_risk_report(written)
@@ -217,6 +250,11 @@ class AnalysisService:
             model = load_canonical_model(resolved)
             self.session_store.set_model(resolved, model_id=model.meta.model_id)
         except Exception:
+            logging.getLogger(__name__).warning(
+                "Failed to record model metadata in session; storing path only",
+                extra={"model_path": str(resolved)},
+                exc_info=True,
+            )
             self.session_store.set_model(resolved)
 
     def default_threat_path(self) -> Path:
@@ -244,5 +282,31 @@ class AnalysisService:
         return ServiceResult(ok=True, stdout=stdout, returncode=0, data=data)
 
     @staticmethod
-    def _error(message: str, **data: Any) -> ServiceResult:
-        return ServiceResult(ok=False, stdout="", stderr=f"FAILED: {message}", returncode=1, data=data)
+    def _error(
+        code: str,
+        message: str,
+        *,
+        step: str,
+        exc: Exception | None = None,
+        **data: Any,
+    ) -> ServiceResult:
+        if exc is not None:
+            logging.getLogger(__name__).exception(
+                "Service step failed",
+                extra={"error_code": code, "step": step},
+            )
+        error = ServiceError(
+            code=code,
+            message=message,
+            step=step,
+            exception_type=type(exc).__name__ if exc is not None else None,
+            details=data.copy(),
+        )
+        return ServiceResult(
+            ok=False,
+            stdout="",
+            stderr=f"FAILED [{code}] {step}: {message}",
+            returncode=1,
+            data=data,
+            error=error,
+        )

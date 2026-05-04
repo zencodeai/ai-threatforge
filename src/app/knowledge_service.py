@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from knowledge.index import TechniqueIndex
 from knowledge.provider import KnowledgeProvider
 from project_paths import ProjectPaths
 
-from .analysis_service import ServiceResult
+from .analysis_service import ServiceError, ServiceResult
 
 
 class KnowledgeService:
@@ -45,7 +46,22 @@ class KnowledgeService:
                 map_output=map_output,
             )
         except Exception as exc:
-            return ServiceResult(ok=False, stdout="", stderr=f"FAILED: {exc}", returncode=1)
+            logging.getLogger(__name__).exception(
+                "Knowledge sync failed",
+                extra={"step": "sync"},
+            )
+            return ServiceResult(
+                ok=False,
+                stdout="",
+                stderr=f"FAILED [KNOWLEDGE_SYNC_FAILED] sync: {exc}",
+                returncode=1,
+                error=ServiceError(
+                    code="KNOWLEDGE_SYNC_FAILED",
+                    message=str(exc),
+                    step="sync",
+                    exception_type=type(exc).__name__,
+                ),
+            )
 
         # Invalidate both the injected provider cache and the legacy context cache.
         self.knowledge_provider.invalidate()

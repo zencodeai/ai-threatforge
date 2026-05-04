@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from project_paths import ProjectPaths
@@ -36,6 +37,11 @@ class KnowledgeProvider:
         try:
             index = self.get_index()
         except Exception:
+            logging.getLogger(__name__).warning(
+                "Knowledge index unavailable; continuing without populated index",
+                extra={"db_path": str(self._db_path)},
+                exc_info=True,
+            )
             return None
         return index if index.is_populated() else None
 

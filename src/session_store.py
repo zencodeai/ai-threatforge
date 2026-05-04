@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -23,6 +24,10 @@ class SessionState:
     last_updated: str | None = None
 
 
+class SessionStoreError(RuntimeError):
+    """Raised when the persisted session state is unreadable."""
+
+
 class SessionStore:
     """Persist the active workspace session shared by CLI and UI."""
 
@@ -41,8 +46,20 @@ class SessionStore:
     def load(self) -> SessionState:
         if not self._session_file.exists():
             return SessionState()
-        payload = json.loads(self._session_file.read_text(encoding="utf-8"))
-        return SessionState(**payload)
+        try:
+            payload = json.loads(self._session_file.read_text(encoding="utf-8"))
+            return SessionState(**payload)
+        except (OSError, json.JSONDecodeError, TypeError) as exc:
+            quarantined = self._quarantine_corrupt_file(self._session_file)
+            logging.getLogger(__name__).error(
+                "Corrupt session state encountered; quarantined file",
+                extra={
+                    "session_file": str(self._session_file),
+                    "quarantined_path": str(quarantined) if quarantined else None,
+                },
+                exc_info=True,
+            )
+            return SessionState()
 
     def save(self, session: SessionState) -> SessionState:
         self._session_file.parent.mkdir(parents=True, exist_ok=True)
@@ -113,3 +130,15 @@ class SessionStore:
         if not path.is_absolute():
             path = self._paths.root / path
         return path if path.exists() else None
+
+    @staticmethod
+    def _quarantine_corrupt_file(path: Path) -> Path | None:
+        if not path.exists():
+            return None
+        target = path.with_name(f"{path.name}.invalid")
+        counter = 1
+        while target.exists():
+            target = path.with_name(f"{path.name}.invalid.{counter}")
+            counter += 1
+        path.rename(target)
+        return target

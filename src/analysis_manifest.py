@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -25,6 +26,10 @@ class AnalysisRunManifest:
     last_updated: str | None = None
 
 
+class AnalysisManifestError(RuntimeError):
+    """Raised when an analysis manifest cannot be read or validated."""
+
+
 class AnalysisManifestStore:
     """Persist and resolve analysis run manifests."""
 
@@ -33,8 +38,21 @@ class AnalysisManifestStore:
         self._session_store = session_store or SessionStore(paths)
 
     def load(self, path: str | Path) -> AnalysisRunManifest:
-        payload = json.loads(Path(path).read_text(encoding="utf-8"))
-        return AnalysisRunManifest(**payload)
+        manifest_path = Path(path)
+        try:
+            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+            return AnalysisRunManifest(**payload)
+        except (OSError, json.JSONDecodeError, TypeError) as exc:
+            quarantined = self._quarantine_corrupt_file(manifest_path)
+            logging.getLogger(__name__).error(
+                "Corrupt analysis manifest encountered; quarantined file",
+                extra={
+                    "manifest_path": str(manifest_path),
+                    "quarantined_path": str(quarantined) if quarantined else None,
+                },
+                exc_info=True,
+            )
+            raise AnalysisManifestError(f"Failed to read manifest at {manifest_path}: {exc}") from exc
 
     def save(self, manifest: AnalysisRunManifest) -> Path:
         self._paths.manifests_dir.mkdir(parents=True, exist_ok=True)
@@ -89,16 +107,25 @@ class AnalysisManifestStore:
     def latest(self) -> tuple[AnalysisRunManifest | None, Path | None]:
         if not self._paths.manifests_dir.exists():
             return None, None
-        candidates = list(self._paths.manifests_dir.glob("*.json"))
-        if not candidates:
-            return None, None
-        latest = max(candidates, key=lambda path: (path.stat().st_mtime_ns, path.name))
-        return self.load(latest), latest
+        candidates = sorted(
+            self._paths.manifests_dir.glob("*.json"),
+            key=lambda path: (path.stat().st_mtime_ns, path.name),
+            reverse=True,
+        )
+        for latest in candidates:
+            try:
+                return self.load(latest), latest
+            except AnalysisManifestError:
+                continue
+        return None, None
 
     def current(self) -> tuple[AnalysisRunManifest | None, Path | None]:
         current_path = self._session_store.resolve_manifest_path()
         if current_path is not None and current_path.exists():
-            return self.load(current_path), current_path
+            try:
+                return self.load(current_path), current_path
+            except AnalysisManifestError:
+                return self.latest()
         return self.latest()
 
     def current_threat_report_path(self) -> Path | None:
@@ -135,3 +162,15 @@ class AnalysisManifestStore:
         if not path.is_absolute():
             path = self._paths.root / path
         return path if path.exists() else None
+
+    @staticmethod
+    def _quarantine_corrupt_file(path: Path) -> Path | None:
+        if not path.exists():
+            return None
+        target = path.with_name(f"{path.name}.invalid")
+        counter = 1
+        while target.exists():
+            target = path.with_name(f"{path.name}.invalid.{counter}")
+            counter += 1
+        path.rename(target)
+        return target

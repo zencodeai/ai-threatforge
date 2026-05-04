@@ -199,3 +199,15 @@ def test_load_artifacts_fall_back_to_active_manifest(tmp_path: Path) -> None:
     assert risk_report is not None
     assert resolved_threat_path == threat_path
     assert resolved_risk_path == risk_path
+
+
+def test_load_threat_report_returns_none_for_invalid_artifact(tmp_path: Path) -> None:
+    threat_dir = tmp_path / "models" / "outputs" / "threats"
+    threat_dir.mkdir(parents=True, exist_ok=True)
+    bad_path = threat_dir / "bad_threats.json"
+    bad_path.write_text("{invalid", encoding="utf-8")
+
+    report, resolved = load_threat_report(base_dir=tmp_path)
+
+    assert report is None
+    assert resolved is None

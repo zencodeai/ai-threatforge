@@ -1,16 +1,18 @@
 from __future__ import annotations
 
+import logging
 import tomllib
 from pathlib import Path
 
 from app import KnowledgeService
+from analysis_manifest import AnalysisManifestError
 from artifact_locator import ArtifactLocator
 from project_paths import ProjectPaths
 from models.schema.canonical_model import CanonicalModel, load_canonical_model
 from models.schema.risk_model import RiskReport
 from models.schema.threat_model import ThreatRecord, ThreatReport
+from report_repository import ArtifactLoadError, FileReportRepository, ReportRepository
 from session_store import SessionStore
-from report_repository import FileReportRepository, ReportRepository
 from toml_utils import toml_array, toml_scalar, toml_string
 
 _DEFAULT_PATHS = ProjectPaths.default()
@@ -35,7 +37,19 @@ def load_active_session(
     paths: ProjectPaths | None = None,
 ) -> dict[str, str | None]:
     store = SessionStore(paths or _DEFAULT_PATHS)
-    state = store.load()
+    try:
+        state = store.load()
+    except Exception:
+        logging.getLogger(__name__).exception("Failed to load active session")
+        return {
+            "session_id": "default",
+            "model_path": None,
+            "model_id": None,
+            "manifest_path": None,
+            "threat_report_path": None,
+            "risk_report_path": None,
+            "last_updated": None,
+        }
     return {
         "session_id": state.session_id,
         "model_path": state.model_path,
@@ -83,7 +97,11 @@ def load_threat_report(
         )
         if base_dir != ROOT else _DEFAULT_REPO
     )
-    return r.load_threat_report(path)
+    try:
+        return r.load_threat_report(path)
+    except (ArtifactLoadError, AnalysisManifestError):
+        logging.getLogger(__name__).exception("Failed to load threat report")
+        return None, None
 
 
 def load_risk_report(
@@ -99,7 +117,11 @@ def load_risk_report(
         )
         if base_dir != ROOT else _DEFAULT_REPO
     )
-    return r.load_risk_report(path)
+    try:
+        return r.load_risk_report(path)
+    except (ArtifactLoadError, AnalysisManifestError):
+        logging.getLogger(__name__).exception("Failed to load risk report")
+        return None, None
 
 
 def threat_rows(report: ThreatReport, limit: int | None = None) -> list[dict[str, object]]:
