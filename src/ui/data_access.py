@@ -8,12 +8,14 @@ from project_paths import ProjectPaths
 from models.schema.canonical_model import CanonicalModel, load_canonical_model
 from models.schema.risk_model import RiskReport
 from models.schema.threat_model import ThreatRecord, ThreatReport
+from session_store import SessionStore
 from report_repository import FileReportRepository, ReportRepository
 from toml_utils import toml_array, toml_scalar, toml_string
 
 _DEFAULT_PATHS = ProjectPaths.default()
 ROOT = _DEFAULT_PATHS.root
-_DEFAULT_REPO = FileReportRepository(ROOT)
+_DEFAULT_SESSION_STORE = SessionStore(_DEFAULT_PATHS)
+_DEFAULT_REPO = FileReportRepository(ROOT, session_store=_DEFAULT_SESSION_STORE)
 
 
 def list_example_models(base_dir: Path = ROOT) -> list[Path]:
@@ -25,6 +27,22 @@ def list_example_models(base_dir: Path = ROOT) -> list[Path]:
 
 def load_model(model_path: str | Path) -> CanonicalModel:
     return load_canonical_model(model_path)
+
+
+def load_active_session(
+    *,
+    paths: ProjectPaths | None = None,
+) -> dict[str, str | None]:
+    store = SessionStore(paths or _DEFAULT_PATHS)
+    state = store.load()
+    return {
+        "session_id": state.session_id,
+        "model_path": state.model_path,
+        "model_id": state.model_id,
+        "threat_report_path": state.threat_report_path,
+        "risk_report_path": state.risk_report_path,
+        "last_updated": state.last_updated,
+    }
 
 
 def build_model_overview(model: CanonicalModel) -> dict[str, object]:
@@ -56,7 +74,13 @@ def load_threat_report(
     base_dir: Path = ROOT,
     repo: ReportRepository | None = None,
 ) -> tuple[ThreatReport | None, Path | None]:
-    r = repo or (FileReportRepository(base_dir) if base_dir != ROOT else _DEFAULT_REPO)
+    r = repo or (
+        FileReportRepository(
+            base_dir,
+            session_store=SessionStore(ProjectPaths.from_root(base_dir)),
+        )
+        if base_dir != ROOT else _DEFAULT_REPO
+    )
     return r.load_threat_report(path)
 
 
@@ -66,7 +90,13 @@ def load_risk_report(
     base_dir: Path = ROOT,
     repo: ReportRepository | None = None,
 ) -> tuple[RiskReport | None, Path | None]:
-    r = repo or (FileReportRepository(base_dir) if base_dir != ROOT else _DEFAULT_REPO)
+    r = repo or (
+        FileReportRepository(
+            base_dir,
+            session_store=SessionStore(ProjectPaths.from_root(base_dir)),
+        )
+        if base_dir != ROOT else _DEFAULT_REPO
+    )
     return r.load_risk_report(path)
 
 

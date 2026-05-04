@@ -6,6 +6,8 @@ import os
 import sys
 from pathlib import Path
 
+from project_paths import ProjectPaths
+from session_store import SessionStore
 from toml_utils import toml_string
 
 
@@ -20,14 +22,47 @@ def _graphrag_enabled(args: argparse.Namespace) -> bool:
     return os.environ.get("THREATFORGE_GRAPHRAG", "") == "1"
 
 
+def _session_store() -> SessionStore:
+    return SessionStore(ProjectPaths.default())
+
+
+def _resolve_model_path(model: Path | None) -> Path:
+    if model is not None:
+        return model
+    session_model = _session_store().resolve_model_path()
+    if session_model is not None:
+        return session_model
+    raise FileNotFoundError(
+        "No model provided and no session model is set. "
+        "Pass --model or set one with 'threatforge session --model <path>'."
+    )
+
+
+def _record_model_session(model_path: Path) -> None:
+    try:
+        from models.schema.canonical_model import load_canonical_model
+
+        model = load_canonical_model(model_path)
+        _session_store().set_model(model_path, model_id=model.meta.model_id)
+    except Exception:
+        _session_store().set_model(model_path)
+
+
 def _cmd_validate(args: argparse.Namespace) -> int:
     from models.schema.canonical_model import validate_canonical_model
 
-    ok, message = validate_canonical_model(args.model)
+    try:
+        model_path = _resolve_model_path(args.model)
+    except Exception as exc:
+        print(f"FAILED: {exc}")
+        return 1
+
+    ok, message = validate_canonical_model(model_path)
     if ok:
-        print(f"VALID: {args.model}")
+        _record_model_session(model_path)
+        print(f"VALID: {model_path}")
         return 0
-    print(f"INVALID: {args.model}")
+    print(f"INVALID: {model_path}")
     print(message)
     return 1
 
@@ -36,10 +71,12 @@ def _cmd_load_graph(args: argparse.Namespace) -> int:
     from graph.graph_loader import load_model_into_graph
 
     try:
-        stats = load_model_into_graph(args.model, clear_graph=args.clear)
+        model_path = _resolve_model_path(args.model)
+        stats = load_model_into_graph(model_path, clear_graph=args.clear)
     except Exception as exc:
         print(f"FAILED: {exc}")
         return 1
+    _record_model_session(model_path)
     print(f"LOADED: nodes={stats.nodes_created} relationships={stats.relationships_created}")
     return 0
 
@@ -48,13 +85,16 @@ def _cmd_generate_threats(args: argparse.Namespace) -> int:
     from analysis.threat_outputs import generate_threat_report
 
     try:
+        model_path = _resolve_model_path(args.model)
         report, path = generate_threat_report(
-            args.model, args.output,
+            model_path, args.output,
             enrich=_graphrag_enabled(args),
         )
     except Exception as exc:
         print(f"FAILED: {exc}")
         return 1
+    _session_store().set_model(model_path, model_id=report.model_id)
+    _session_store().set_threat_report(path)
     print(f"GENERATED: {report.threat_count} threats")
     print(f"OUTPUT: {path}")
     return 0
@@ -63,11 +103,16 @@ def _cmd_generate_threats(args: argparse.Namespace) -> int:
 def _default_threat_path() -> Path:
     from artifact_locator import ArtifactLocator
 
+    session_path = _session_store().resolve_threat_report_path()
+    if session_path is not None:
+        return session_path
+
     path = ArtifactLocator(Path(".")).latest_threats()
     if path is None:
         raise FileNotFoundError(
-            "No threat artifacts found in models/outputs/threats/. "
-            "Run 'threatforge generate-threats' first or pass --threats."
+            "No threat artifacts found in session or models/outputs/threats/. "
+            "Run 'threatforge generate-threats' first, pass --threats, "
+            "or set a session with 'threatforge session --model <path>'."
         )
     return path
 
@@ -81,6 +126,8 @@ def _cmd_score_risks(args: argparse.Namespace) -> int:
     except Exception as exc:
         print(f"FAILED: {exc}")
         return 1
+    _session_store().set_threat_report(threat_path)
+    _session_store().set_risk_report(output_path)
 
     priority_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
     for risk in report.risks:
@@ -101,6 +148,34 @@ def _cmd_score_risks(args: argparse.Namespace) -> int:
             f"priority={risk.priority} | target={risk.target_id} | driver={top_driver}"
         )
     print(f"OUTPUT: {output_path}")
+    return 0
+
+
+def _cmd_session(args: argparse.Namespace) -> int:
+    store = _session_store()
+
+    if args.clear:
+        store.clear()
+        print("CLEARED: default session")
+        return 0
+
+    if args.model is not None:
+        try:
+            model_path = _resolve_model_path(args.model)
+        except Exception as exc:
+            print(f"FAILED: {exc}")
+            return 1
+        _record_model_session(model_path)
+
+    state = store.load()
+    print(json.dumps({
+        "session_id": state.session_id,
+        "model_path": state.model_path,
+        "model_id": state.model_id,
+        "threat_report_path": state.threat_report_path,
+        "risk_report_path": state.risk_report_path,
+        "last_updated": state.last_updated,
+    }, indent=2))
     return 0
 
 
@@ -272,16 +347,16 @@ def main(argv: list[str] | None = None) -> int:
 
     # validate
     p_val = sub.add_parser("validate", help="Validate a canonical TOML model")
-    p_val.add_argument("--model", required=True, type=Path, help="Path to TOML model file")
+    p_val.add_argument("--model", required=False, type=Path, help="Path to TOML model file")
 
     # load-graph
     p_lg = sub.add_parser("load-graph", help="Load canonical model into Neo4j")
-    p_lg.add_argument("--model", required=True, type=Path, help="Path to canonical TOML model")
+    p_lg.add_argument("--model", required=False, type=Path, help="Path to canonical TOML model")
     p_lg.add_argument("--clear", action="store_true", help="Clear existing graph data first")
 
     # generate-threats
     p_gt = sub.add_parser("generate-threats", help="Generate structured threat outputs")
-    p_gt.add_argument("--model", required=True, type=Path, help="Path to canonical TOML model")
+    p_gt.add_argument("--model", required=False, type=Path, help="Path to canonical TOML model")
     p_gt.add_argument("--output", type=Path, default=None, help="Output file path for threats JSON")
     p_gt.add_argument("--enrich", action="store_true", help="Enable GraphRAG threat enrichment (requires Neo4j)")
 
@@ -292,6 +367,11 @@ def main(argv: list[str] | None = None) -> int:
 
     # ui
     sub.add_parser("ui", help="Launch the Streamlit analyst interface")
+
+    # session
+    p_session = sub.add_parser("session", help="Inspect or update the shared CLI/UI session")
+    p_session.add_argument("--model", type=Path, default=None, help="Set the active model path for the session")
+    p_session.add_argument("--clear", action="store_true", help="Clear the persisted session")
 
     # sync
     p_sync = sub.add_parser("sync", help="Sync MITRE ATT&CK and ATLAS knowledge base")
@@ -327,6 +407,7 @@ def main(argv: list[str] | None = None) -> int:
         "generate-threats": _cmd_generate_threats,
         "score-risks": _cmd_score_risks,
         "ui": _cmd_ui,
+        "session": _cmd_session,
         "sync": _cmd_sync,
         "suggest-mappings": _cmd_suggest_mappings,
     }

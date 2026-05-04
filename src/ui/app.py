@@ -1,26 +1,30 @@
 from __future__ import annotations
 
 import os
-import tempfile
 from pathlib import Path
 
 import streamlit as st
 
 from project_paths import ProjectPaths
+from session_store import SessionStore
 from ui.actions import rebuild_analysis, sync_knowledge
-from ui.data_access import list_example_models, load_sync_status
+from ui.data_access import list_example_models, load_active_session, load_sync_status
 from ui.pages import chat, mappings, model_overview, risks, threats
 
-ROOT = ProjectPaths.default().root
+PATHS = ProjectPaths.default()
+ROOT = PATHS.root
+SESSION_STORE = SessionStore(PATHS)
 
 
 def _resolve_model_path(uploaded_file, selected_example: Path | None) -> Path | None:
     if uploaded_file is not None:
-        suffix = Path(uploaded_file.name).suffix or ".toml"
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            tmp.write(uploaded_file.getvalue())
-            return Path(tmp.name)
-    return selected_example
+        saved = SESSION_STORE.set_uploaded_model(uploaded_file.name, uploaded_file.getvalue())
+        SESSION_STORE.set_model(saved)
+        return saved
+    if selected_example is not None:
+        SESSION_STORE.set_model(selected_example)
+        return selected_example
+    return SESSION_STORE.resolve_model_path()
 
 
 def _graphrag_available() -> bool:
@@ -30,6 +34,9 @@ def _graphrag_available() -> bool:
 
 def _render_pipeline_controls(model_path: Path | None) -> None:
     st.sidebar.markdown("### Rebuild Analysis")
+    session = load_active_session(paths=PATHS)
+    if session.get("model_path"):
+        st.sidebar.caption(f"Session model: `{session['model_path']}`")
     clear_graph = st.sidebar.checkbox("Clear graph before load", value=True)
     enrich = st.sidebar.checkbox(
         "GraphRAG enrichment",
@@ -62,6 +69,14 @@ def _render_pipeline_controls(model_path: Path | None) -> None:
 def _render_knowledge_status() -> None:
     st.sidebar.markdown("### Knowledge Base")
     status = load_sync_status()
+    session = load_active_session(paths=PATHS)
+
+    if session.get("threat_report_path") or session.get("risk_report_path"):
+        st.sidebar.caption(
+            "Session artifacts: "
+            f"threats={session.get('threat_report_path') or '—'} · "
+            f"risks={session.get('risk_report_path') or '—'}"
+        )
 
     graphrag_on = _graphrag_available()
     if graphrag_on:

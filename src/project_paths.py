@@ -18,6 +18,9 @@ class ProjectPaths:
     mapping_config: Path
     mapping_suggestions: Path
     knowledge_db: Path
+    sessions_dir: Path
+    session_models_dir: Path
+    current_session_file: Path
 
     @classmethod
     def from_root(cls, root: Path) -> ProjectPaths:
@@ -35,6 +38,9 @@ class ProjectPaths:
             mapping_config=data / "mapping_config.toml",
             mapping_suggestions=data / "mapping_suggestions.toml",
             knowledge_db=data / "threatforge_kb.db",
+            sessions_dir=data / "sessions",
+            session_models_dir=data / "sessions" / "models",
+            current_session_file=data / "sessions" / "current_session.json",
         )
 
     @classmethod
