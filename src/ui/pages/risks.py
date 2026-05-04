@@ -4,10 +4,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from ui.data_access import load_risk_report, risk_rows
-from project_paths import ProjectPaths
-
-ROOT = ProjectPaths.default().root
+from ui.report_data import load_risk_report, risk_rows
 
 
 def render(base_dir: Path) -> None:
@@ -30,7 +27,9 @@ def render(base_dir: Path) -> None:
 
 def main() -> None:
     st.set_page_config(page_title="Threat Forge AI - Risks", page_icon="TF", layout="wide")
-    render(ROOT)
+    from project_paths import ProjectPaths
+
+    render(ProjectPaths.default().root)
 
 
 if __name__ == "__main__":

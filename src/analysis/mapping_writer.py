@@ -17,9 +17,10 @@ if TYPE_CHECKING:
     from knowledge.store import TechniqueStore
 
 _log = logging.getLogger(__name__)
-_DEFAULT_PATHS = ProjectPaths.default()
 
-_DEFAULT_OUTPUT = _DEFAULT_PATHS.data_dir / "mapping_suggestions.toml"
+
+def _default_output_path() -> Path:
+    return ProjectPaths.default().data_dir / "mapping_suggestions.toml"
 
 
 def generate_mapping_suggestions(
@@ -54,7 +55,7 @@ def generate_mapping_suggestions(
     from .heuristics import discovered_heuristics
     from .mapping_engine import graphrag_score_suggestions
 
-    output_path = output_path or _DEFAULT_OUTPUT
+    output_path = output_path or _default_output_path()
 
     embedder = SentenceTransformerEmbedder()
     tech_idx = TechniqueIndex(store)

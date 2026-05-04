@@ -7,20 +7,18 @@ import streamlit as st
 
 from project_paths import ProjectPaths
 from session_store import SessionStore
+from ui.mapping_data import load_sync_status
+from ui.report_data import list_example_models, load_active_session
+from ui.runtime import UiRuntime, build_ui_runtime
 from ui.actions import rebuild_analysis, sync_knowledge
-from ui.data_access import list_example_models, load_active_session, load_sync_status
 from ui.pages import chat, mappings, model_overview, risks, threats
-
-PATHS = ProjectPaths.default()
-ROOT = PATHS.root
-SESSION_STORE = SessionStore(PATHS)
 
 
 def _resolve_model_path(
     uploaded_file,
     selected_example: Path | None,
     *,
-    session_store: SessionStore = SESSION_STORE,
+    session_store: SessionStore,
 ) -> Path | None:
     if uploaded_file is not None:
         saved = session_store.set_uploaded_model(uploaded_file.name, uploaded_file.getvalue())
@@ -40,10 +38,10 @@ def _graphrag_available() -> bool:
 def _render_pipeline_controls(
     model_path: Path | None,
     *,
-    paths: ProjectPaths = PATHS,
+    runtime: UiRuntime,
 ) -> None:
     st.sidebar.markdown("### Rebuild Analysis")
-    session = load_active_session(paths=paths)
+    session = load_active_session(paths=runtime.paths)
     if session.get("model_path"):
         st.sidebar.caption(f"Session model: `{session['model_path']}`")
     clear_graph = st.sidebar.checkbox("Clear graph before load", value=True)
@@ -61,7 +59,10 @@ def _render_pipeline_controls(
 
         with st.spinner("Running analysis workflow..."):
             step_results = rebuild_analysis(
-                model_path, clear_graph=clear_graph, enrich=enrich,
+                model_path,
+                clear_graph=clear_graph,
+                enrich=enrich,
+                analysis_service=runtime.analysis_service,
             )
 
         for step_name, result in step_results:
@@ -75,10 +76,10 @@ def _render_pipeline_controls(
                     st.code(result.stderr)
 
 
-def _render_knowledge_status(*, paths: ProjectPaths = PATHS) -> None:
+def _render_knowledge_status(*, runtime: UiRuntime) -> None:
     st.sidebar.markdown("### Knowledge Base")
-    status = load_sync_status()
-    session = load_active_session(paths=paths)
+    status = load_sync_status(paths=runtime.paths)
+    session = load_active_session(paths=runtime.paths)
 
     if session.get("threat_report_path") or session.get("risk_report_path"):
         st.sidebar.caption(
@@ -139,6 +140,7 @@ def _render_knowledge_status(*, paths: ProjectPaths = PATHS) -> None:
                     map_heuristics=map_heuristics,
                     map_threshold=threshold,
                     map_top_k=top_k,
+                    knowledge_service=runtime.knowledge_service,
                 )
             if result.ok:
                 st.success("Sync complete.")
@@ -152,22 +154,23 @@ def _render_knowledge_status(*, paths: ProjectPaths = PATHS) -> None:
 
 def render_app(
     *,
-    paths: ProjectPaths = PATHS,
-    session_store: SessionStore = SESSION_STORE,
+    paths: ProjectPaths | None = None,
+    session_store: SessionStore | None = None,
 ) -> None:
+    runtime = build_ui_runtime(paths=paths, session_store=session_store)
     st.set_page_config(page_title="Threat Forge AI", page_icon="TF", layout="wide")
     st.title("Threat Forge AI - MVP Analyst Interface")
 
-    example_models = list_example_models(paths.root)
+    example_models = list_example_models(runtime.paths.root)
     example_labels = [path.name for path in example_models]
     selected_label = st.sidebar.selectbox("Example model", ["(none)", *example_labels], index=1 if example_labels else 0)
     selected_example = None if selected_label == "(none)" else next(path for path in example_models if path.name == selected_label)
 
     uploaded_model = st.sidebar.file_uploader("Upload model (.toml)", type=["toml"])
-    model_path = _resolve_model_path(uploaded_model, selected_example, session_store=session_store)
+    model_path = _resolve_model_path(uploaded_model, selected_example, session_store=runtime.session_store)
 
-    _render_knowledge_status(paths=paths)
-    _render_pipeline_controls(model_path, paths=paths)
+    _render_knowledge_status(runtime=runtime)
+    _render_pipeline_controls(model_path, runtime=runtime)
 
     page = st.sidebar.radio(
         "Screen",
@@ -181,13 +184,13 @@ def render_app(
         else:
             model_overview.render(model_path)
     elif page == "Threats":
-        threats.render(paths.root)
+        threats.render(runtime.paths.root)
     elif page == "Risks":
-        risks.render(paths.root)
+        risks.render(runtime.paths.root)
     elif page == "Mappings":
-        mappings.render(paths.root)
+        mappings.render(runtime.paths.root)
     else:
-        chat.render(paths.root)
+        chat.render(runtime.paths.root)
 
 
 def main() -> None:

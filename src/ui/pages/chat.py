@@ -6,9 +6,6 @@ import streamlit as st
 
 from agents.tools import AgentTools
 from agents.workflow import QueryWorkflow
-from project_paths import ProjectPaths
-
-ROOT = ProjectPaths.default().root
 
 
 SAMPLE_QUESTIONS = [
@@ -57,7 +54,9 @@ def render(base_dir: Path) -> None:
 
 def main() -> None:
     st.set_page_config(page_title="Threat Forge AI - Chat", page_icon="TF", layout="wide")
-    render(ROOT)
+    from project_paths import ProjectPaths
+
+    render(ProjectPaths.default().root)
 
 
 if __name__ == "__main__":

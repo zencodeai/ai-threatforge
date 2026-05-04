@@ -15,15 +15,10 @@ from models.schema.canonical_model import CanonicalModel, load_canonical_model
 from models.schema.threat_model import TechniqueReference, ThreatRecord, ThreatReport
 from project_paths import ProjectPaths
 
-from .materializer_registry import all_materializers, auto_discover
+from .mapping_engine import map_rule_to_techniques
+from .materializer_registry import all_materializers
 from .snapshot_resolver import ThreatSnapshotResolver
-from .technique_mapping import map_rule_to_techniques
 from .threat_generation import THREAT_HEURISTICS
-
-# ── Auto-discover and register heuristic plugins ─────────────────
-
-auto_discover()
-
 
 def _timestamp() -> str:
     return datetime.now(UTC).isoformat()
@@ -50,7 +45,11 @@ def _technique_refs(rule_id: str, *, knowledge_provider: KnowledgeProvider | Non
             "mapping_rationale": mapping.mapping_rationale,
             "mapping_type": mapping.mapping_type,
         })
-        for mapping in map_rule_to_techniques(rule_id, index=index)
+        for mapping in map_rule_to_techniques(
+            rule_id,
+            index=index,
+            knowledge_provider=knowledge_provider,
+        )
     ]
 
 
@@ -144,12 +143,7 @@ def generate_threat_report(
         )
 
     if output_path is None:
-        output_path = (
-            Path("models")
-            / "outputs"
-            / "threats"
-            / f"{model.meta.model_id}_threats.json"
-        )
+        output_path = ProjectPaths.default().threats_dir / f"{model.meta.model_id}_threats.json"
 
     written_path = write_threat_report(report, output_path)
     return report, written_path

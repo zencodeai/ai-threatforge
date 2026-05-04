@@ -35,10 +35,6 @@ class SessionStore:
         self._paths = paths
         self._session_file = paths.current_session_file
 
-    @classmethod
-    def default(cls) -> SessionStore:
-        return cls(ProjectPaths.default())
-
     @property
     def paths(self) -> ProjectPaths:
         return self._paths

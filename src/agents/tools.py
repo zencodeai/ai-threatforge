@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from typing import Any, Callable
 
-from analysis.technique_mapping import get_all_technique_mappings
+from analysis.mapping_catalog import get_all_technique_mappings
 from analysis.threat_generation import THREAT_HEURISTICS
 from artifact_locator import ArtifactLocator
 from graph.graph_queries import GraphQueries

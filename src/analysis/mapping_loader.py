@@ -12,8 +12,11 @@ from .mapping_types import LEGACY_MAPPINGS, TechniqueMapping
 if TYPE_CHECKING:
     from knowledge.index import TechniqueIndex
 
-_DEFAULT_PATHS = ProjectPaths.default()
 _log = logging.getLogger(__name__)
+
+
+def _default_paths() -> ProjectPaths:
+    return ProjectPaths.default()
 
 
 def _resolve_technique_name(
@@ -39,7 +42,7 @@ def load_curated_mappings(
     index: TechniqueIndex | None = None,
 ) -> tuple[TechniqueMapping, ...]:
     """Load curated mappings from TOML. Falls back to legacy tuple if file missing."""
-    rules_path = rules_path or _DEFAULT_PATHS.mapping_rules
+    rules_path = rules_path or _default_paths().mapping_rules
     if not rules_path.exists():
         return LEGACY_MAPPINGS if rule_id is None else tuple(
             m for m in LEGACY_MAPPINGS if m.rule_id == rule_id
@@ -70,7 +73,7 @@ def load_expansion_config(
     config_path: Path | None = None,
 ) -> dict:
     """Load expansion configuration from TOML."""
-    config_path = config_path or _DEFAULT_PATHS.mapping_config
+    config_path = config_path or _default_paths().mapping_config
     if not config_path.exists():
         return {"enabled": False}
     with open(config_path, "rb") as f:
@@ -83,7 +86,7 @@ def load_suggestions_config(
     config_path: Path | None = None,
 ) -> dict:
     """Load suggestions configuration from TOML."""
-    config_path = config_path or _DEFAULT_PATHS.mapping_config
+    config_path = config_path or _default_paths().mapping_config
     if not config_path.exists():
         return {"include_suggested": False}
     with open(config_path, "rb") as f:
@@ -96,7 +99,7 @@ def load_graphrag_config(
     config_path: Path | None = None,
 ) -> dict:
     """Load GraphRAG scorer configuration from TOML."""
-    config_path = config_path or _DEFAULT_PATHS.mapping_config
+    config_path = config_path or _default_paths().mapping_config
     if not config_path.exists():
         return {}
     with open(config_path, "rb") as f:
@@ -117,7 +120,7 @@ def load_suggested_mappings(
     if suggestions_path is None:
         cfg = load_suggestions_config()
         rel = cfg.get("suggestions_path", "data/threat_intel/mapping_suggestions.toml")
-        suggestions_path = _DEFAULT_PATHS.root / rel
+        suggestions_path = _default_paths().root / rel
     if not suggestions_path.exists():
         return ()
 

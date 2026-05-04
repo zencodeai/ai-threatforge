@@ -7,7 +7,7 @@ from models.schema.threat_model import TechniqueReference, ThreatRecord, ThreatR
 from project_paths import ProjectPaths
 from session_store import SessionStore
 from analysis_manifest import AnalysisManifestStore
-from ui.data_access import (
+from ui.report_data import (
     build_model_overview,
     latest_artifact,
     list_example_models,

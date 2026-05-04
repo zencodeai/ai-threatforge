@@ -397,14 +397,14 @@ threat-forge-ai/
 │   │   └── sync.py                     # Orchestrates full sync (+ --embed, --map-heuristics)
 │   ├── analysis/
 │   │   ├── threat_generation.py        # ThreatHeuristic dataclass + auto-discovered catalog
-│   │   ├── technique_mapping.py        # Mapping facade (re-exports from mapping_engine/loader/types)
+│   │   ├── mapping_catalog.py          # Curated mapping catalog + coverage helpers
 │   │   ├── mapping_types.py            # TechniqueMapping dataclass
 │   │   ├── mapping_loader.py           # TOML I/O + knowledge-base name resolution + suggestions loader
 │   │   ├── mapping_engine.py           # Layered mapping: curated + tactic expansion + filtering
 │   │   ├── mapping_writer.py           # Batch suggestion generation + TOML serialization
 │   │   ├── graphrag_scorer.py          # Graph-backed technique suggestion (Layer 0 composite scoring)
 │   │   ├── materializer_registry.py    # ThreatMaterializer protocol + registry
-│   │   ├── materializers.py            # Backward-compat re-exports from heuristics package
+│   │   ├── materializer_registry.py    # Materializer discovery + registry access
 │   │   ├── risk_scoring.py             # Risk score computation + report generation
 │   │   ├── risk_factors.py             # Factor functions + FACTOR_REGISTRY + RISK_WEIGHTS
 │   │   ├── threat_outputs.py           # Threat report orchestration (delegates to materializers)

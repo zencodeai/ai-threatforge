@@ -98,4 +98,7 @@ class KnowledgeService:
     def status(self) -> dict[str, str]:
         from knowledge.sync import sync_status
 
-        return sync_status(db_path=self.paths.knowledge_db)
+        return sync_status(
+            db_path=self.paths.knowledge_db,
+            suggestions_path=self.paths.mapping_suggestions,
+        )

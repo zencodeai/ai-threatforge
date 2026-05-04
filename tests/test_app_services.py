@@ -52,8 +52,9 @@ def test_knowledge_service_status_uses_injected_paths(monkeypatch, tmp_path: Pat
 
     captured: dict[str, Path | str] = {}
 
-    def fake_status(*, db_path):
+    def fake_status(*, db_path, suggestions_path=None):
         captured["db_path"] = db_path
+        captured["suggestions_path"] = suggestions_path
         return {"status": "synced", "db_path": str(db_path)}
 
     monkeypatch.setattr(sync_module, "sync_status", fake_status)
@@ -62,6 +63,7 @@ def test_knowledge_service_status_uses_injected_paths(monkeypatch, tmp_path: Pat
 
     assert status["status"] == "synced"
     assert captured["db_path"] == paths.knowledge_db
+    assert captured["suggestions_path"] == paths.mapping_suggestions
 
 
 def test_knowledge_service_sync_invalidates_provider_and_legacy_index(monkeypatch, tmp_path: Path) -> None:

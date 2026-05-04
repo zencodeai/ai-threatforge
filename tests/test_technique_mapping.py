@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from analysis.mapping_types import TechniqueMapping
-from analysis.technique_mapping import (
+from analysis.mapping_catalog import (
     get_all_technique_mappings,
     get_rule_technique_mappings,
-    map_rule_to_techniques,
     validate_mapping_coverage,
 )
+from analysis.mapping_engine import map_rule_to_techniques
+from analysis.mapping_types import TechniqueMapping
 from analysis.threat_generation import THREAT_HEURISTICS
 
 
@@ -35,7 +35,8 @@ def test_get_rule_technique_mappings_returns_empty_for_unknown_rule() -> None:
 
 
 def test_mapping_entries_have_required_fields() -> None:
-    for mapping in get_all_technique_mappings():
+    mappings = get_all_technique_mappings()
+    for mapping in mappings:
         assert mapping.rule_id.startswith("TH-")
         assert mapping.framework in {"ATTACK", "ATLAS"}
         assert mapping.technique_id

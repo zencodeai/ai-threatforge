@@ -6,7 +6,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from .models import Mitigation, Tactic, Technique
-from .store import DEFAULT_DB_PATH, TechniqueStore
+from .store import TechniqueStore, default_db_path
 
 _current_index: contextvars.ContextVar[TechniqueIndex | None] = contextvars.ContextVar(
     "technique_index", default=None,
@@ -64,7 +64,7 @@ class TechniqueIndex:
             instance = _current_index.get(None)
             if instance is not None:
                 return instance
-            path = db_path or DEFAULT_DB_PATH
+            path = db_path or default_db_path()
             store = TechniqueStore(path)
             try:
                 instance = cls(store)
