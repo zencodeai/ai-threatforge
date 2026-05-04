@@ -149,3 +149,18 @@ def test_workflow_observability_includes_active_manifest_metadata(tmp_path: Path
     assert rows
     assert all("analysis_manifest" in row for row in rows)
     assert rows[0]["analysis_manifest"]["model_id"] == "fintech-ai-demo"
+
+
+def test_workflow_observability_records_workflow_error_event(tmp_path: Path) -> None:
+    _write_artifacts(tmp_path)
+    trace_file = tmp_path / "models" / "outputs" / "traces" / "agent_runs.jsonl"
+    tracer = JsonlTraceRecorder(trace_file)
+    workflow = QueryWorkflow(tools=AgentTools(base_dir=tmp_path), tracer=tracer)
+    workflow._composer.compose = lambda _state: (_ for _ in ()).throw(RuntimeError("compose boom"))  # type: ignore[method-assign]
+
+    answer, _state = workflow.answer("What are the highest risks?")
+
+    assert "failed" in answer.answer.lower()
+    rows = [json.loads(line) for line in trace_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert rows[-1]["event"] == "workflow_error"
+    assert rows[-1]["error_type"] == "RuntimeError"

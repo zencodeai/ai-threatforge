@@ -52,3 +52,17 @@ def test_session_store_persists_uploaded_model_copy(tmp_path: Path) -> None:
     assert saved.exists()
     assert saved.parent == paths.session_models_dir
     assert saved.read_text(encoding="utf-8").startswith("[meta]")
+
+
+def test_session_store_quarantines_corrupt_state(tmp_path: Path) -> None:
+    paths = ProjectPaths.from_root(tmp_path)
+    store = SessionStore(paths)
+    paths.current_session_file.parent.mkdir(parents=True, exist_ok=True)
+    paths.current_session_file.write_text("{not-json", encoding="utf-8")
+
+    state = store.load()
+
+    assert state.model_path is None
+    assert not paths.current_session_file.exists()
+    quarantined = list(paths.current_session_file.parent.glob(f"{paths.current_session_file.name}.invalid*"))
+    assert quarantined

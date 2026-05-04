@@ -1,15 +1,12 @@
 from __future__ import annotations
 
-from .mapping_engine import map_rule_to_techniques
 from .mapping_loader import load_curated_mappings
 from .mapping_types import TechniqueMapping
-from .threat_generation import THREAT_HEURISTICS
+from .threat_heuristics import THREAT_HEURISTICS
 
-
-# ── Public API (backward-compatible) ─────────────────────────────
 
 def get_rule_technique_mappings(rule_id: str) -> tuple[TechniqueMapping, ...]:
-    """Return all ATT&CK/ATLAS mappings for a specific threat rule."""
+    """Return all curated ATT&CK/ATLAS mappings for a specific threat rule."""
     return load_curated_mappings(rule_id)
 
 
@@ -33,6 +30,5 @@ __all__ = [
     "TechniqueMapping",
     "get_rule_technique_mappings",
     "get_all_technique_mappings",
-    "map_rule_to_techniques",
     "validate_mapping_coverage",
 ]

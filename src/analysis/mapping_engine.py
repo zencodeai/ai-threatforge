@@ -14,7 +14,7 @@ from .mapping_loader import (
     load_suggestions_config,
 )
 from .mapping_types import TechniqueMapping
-from .threat_generation import THREAT_HEURISTICS
+from .threat_heuristics import THREAT_HEURISTICS
 
 if TYPE_CHECKING:
     from graph.neo4j_client import Neo4jClient
@@ -108,10 +108,13 @@ def _filter_by_context(
     return tuple(filtered)
 
 
-def _get_default_index() -> TechniqueIndex | None:
+def _get_default_index(
+    *,
+    knowledge_provider: KnowledgeProvider | None = None,
+) -> TechniqueIndex | None:
     """Resolve the default knowledge index without using the legacy singleton path."""
     try:
-        provider = KnowledgeProvider.from_paths(ProjectPaths.default())
+        provider = knowledge_provider or KnowledgeProvider.from_paths(ProjectPaths.default())
         return provider.maybe_get_index()
     except Exception:
         logging.getLogger(__name__).debug(
@@ -125,6 +128,7 @@ def map_rule_to_techniques(
     context: dict | None = None,
     *,
     index: TechniqueIndex | None = None,
+    knowledge_provider: KnowledgeProvider | None = None,
 ) -> tuple[TechniqueMapping, ...]:
     """Map a rule id to technique references using the layered mapping engine.
 
@@ -133,7 +137,7 @@ def map_rule_to_techniques(
     Layer 3: Context-based filtering (when context provides platform info)
     """
     if index is None:
-        index = _get_default_index()
+        index = _get_default_index(knowledge_provider=knowledge_provider)
     curated = load_curated_mappings(rule_id, index=index)
     suggestions_cfg = load_suggestions_config()
     suggested = (

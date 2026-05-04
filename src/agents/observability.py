@@ -12,7 +12,7 @@ from analysis_manifest import AnalysisManifestStore
 from project_paths import ProjectPaths
 from session_store import SessionStore
 
-from .state import AgentAnswer, ToolResponse
+from .workflow_models import AgentAnswer, ToolResponse
 
 
 class TraceRecorder(Protocol):
@@ -27,6 +27,14 @@ class TraceRecorder(Protocol):
     ) -> None: ...
 
     def on_workflow_end(self, run_id: str, answer: AgentAnswer) -> None: ...
+
+    def on_workflow_error(
+        self,
+        run_id: str,
+        error_type: str,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None: ...
 
 
 class NullTraceRecorder:
@@ -44,6 +52,15 @@ class NullTraceRecorder:
 
     def on_workflow_end(self, run_id: str, answer: AgentAnswer) -> None:
         _ = (run_id, answer)
+
+    def on_workflow_error(
+        self,
+        run_id: str,
+        error_type: str,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        _ = (run_id, error_type, message, details)
 
 
 class JsonlTraceRecorder:
@@ -87,6 +104,23 @@ class JsonlTraceRecorder:
                 "event": "workflow_end",
                 "run_id": run_id,
                 "answer": answer.model_dump(),
+            }
+        )
+
+    def on_workflow_error(
+        self,
+        run_id: str,
+        error_type: str,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        self._append(
+            {
+                "event": "workflow_error",
+                "run_id": run_id,
+                "error_type": error_type,
+                "message": message,
+                "details": details or {},
             }
         )
 
@@ -142,6 +176,23 @@ class LangSmithTraceRecorder:
             end_time=datetime.now(timezone.utc),
         )
 
+    def on_workflow_error(
+        self,
+        run_id: str,
+        error_type: str,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        self._client.update_run(
+            run_id,
+            outputs={
+                "error_type": error_type,
+                "message": message,
+                "details": details or {},
+            },
+            end_time=datetime.now(timezone.utc),
+        )
+
 
 class CompositeTraceRecorder:
     def __init__(self, recorders: list[TraceRecorder]):
@@ -164,6 +215,16 @@ class CompositeTraceRecorder:
     def on_workflow_end(self, run_id: str, answer: AgentAnswer) -> None:
         for recorder in self._recorders:
             recorder.on_workflow_end(run_id, answer)
+
+    def on_workflow_error(
+        self,
+        run_id: str,
+        error_type: str,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        for recorder in self._recorders:
+            recorder.on_workflow_error(run_id, error_type, message, details)
 
 
 def create_trace_recorder(base_dir: str | Path = ".") -> TraceRecorder:

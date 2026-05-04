@@ -4,9 +4,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from project_paths import ProjectPaths
+
 from .index import TechniqueIndex
 from .models import Mitigation, Tactic, Technique
-from .store import DEFAULT_DB_PATH, TechniqueStore
+from .store import TechniqueStore, default_db_path
 from .sync_attack import (
     ATTACK_DOMAINS,
     fetch_attack_bundle,
@@ -18,6 +20,10 @@ from .sync_atlas import (
     load_atlas_data_from_file,
     parse_atlas_data,
 )
+
+
+def _default_paths() -> ProjectPaths:
+    return ProjectPaths.default()
 
 
 def _dedup_tactics(tactics: list[Tactic]) -> list[Tactic]:
@@ -81,6 +87,7 @@ def _sync_to_neo4j(
     mitigations: list[Mitigation],
     *,
     embed_chunks: bool = True,
+    mapping_rules_path: Path,
 ) -> Any:
     """Load MITRE data into Neo4j and create bridge relationships.
 
@@ -104,7 +111,7 @@ def _sync_to_neo4j(
         )
 
         # Build heuristic rule nodes and MAPS_TO edges from curated TOML
-        heuristic_rules, curated_mappings = _load_heuristic_bridge_data()
+        heuristic_rules, curated_mappings = _load_heuristic_bridge_data(mapping_rules_path)
         rules_count, maps_count = loader.load_heuristic_bridges(
             heuristic_rules=heuristic_rules,
             curated_mappings=curated_mappings,
@@ -131,13 +138,9 @@ def _sync_to_neo4j(
     return stats
 
 
-def _load_heuristic_bridge_data() -> tuple[list[dict], list[dict]]:
+def _load_heuristic_bridge_data(mapping_rules_path: Path) -> tuple[list[dict], list[dict]]:
     """Load heuristic definitions and curated mappings for Neo4j bridge creation."""
     import tomllib
-
-    from project_paths import ProjectPaths
-
-    paths = ProjectPaths.default()
 
     # Load heuristic rules from discovered heuristics
     from analysis.heuristics import discovered_heuristics
@@ -154,8 +157,8 @@ def _load_heuristic_bridge_data() -> tuple[list[dict], list[dict]]:
 
     # Load curated mappings from TOML
     curated_mappings: list[dict] = []
-    if paths.mapping_rules.exists():
-        with open(paths.mapping_rules, "rb") as f:
+    if mapping_rules_path.exists():
+        with open(mapping_rules_path, "rb") as f:
             data = tomllib.load(f)
         for entry in data.get("mappings", []):
             curated_mappings.append({
@@ -174,7 +177,7 @@ def sync(
     attack_version: str = "latest",
     atlas_version: str = "latest",
     offline_dir: str | Path | None = None,
-    db_path: Path | str = DEFAULT_DB_PATH,
+    db_path: Path | str | None = None,
     attack_domains: tuple[str, ...] = ATTACK_DOMAINS,
     embed: bool = False,
     neo4j: bool = False,
@@ -182,7 +185,10 @@ def sync(
     map_threshold: float = 0.40,
     map_top_k: int = 10,
     map_output: Path | None = None,
+    mapping_rules_path: Path | None = None,
 ) -> dict[str, Any]:
+    resolved_db_path = Path(db_path) if db_path is not None else default_db_path()
+    resolved_mapping_rules_path = mapping_rules_path or _default_paths().mapping_rules
     all_tactics: list[Tactic] = []
     all_techniques: list[Technique] = []
     all_mitigations: list[Mitigation] = []
@@ -220,7 +226,7 @@ def sync(
     deduped_techniques = _dedup_techniques(all_techniques)
     deduped_mitigations = _dedup_mitigations(all_mitigations)
 
-    with TechniqueStore(db_path) as store:
+    with TechniqueStore(resolved_db_path) as store:
         counts = store.replace_all(
             tactics=deduped_tactics,
             techniques=deduped_techniques,
@@ -237,6 +243,7 @@ def sync(
         if use_neo4j:
             neo4j_counts = _sync_to_neo4j(
                 deduped_tactics, deduped_techniques, deduped_mitigations,
+                mapping_rules_path=resolved_mapping_rules_path,
             )
             counts["neo4j_techniques"] = neo4j_counts.techniques
             counts["neo4j_tactics"] = neo4j_counts.tactics
@@ -263,20 +270,21 @@ def sync(
     return counts
 
 
-def sync_status(db_path: Path | str = DEFAULT_DB_PATH) -> dict[str, str]:
-    path = Path(db_path)
+def sync_status(
+    db_path: Path | str | None = None,
+    *,
+    suggestions_path: Path | None = None,
+) -> dict[str, str]:
+    path = Path(db_path) if db_path is not None else default_db_path()
     if not path.exists():
         return {"status": "not synced", "db_path": str(path)}
 
-    from project_paths import ProjectPaths
-
-    defaults = ProjectPaths.default()
-    suggestions_path = defaults.data_dir / "mapping_suggestions.toml"
+    resolved_suggestions_path = suggestions_path or _default_paths().mapping_suggestions
     suggestion_count = 0
-    if suggestions_path.exists():
+    if resolved_suggestions_path.exists():
         import tomllib
 
-        with open(suggestions_path, "rb") as f:
+        with open(resolved_suggestions_path, "rb") as f:
             data = tomllib.load(f)
         suggestion_count = len(data.get("mappings", []))
 

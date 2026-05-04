@@ -4,15 +4,12 @@ from pathlib import Path
 
 import streamlit as st
 
-from ui.data_access import (
+from ui.report_data import (
     load_threat_report,
     mitigation_rows,
     related_technique_rows,
     threat_rows,
 )
-from project_paths import ProjectPaths
-
-ROOT = ProjectPaths.default().root
 
 
 def _severity_color(severity: str) -> str:
@@ -141,7 +138,9 @@ def render(base_dir: Path) -> None:
 
 def main() -> None:
     st.set_page_config(page_title="Threat Forge AI - Threats", page_icon="TF", layout="wide")
-    render(ROOT)
+    from project_paths import ProjectPaths
+
+    render(ProjectPaths.default().root)
 
 
 if __name__ == "__main__":

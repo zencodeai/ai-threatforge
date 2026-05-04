@@ -97,3 +97,21 @@ def test_validate_command_uses_analysis_service(monkeypatch, capsys) -> None:
     out = capsys.readouterr().out
     assert rc == 0
     assert "VALID: examples/fintech_ai_platform.toml" in out
+
+
+def test_validate_command_writes_errors_to_stderr(monkeypatch, capsys) -> None:
+    class FakeAnalysisService:
+        def validate_model(self, model):
+            assert model == Path("missing.toml")
+            from app import ServiceResult
+
+            return ServiceResult(ok=False, stdout="", stderr="FAILED [MODEL_RESOLUTION_FAILED] validate_model: missing", returncode=1)
+
+    monkeypatch.setattr(cli_main, "_analysis_service", lambda: FakeAnalysisService())
+
+    rc = cli_main.main(["validate", "--model", "missing.toml"])
+
+    captured = capsys.readouterr()
+    assert rc == 1
+    assert captured.out == ""
+    assert "MODEL_RESOLUTION_FAILED" in captured.err

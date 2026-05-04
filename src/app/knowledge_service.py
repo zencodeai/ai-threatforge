@@ -1,16 +1,18 @@
 from __future__ import annotations
+"""Shared application service for knowledge sync and status access."""
 
+import logging
 from pathlib import Path
 
 from knowledge.index import TechniqueIndex
 from knowledge.provider import KnowledgeProvider
 from project_paths import ProjectPaths
 
-from .analysis_service import ServiceResult
+from .analysis_service import ServiceError, ServiceResult
 
 
 class KnowledgeService:
-    """Shared knowledge-sync orchestration used by CLI and UI."""
+    """Run ATT&CK / ATLAS sync operations for both CLI and UI callers."""
 
     def __init__(self, *, paths: ProjectPaths | None = None) -> None:
         self.paths = paths or ProjectPaths.default()
@@ -29,6 +31,12 @@ class KnowledgeService:
         map_top_k: int = 10,
         map_output: Path | None = None,
     ) -> ServiceResult:
+        """Sync local and optional graph-backed knowledge state.
+
+        This is the single orchestration surface for refreshing ATT&CK / ATLAS
+        data. On success it invalidates cached indexes so later reads observe
+        the new state.
+        """
         from knowledge.sync import sync
 
         try:
@@ -45,7 +53,22 @@ class KnowledgeService:
                 map_output=map_output,
             )
         except Exception as exc:
-            return ServiceResult(ok=False, stdout="", stderr=f"FAILED: {exc}", returncode=1)
+            logging.getLogger(__name__).exception(
+                "Knowledge sync failed",
+                extra={"step": "sync"},
+            )
+            return ServiceResult(
+                ok=False,
+                stdout="",
+                stderr=f"FAILED [KNOWLEDGE_SYNC_FAILED] sync: {exc}",
+                returncode=1,
+                error=ServiceError(
+                    code="KNOWLEDGE_SYNC_FAILED",
+                    message=str(exc),
+                    step="sync",
+                    exception_type=type(exc).__name__,
+                ),
+            )
 
         # Invalidate both the injected provider cache and the legacy context cache.
         self.knowledge_provider.invalidate()
@@ -80,6 +103,10 @@ class KnowledgeService:
         )
 
     def status(self) -> dict[str, str]:
+        """Return the current sync status for the configured workspace."""
         from knowledge.sync import sync_status
 
-        return sync_status(db_path=self.paths.knowledge_db)
+        return sync_status(
+            db_path=self.paths.knowledge_db,
+            suggestions_path=self.paths.mapping_suggestions,
+        )

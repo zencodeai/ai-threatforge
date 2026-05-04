@@ -2,10 +2,12 @@
 
 from .index import TechniqueIndex, get_index, set_index
 from .models import Mitigation, Tactic, Technique
+from .provider import KnowledgeProvider
 from .store import TechniqueStore
 from .sync import sync, sync_status
 
 __all__ = [
+    "KnowledgeProvider",
     "Mitigation",
     "Tactic",
     "Technique",
@@ -16,6 +18,3 @@ __all__ = [
     "sync",
     "sync_status",
 ]
-from .provider import KnowledgeProvider
-
-__all__ = ["KnowledgeProvider"]

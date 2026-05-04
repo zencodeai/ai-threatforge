@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from ui.actions import ActionResult, get_sync_status, sync_knowledge
-from ui.data_access import (
+from ui.ui_actions import ActionResult, get_sync_status, sync_knowledge
+from ui.mapping_data import (
     curated_mapping_rows,
     heuristic_rows,
     load_mapping_config,

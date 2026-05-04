@@ -4,10 +4,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from ui.data_access import build_model_overview, list_example_models, load_model
-from project_paths import ProjectPaths
-
-ROOT = ProjectPaths.default().root
+from ui.report_data import build_model_overview, list_example_models, load_model
 
 
 def render(model_path: Path) -> None:
@@ -62,7 +59,9 @@ def render(model_path: Path) -> None:
 
 
 def _default_model_path() -> Path | None:
-    models = list_example_models(ROOT)
+    from project_paths import ProjectPaths
+
+    models = list_example_models(ProjectPaths.default().root)
     return models[0] if models else None
 
 

@@ -13,7 +13,7 @@ import pytest
 
 from analysis.heuristics import _RULES_DIR, _heuristic_from_toml, _load_toml, _materializer_from_toml
 from analysis.heuristics.generic_materializer import GenericMaterializer
-from analysis.threat_generation import ThreatHeuristic
+from analysis.threat_heuristics import ThreatHeuristic
 from models.schema.canonical_model import load_canonical_model
 from models.schema.threat_model import ThreatRecord
 

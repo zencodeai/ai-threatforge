@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ui.actions import ActionResult, rebuild_analysis, run_command, score_risks
+from ui.ui_actions import ActionResult, rebuild_analysis, run_command, score_risks
 
 
 def test_run_command_uses_executor() -> None:
@@ -70,7 +70,7 @@ def test_score_risks_accepts_explicit_threat_path() -> None:
 
 
 def test_rebuild_analysis_without_executor_uses_service_results(monkeypatch) -> None:
-    import ui.actions as actions
+    import ui.ui_actions as actions
     from app import ServiceResult
 
     class FakeAnalysisService:

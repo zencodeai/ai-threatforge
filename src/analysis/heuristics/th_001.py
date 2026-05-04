@@ -5,7 +5,7 @@ from typing import Any
 from models.schema.canonical_model import CanonicalModel
 from models.schema.threat_model import ThreatRecord
 
-from ..threat_generation import ThreatHeuristic
+from ..threat_heuristics import ThreatHeuristic
 
 HEURISTIC = ThreatHeuristic(
     rule_id="TH-001",

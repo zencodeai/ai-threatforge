@@ -1,11 +1,12 @@
 from __future__ import annotations
+"""Tool implementations for the deterministic analyst query workflow."""
 
 import logging
 from pathlib import Path
 from typing import Any, Callable
 
-from analysis.technique_mapping import get_all_technique_mappings
-from analysis.threat_generation import THREAT_HEURISTICS
+from analysis.mapping_catalog import get_all_technique_mappings
+from analysis.threat_heuristics import THREAT_HEURISTICS
 from artifact_locator import ArtifactLocator
 from graph.graph_queries import GraphQueries
 from graph.neo4j_client import Neo4jClient, Neo4jConfig
@@ -15,7 +16,7 @@ from models.schema.threat_model import ThreatReport
 from report_repository import FileReportRepository, ReportRepository
 from project_paths import ProjectPaths
 
-from .state import ToolError, ToolResponse
+from .workflow_models import ToolError, ToolResponse
 from .tool_protocol import Tool, ToolRegistry
 
 GraphRunner = Callable[[str, dict[str, Any] | None], list[dict[str, Any]]]
@@ -81,6 +82,8 @@ class _SearchKnowledgeTool:
 
 
 class AgentTools:
+    """Facade exposing graph, artifact, and knowledge-backed query tools."""
+
     def __init__(
         self,
         *,
@@ -132,12 +135,14 @@ class AgentTools:
         return self._locator.latest(folder, suffix)
 
     def _default_graph_runner(self, query_id: str, params: dict[str, Any] | None) -> list[dict[str, Any]]:
+        """Execute a named graph query against the configured Neo4j instance."""
         config = Neo4jConfig.from_env()
         with Neo4jClient(config) as client:
             client.verify_connectivity()
             return GraphQueries(client).execute(query_id, params)
 
     def query_graph(self, query_id: str, params: dict[str, Any] | None = None) -> ToolResponse:
+        """Run a named graph query and wrap the rows in a structured response."""
         runner = self._graph_runner or self._default_graph_runner
         try:
             rows = runner(query_id, params)
@@ -164,6 +169,7 @@ class AgentTools:
         top_n: int | None = 10,
         path: str | Path | None = None,
     ) -> ToolResponse:
+        """Return threats from the active or explicit threat artifact."""
         report, threat_path = self._repo.load_threat_report(path)
         if report is None or threat_path is None:
             return self._error(
@@ -218,6 +224,7 @@ class AgentTools:
         top_n: int | None = 10,
         path: str | Path | None = None,
     ) -> ToolResponse:
+        """Return risks from the active or explicit risk artifact."""
         report, risk_path = self._repo.load_risk_report(path)
         if report is None or risk_path is None:
             return self._error(
@@ -248,6 +255,7 @@ class AgentTools:
         )
 
     def lookup_technique(self, technique_id: str) -> ToolResponse:
+        """Resolve a single ATT&CK or ATLAS technique by ID."""
         technique_id_upper = technique_id.upper()
 
         # Try the knowledge base first
@@ -305,6 +313,7 @@ class AgentTools:
         )
 
     def search_knowledge(self, query: str, *, top_k: int = 5) -> ToolResponse:
+        """Search heuristics and technique knowledge for a free-text query."""
         terms = {token.lower() for token in query.split() if token.strip()}
         corpus: list[dict[str, Any]] = []
 

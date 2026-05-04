@@ -41,7 +41,7 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     if result.stdout:
         print(result.stdout)
     if result.stderr:
-        print(result.stderr)
+        print(result.stderr, file=sys.stderr)
     return result.returncode
 
 
@@ -50,7 +50,7 @@ def _cmd_load_graph(args: argparse.Namespace) -> int:
     if result.stdout:
         print(result.stdout)
     if result.stderr:
-        print(result.stderr)
+        print(result.stderr, file=sys.stderr)
     return result.returncode
 
 
@@ -63,7 +63,7 @@ def _cmd_generate_threats(args: argparse.Namespace) -> int:
     if result.stdout:
         print(result.stdout)
     if result.stderr:
-        print(result.stderr)
+        print(result.stderr, file=sys.stderr)
     return result.returncode
 
 
@@ -75,7 +75,7 @@ def _cmd_score_risks(args: argparse.Namespace) -> int:
     if result.stdout:
         print(result.stdout)
     if result.stderr:
-        print(result.stderr)
+        print(result.stderr, file=sys.stderr)
     return result.returncode
 
 
@@ -124,7 +124,7 @@ def _cmd_sync(args: argparse.Namespace) -> int:
     if result.stdout:
         print(result.stdout)
     if result.stderr:
-        print(result.stderr)
+        print(result.stderr, file=sys.stderr)
     return result.returncode
 
 
@@ -132,10 +132,10 @@ def _cmd_ui(args: argparse.Namespace) -> int:
     try:
         import streamlit.web.cli as stcli
     except ImportError:
-        print("Streamlit is not installed. Install with: pip install -e '.[ui]'")
+        print("Streamlit is not installed. Install with: pip install -e '.[ui]'", file=sys.stderr)
         return 1
 
-    app_path = str(Path(__file__).resolve().parent.parent / "ui" / "app.py")
+    app_path = str(Path(__file__).resolve().parent.parent / "ui" / "streamlit_app.py")
     sys.argv = ["streamlit", "run", app_path, "--server.headless=true"]
     stcli.main()
     return 0
@@ -148,7 +148,7 @@ def _cmd_suggest_mappings(args: argparse.Namespace) -> int:
     try:
         from knowledge.embedder import SentenceTransformerEmbedder
     except ImportError:
-        print("sentence-transformers is required. Install with: pip install -e '.[suggest]'")
+        print("sentence-transformers is required. Install with: pip install -e '.[suggest]'", file=sys.stderr)
         return 1
 
     embedder = SentenceTransformerEmbedder()
@@ -160,7 +160,7 @@ def _cmd_suggest_mappings(args: argparse.Namespace) -> int:
             (h for h in heuristics if h.rule_id == args.rule_id), None,
         )
         if not heuristic:
-            print(f"Unknown rule_id: {args.rule_id}")
+            print(f"Unknown rule_id: {args.rule_id}", file=sys.stderr)
             return 1
         query_text = f"{heuristic.name}. {heuristic.description}"
         target_frameworks = heuristic.frameworks
@@ -175,7 +175,7 @@ def _cmd_suggest_mappings(args: argparse.Namespace) -> int:
     try:
         config = Neo4jConfig.from_env()
     except ValueError:
-        print("Neo4j credentials required. Set NEO4J_PASSWORD env var.")
+        print("Neo4j credentials required. Set NEO4J_PASSWORD env var.", file=sys.stderr)
         return 1
 
     client = Neo4jClient(config)

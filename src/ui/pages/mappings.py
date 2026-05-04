@@ -4,8 +4,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from project_paths import ProjectPaths
-from ui.data_access import (
+from ui.mapping_data import (
     curated_mapping_rows,
     heuristic_rows,
     load_mapping_config,
@@ -13,9 +12,6 @@ from ui.data_access import (
     save_mapping_config,
     suggested_mapping_rows,
 )
-
-ROOT = ProjectPaths.default().root
-
 
 def _unique_rule_ids(rows: list[dict]) -> list[str]:
     """Extract sorted unique rule_ids from mapping rows."""
@@ -228,7 +224,9 @@ def render(base_dir: Path) -> None:
 
 def main() -> None:
     st.set_page_config(page_title="Threat Forge AI - Mappings", page_icon="TF", layout="wide")
-    render(ROOT)
+    from project_paths import ProjectPaths
+
+    render(ProjectPaths.default().root)
 
 
 if __name__ == "__main__":

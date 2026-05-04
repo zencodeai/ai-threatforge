@@ -4,6 +4,7 @@ import importlib
 from pathlib import Path
 
 from app.analysis_service import AnalysisService
+from app import ServiceError
 from app.knowledge_service import KnowledgeService
 from analysis_manifest import AnalysisManifestStore
 from knowledge.index import get_index, set_index
@@ -51,8 +52,9 @@ def test_knowledge_service_status_uses_injected_paths(monkeypatch, tmp_path: Pat
 
     captured: dict[str, Path | str] = {}
 
-    def fake_status(*, db_path):
+    def fake_status(*, db_path, suggestions_path=None):
         captured["db_path"] = db_path
+        captured["suggestions_path"] = suggestions_path
         return {"status": "synced", "db_path": str(db_path)}
 
     monkeypatch.setattr(sync_module, "sync_status", fake_status)
@@ -61,6 +63,7 @@ def test_knowledge_service_status_uses_injected_paths(monkeypatch, tmp_path: Pat
 
     assert status["status"] == "synced"
     assert captured["db_path"] == paths.knowledge_db
+    assert captured["suggestions_path"] == paths.mapping_suggestions
 
 
 def test_knowledge_service_sync_invalidates_provider_and_legacy_index(monkeypatch, tmp_path: Path) -> None:
@@ -143,3 +146,34 @@ def test_analysis_service_creates_and_updates_manifest(monkeypatch, tmp_path: Pa
     assert manifest.model_id == "demo"
     assert manifest.threat_report_path == "models/outputs/threats/demo_threats.json"
     assert manifest.risk_report_path == "models/outputs/risks/demo_risks.json"
+
+
+def test_analysis_service_returns_structured_error(monkeypatch, tmp_path: Path) -> None:
+    paths = ProjectPaths.from_root(tmp_path)
+    service = AnalysisService(paths=paths, session_store=SessionStore(paths))
+
+    monkeypatch.setattr(service, "resolve_model_path", lambda _model=None: (_ for _ in ()).throw(FileNotFoundError("missing model")))
+
+    result = service.validate_model()
+
+    assert result.ok is False
+    assert isinstance(result.error, ServiceError)
+    assert result.error.code == "MODEL_RESOLUTION_FAILED"
+    assert result.error.step == "validate_model"
+    assert "missing model" in result.stderr
+
+
+def test_knowledge_service_returns_structured_error(monkeypatch, tmp_path: Path) -> None:
+    paths = ProjectPaths.from_root(tmp_path)
+    service = KnowledgeService(paths=paths)
+
+    import importlib
+
+    sync_module = importlib.import_module("knowledge.sync")
+    monkeypatch.setattr(sync_module, "sync", lambda **kwargs: (_ for _ in ()).throw(RuntimeError("sync boom")))
+
+    result = service.sync()
+
+    assert result.ok is False
+    assert result.error is not None
+    assert result.error.code == "KNOWLEDGE_SYNC_FAILED"

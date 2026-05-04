@@ -1,185 +1,28 @@
 from __future__ import annotations
+"""Read and write helpers for mapping-focused UI screens."""
 
 import tomllib
 from pathlib import Path
 
 from app import KnowledgeService
-from artifact_locator import ArtifactLocator
 from project_paths import ProjectPaths
-from models.schema.canonical_model import CanonicalModel, load_canonical_model
-from models.schema.risk_model import RiskReport
-from models.schema.threat_model import ThreatRecord, ThreatReport
-from session_store import SessionStore
-from report_repository import FileReportRepository, ReportRepository
 from toml_utils import toml_array, toml_scalar, toml_string
 
-_DEFAULT_PATHS = ProjectPaths.default()
-ROOT = _DEFAULT_PATHS.root
-_DEFAULT_SESSION_STORE = SessionStore(_DEFAULT_PATHS)
-_DEFAULT_REPO = FileReportRepository(ROOT, session_store=_DEFAULT_SESSION_STORE)
+
+def _default_paths() -> ProjectPaths:
+    return ProjectPaths.default()
 
 
-def list_example_models(base_dir: Path = ROOT) -> list[Path]:
-    examples_dir = base_dir / "examples"
-    if not examples_dir.exists():
-        return []
-    return sorted(examples_dir.glob("*.toml"))
-
-
-def load_model(model_path: str | Path) -> CanonicalModel:
-    return load_canonical_model(model_path)
-
-
-def load_active_session(
-    *,
-    paths: ProjectPaths | None = None,
-) -> dict[str, str | None]:
-    store = SessionStore(paths or _DEFAULT_PATHS)
-    state = store.load()
-    return {
-        "session_id": state.session_id,
-        "model_path": state.model_path,
-        "model_id": state.model_id,
-        "manifest_path": state.manifest_path,
-        "threat_report_path": state.threat_report_path,
-        "risk_report_path": state.risk_report_path,
-        "last_updated": state.last_updated,
-    }
-
-
-def build_model_overview(model: CanonicalModel) -> dict[str, object]:
-    return {
-        "model_id": model.meta.model_id,
-        "schema_version": model.meta.schema_version,
-        "system": model.system.name,
-        "criticality": model.system.criticality,
-        "industry": model.system.industry,
-        "counts": {
-            "domains": len(model.security_domains),
-            "modules": len(model.modules),
-            "objects": len(model.objects),
-            "datastores": len(model.datastores),
-            "workflows": len(model.workflows),
-            "trust_boundaries": len(model.trust_boundaries),
-            "dependencies": len(model.dependencies),
-        },
-    }
-
-
-def latest_artifact(base_dir: Path, folder: str, suffix: str) -> Path | None:
-    return ArtifactLocator(base_dir).latest(folder, suffix)
-
-
-def load_threat_report(
-    path: str | Path | None = None,
-    *,
-    base_dir: Path = ROOT,
-    repo: ReportRepository | None = None,
-) -> tuple[ThreatReport | None, Path | None]:
-    r = repo or (
-        FileReportRepository(
-            base_dir,
-            session_store=SessionStore(ProjectPaths.from_root(base_dir)),
-        )
-        if base_dir != ROOT else _DEFAULT_REPO
-    )
-    return r.load_threat_report(path)
-
-
-def load_risk_report(
-    path: str | Path | None = None,
-    *,
-    base_dir: Path = ROOT,
-    repo: ReportRepository | None = None,
-) -> tuple[RiskReport | None, Path | None]:
-    r = repo or (
-        FileReportRepository(
-            base_dir,
-            session_store=SessionStore(ProjectPaths.from_root(base_dir)),
-        )
-        if base_dir != ROOT else _DEFAULT_REPO
-    )
-    return r.load_risk_report(path)
-
-
-def threat_rows(report: ThreatReport, limit: int | None = None) -> list[dict[str, object]]:
-    rows = [
-        {
-            "threat_id": threat.threat_id,
-            "rule_id": threat.rule_id,
-            "title": threat.title,
-            "target_id": threat.target_id,
-            "target_type": threat.target_type,
-            "severity_hint": threat.severity_hint,
-            "frameworks": ", ".join(sorted({m.framework for m in threat.framework_mappings})),
-            "techniques": ", ".join(sorted({m.technique_id for m in threat.framework_mappings})),
-            "mitigations": len(threat.suggested_mitigations),
-            "related": len(threat.related_techniques),
-        }
-        for threat in report.threats
-    ]
-    if limit is None:
-        return rows
-    return rows[: max(0, limit)]
-
-
-def mitigation_rows(threat: ThreatRecord) -> list[dict[str, str]]:
-    """Extract suggested mitigations from a ThreatRecord as flat dicts."""
-    return [
-        {
-            "mitigation_id": m.mitigation_id,
-            "name": m.name,
-            "technique_id": m.technique_id,
-            "technique_name": m.technique_name,
-            "rationale": m.rationale,
-        }
-        for m in threat.suggested_mitigations
-    ]
-
-
-def related_technique_rows(threat: ThreatRecord) -> list[dict[str, object]]:
-    """Extract related techniques from a ThreatRecord as flat dicts."""
-    return [
-        {
-            "technique_id": r.technique_id,
-            "technique_name": r.technique_name,
-            "framework": r.framework,
-            "relationship": r.relationship,
-            "shared_mitigations": r.shared_mitigations,
-        }
-        for r in threat.related_techniques
-    ]
-
-
-def risk_rows(report: RiskReport, limit: int | None = None) -> list[dict[str, object]]:
-    rows = [
-        {
-            "risk_id": risk.risk_id,
-            "threat_id": risk.threat_id,
-            "rule_id": risk.rule_id,
-            "title": risk.title,
-            "target_id": risk.target_id,
-            "priority": risk.priority,
-            "risk_score": risk.risk_score,
-            "top_driver": risk.drivers[0].factor if risk.drivers else "n/a",
-        }
-        for risk in report.risks
-    ]
-    if limit is None:
-        return rows
-    return rows[: max(0, limit)]
-
-
-# ── Mapping / Sync helpers ───────────────────────────────────────
+def _resolve_paths(paths: ProjectPaths | None) -> ProjectPaths:
+    return paths or _default_paths()
 
 
 def load_sync_status(
     *,
     paths: ProjectPaths | None = None,
 ) -> dict[str, str]:
-    """Return knowledge-base sync status as a flat dict for the sidebar."""
-    p = paths or _DEFAULT_PATHS
-    return KnowledgeService(paths=p).status()
+    """Return current knowledge-sync status for the mappings page."""
+    return KnowledgeService(paths=_resolve_paths(paths)).status()
 
 
 def curated_mapping_rows(
@@ -187,8 +30,8 @@ def curated_mapping_rows(
     *,
     rules_path: Path | None = None,
 ) -> list[dict[str, str]]:
-    """Load curated mappings from ``mapping_rules.toml`` as flat dicts."""
-    rules_path = rules_path or _DEFAULT_PATHS.mapping_rules
+    """Load curated mappings as simple rows for table rendering."""
+    rules_path = rules_path or _default_paths().mapping_rules
     if not rules_path.exists():
         return []
     with open(rules_path, "rb") as f:
@@ -212,9 +55,8 @@ def suggested_mapping_rows(
     *,
     suggestions_path: Path | None = None,
 ) -> list[dict[str, object]]:
-    """Load suggested mappings from ``mapping_suggestions.toml`` as flat dicts."""
-    if suggestions_path is None:
-        suggestions_path = _DEFAULT_PATHS.mapping_suggestions
+    """Load suggested mappings as simple rows for table rendering."""
+    suggestions_path = suggestions_path or _default_paths().mapping_suggestions
     if not suggestions_path.exists():
         return []
     with open(suggestions_path, "rb") as f:
@@ -236,7 +78,7 @@ def suggested_mapping_rows(
 
 
 def heuristic_rows() -> list[dict[str, str]]:
-    """Return discovered heuristics as flat dicts for display."""
+    """Return discovered heuristics in a compact UI-friendly form."""
     from analysis.heuristics import discovered_heuristics
 
     rows: list[dict[str, str]] = []
@@ -256,8 +98,8 @@ def load_mapping_config(
     *,
     config_path: Path | None = None,
 ) -> dict[str, object]:
-    """Load ``mapping_config.toml`` as a dict."""
-    config_path = config_path or _DEFAULT_PATHS.mapping_config
+    """Load mapping configuration with defaults for missing config files."""
+    config_path = config_path or _default_paths().mapping_config
     if not config_path.exists():
         return {
             "expansion": {"enabled": False},
@@ -273,8 +115,8 @@ def save_mapping_config(
     *,
     config_path: Path | None = None,
 ) -> None:
-    """Write ``mapping_config.toml`` from a config dict."""
-    config_path = config_path or _DEFAULT_PATHS.mapping_config
+    """Persist mapping configuration edited through the UI."""
+    config_path = config_path or _default_paths().mapping_config
     expansion = config.get("expansion", {})
     suggestions = config.get("suggestions", {})
     graphrag = config.get("graphrag", {})
@@ -325,14 +167,11 @@ def promote_suggestion(
     rules_path: Path | None = None,
     suggestions_path: Path | None = None,
 ) -> bool:
-    """Move a suggested mapping to the curated rules file.
+    """Promote one suggested mapping into the curated rules file."""
+    defaults = _default_paths()
+    rules_path = rules_path or defaults.mapping_rules
+    suggestions_path = suggestions_path or defaults.mapping_suggestions
 
-    Returns True on success, False if the suggestion was not found.
-    """
-    rules_path = rules_path or _DEFAULT_PATHS.mapping_rules
-    suggestions_path = suggestions_path or _DEFAULT_PATHS.mapping_suggestions
-
-    # ── Find and remove from suggestions ─────────────────────────
     if not suggestions_path.exists():
         return False
     with open(suggestions_path, "rb") as f:
@@ -348,7 +187,6 @@ def promote_suggestion(
     if target is None:
         return False
 
-    # Rewrite suggestions file without the promoted entry
     header_lines = [
         "# Auto-generated by: threatforge sync --map-heuristics",
         "# Modified by promote action",
@@ -368,7 +206,6 @@ def promote_suggestion(
         suggestion_lines.append("")
     suggestions_path.write_text("\n".join(suggestion_lines), encoding="utf-8")
 
-    # ── Append to curated rules ──────────────────────────────────
     block = "\n".join([
         "",
         "[[mappings]]",
@@ -382,3 +219,14 @@ def promote_suggestion(
     with open(rules_path, "a", encoding="utf-8") as f:
         f.write(block)
     return True
+
+
+__all__ = [
+    "curated_mapping_rows",
+    "heuristic_rows",
+    "load_mapping_config",
+    "load_sync_status",
+    "promote_suggestion",
+    "save_mapping_config",
+    "suggested_mapping_rows",
+]

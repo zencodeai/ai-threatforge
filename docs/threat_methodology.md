@@ -1,137 +1,134 @@
-# Threat Methodology v0.2
+# Threat Methodology
 
-This document defines the deterministic threat heuristic catalog.
+This document describes how the threat engine works today.
 
-## Objectives
-- define reproducible graph-driven threat heuristics
-- map each heuristic to clear output fields
-- provide ATT&CK/ATLAS alignment hooks
-- support GraphRAG-enriched threat records with suggested mitigations and related techniques
+## Purpose
 
-## Heuristic summary
+The threat engine turns a validated architecture model into structured threat records. It does this by applying deterministic heuristics to graph-backed views of the model.
 
-The engine runs **44 heuristics** (TH-001 through TH-044) across four expansion phases:
+Each output threat has:
 
-| Phase | Rules | Focus |
-|---|---|---|
-| Phase 0 (original) | TH-001 – TH-006 | Core structural patterns |
-| Phase 1 (STRIDE) | TH-007 – TH-014 | STRIDE-per-element enumeration |
-| Phase 2 (CAPEC) | TH-015 – TH-024 | CAPEC Meta/Standard gap fill |
-| Phase 3 (Enrichment) | TH-025 – TH-034 | Control-absence detection (auth, encryption, validation) |
-| Phase 4 (NIST 800-53) | TH-035 – TH-044 | Control-gap detection (NIST control families) |
+- a stable `rule_id`
+- a target entity
+- a severity hint
+- rationale text
+- ATT&CK / ATLAS technique mappings
+- optional enrichment data
 
-See [design_heuristics.md](design_heuristics.md) for full expansion details, CAPEC mappings, and schema enrichment properties.
+## Threat Generation Flow
 
-## Phase 0 rule catalog
+1. Load the validated model into Neo4j.
+2. Resolve the graph views required by each heuristic.
+3. Materialize matching threats.
+4. Map each rule to ATT&CK / ATLAS techniques.
+5. Optionally enrich threats with mitigations and related techniques.
+6. Write the final threat report.
 
-### TH-001: Internet exposed module handling sensitive workflow data
-- Intent: detect initial access and data exposure candidates.
-- Pattern:
-  - internet-exposed module participates in a workflow
-  - workflow involves confidential, secret, or regulated object
-- Target: `module`
-- Severity hint: `high`
-- Frameworks: `ATTACK`
-- Output field mapping:
-  - `target_id <- module.id`
-  - `target_type <- module`
-  - `affected_workflows <- workflow.id[]`
-  - `affected_objects <- object.id[]`
-  - `rationale <- internet exposure + sensitive data handling`
+## Heuristic Model
 
-### TH-002: Low-trust to high-value object dependency path
-- Intent: detect attack paths from low-trust origins to high-value assets.
-- Pattern:
-  - source module in low-trust domain
-  - dependency path reaches datastore containing confidential/secret/regulated object
-- Target: `object`
-- Severity hint: `critical`
-- Frameworks: `ATTACK`
-- Output field mapping:
-  - `target_id <- object.id`
-  - `target_type <- object`
-  - `exposure_path <- path modules/datastores`
-  - `affected_modules <- pivot module ids`
-  - `rationale <- low-trust reachability to high-value data`
+Threat rules live under `src/analysis/heuristics/`.
 
-### TH-003: High-privilege module externally reachable
-- Intent: detect privilege misuse and high-impact lateral movement candidates.
-- Pattern:
-  - module privilege level >= service
-  - module is internet-exposed or reachable via external actor workflow path
-- Target: `module`
-- Severity hint: `high`
-- Frameworks: `ATTACK`
-- Output field mapping:
-  - `target_id <- module.id`
-  - `privilege_level <- privilege.level`
-  - `external_reachability <- internet|workflow`
-  - `rationale <- privilege + exposure`
+Two formats are supported:
 
-### TH-004: AI-relevant module dependency and model service exposure
-- Intent: identify AI/ML attack surfaces (poisoning/evasion/exfiltration candidates).
-- Pattern:
-  - module depends on AI-relevant module
-  - or workflow/data path includes AI-relevant datastore/object
-- Target: `module`
-- Severity hint: `high`
-- Frameworks: `ATLAS`, `ATTACK`
-- Output field mapping:
-  - `target_id <- ai module.id`
-  - `ai_surface <- model or feature path`
-  - `affected_workflows <- workflow.id[]`
-  - `rationale <- AI dependency with manipulable inputs/outputs`
+- TOML rule files in `src/analysis/heuristics/rules/`
+- Python rule modules in `src/analysis/heuristics/`
 
-### TH-005: Regulated object concentration in critical workflows
-- Intent: prioritize workflows that combine regulatory impact and high system criticality.
-- Pattern:
-  - system criticality is high/critical
-  - workflow has multiple regulated objects and privileged modules
-- Target: `workflow`
-- Severity hint: `high`
-- Frameworks: `ATTACK`
-- Output field mapping:
-  - `target_id <- workflow.id`
-  - `system_criticality <- system.criticality`
-  - `affected_objects <- regulated object ids`
-  - `affected_modules <- privileged module ids`
-  - `rationale <- regulated data in critical workflow`
+Heuristics are auto-discovered. Each one produces threats for a specific graph pattern or control gap.
 
-### TH-006: Trust boundary crossing with privileged dependency
-- Intent: detect risky domain transitions to privileged or sensitive components.
-- Pattern:
-  - dependency crosses defined trust boundary from one domain to another
-  - destination is privileged module or sensitive datastore path
-- Target: `module`
-- Severity hint: `medium`
-- Frameworks: `ATTACK`
-- Output field mapping:
-  - `target_id <- destination component id`
-  - `trust_boundary <- trust boundary.id`
-  - `dependency_relationship <- DEPENDS_ON.relationship`
-  - `rationale <- trust boundary crossing into privileged/sensitive zone`
+## Rule Set
 
-## Output contract guidance
-Threat objects generated from these heuristics should include at minimum:
+The current engine runs 44 heuristics:
+
+| Range | Focus |
+|---|---|
+| `TH-001` to `TH-006` | Core exposure, trust, privilege, AI, and regulated-data patterns |
+| `TH-007` to `TH-014` | STRIDE-style expansions |
+| `TH-015` to `TH-024` | CAPEC-oriented expansions |
+| `TH-025` to `TH-034` | Schema and control-absence checks |
+| `TH-035` to `TH-044` | NIST 800-53 style control-gap checks |
+
+## Snapshot Resolution
+
+Threat generation does not build one eager global snapshot anymore.
+
+Instead:
+
+- each materializer declares the graph views it needs
+- `ThreatSnapshotResolver` loads those views lazily
+- results are cached for the current run
+
+This keeps threat generation explicit and scalable as the heuristic set grows.
+
+## Technique Mapping
+
+Technique mapping is split across:
+
+- `src/analysis/mapping_catalog.py`
+- `src/analysis/mapping_loader.py`
+- `src/analysis/mapping_engine.py`
+- `src/analysis/mapping_types.py`
+
+The mapping pipeline can include:
+
+1. curated mappings
+2. optional suggested mappings
+3. optional tactic-based expansion
+4. optional context filtering
+
+Curated mappings are the primary source of truth.
+
+## Suggested Mappings
+
+Suggested mappings are generated from the graph-backed knowledge pipeline.
+
+Relevant code:
+- `src/analysis/graphrag_scorer.py`
+- `src/analysis/mapping_writer.py`
+
+They are:
+
+- generated offline
+- written to `data/threat_intel/mapping_suggestions.toml`
+- reviewable before promotion
+- optionally included during analysis through mapping config
+
+## Threat Enrichment
+
+When enabled, enrichment adds:
+
+- suggested mitigations
+- related techniques
+
+Relevant code:
+- `src/analysis/threat_enricher.py`
+
+Enrichment uses the Neo4j knowledge graph. It does not change threat selection; it adds supporting context to the threat records already produced.
+
+## Output Contract
+
+Threat reports are written to `models/outputs/threats/`.
+
+Each threat record includes:
+
 - `threat_id`
 - `rule_id`
 - `title`
 - `target_id`
 - `target_type`
 - `severity_hint`
-- `framework_mappings`
 - `rationale`
+- `framework_mappings`
 - `evidence`
-- `suggested_mitigations` (populated by GraphRAG enrichment, default `[]`)
-- `related_techniques` (populated by GraphRAG enrichment, default `[]`)
+- `suggested_mitigations`
+- `related_techniques`
 
-## Implementation notes
-- Each heuristic can be defined in one of two formats, both auto-discovered at import time:
-  - **TOML** (`src/analysis/heuristics/rules/th_*.toml`) — a config-driven format with `[heuristic]` and `[materializer]` sections. The `GenericMaterializer` class interprets the materializer config at runtime, supporting primary-key iteration, filtering, cross-reference collection, and per-row joins. This is the preferred format for new heuristics that follow standard patterns.
-  - **Python** (`src/analysis/heuristics/th_*.py`) — a standalone module containing both the `ThreatHeuristic` dataclass definition (`HEURISTIC`) and a `ThreatMaterializer` class. Use this format for heuristics requiring complex logic that cannot be expressed declaratively.
-  - Python modules take precedence when both formats define the same `rule_id`. Discovery uses `pkgutil.iter_modules` for Python and `pathlib.glob` for TOML.
-- Technique mapping is exposed through the facade `src/analysis/technique_mapping.py`, which delegates to `mapping_engine.py` (curated + tactic-expansion + context-filtering pipeline), `mapping_loader.py` (TOML I/O and name resolution), and `mapping_types.py` (data model). Each `rule_id` is bound to ATT&CK/ATLAS technique IDs and names.
-- **Graph-backed technique suggestion** is implemented in `src/analysis/graphrag_scorer.py`. It blends vector similarity (45%) with tactic overlap (15%), framework match (10%), mitigation gap (20%), and sub-technique bonus (10%). The mitigation-gap signal compares technique mitigations against the target module's `control_functions`. `threatforge suggest-mappings` always uses this scorer.
-- **Runtime threat enrichment** (`src/analysis/threat_enricher.py`) traverses the MITRE knowledge graph after materialization to add `suggested_mitigations` and `related_techniques` to each `ThreatRecord`. Enabled via `--enrich` flag or `THREATFORGE_GRAPHRAG=1` env var.
-- **Sync-time batch mapping** (`src/analysis/mapping_writer.py`) extends `threatforge sync --map-heuristics` to score all discovered heuristics in one pass and write `data/threat_intel/mapping_suggestions.toml`. The output file uses `mapping_type = "suggested"` and is regenerated on each run. Configurable via `--map-threshold` (default 0.40) and `--map-top-k` (default 10). Curated mappings are excluded from suggestions and never overwritten. The `[suggestions]` section in `mapping_config.toml` controls whether suggested mappings are included at analysis time (`include_suggested = false` by default).
-- Structured threat generation is orchestrated by `src/analysis/threat_outputs.py`, which iterates auto-discovered materializers via `materializer_registry.py` and persists outputs to `models/outputs/threats/`.
+## Practical Use
+
+Use this layer when you want to:
+
+- see which architecture patterns triggered findings
+- understand why a threat applies
+- trace a threat to ATT&CK / ATLAS techniques
+- inspect optional mitigation and related-technique context
+
+Use [docs/risk_methodology.md](risk_methodology.md) for the next step in the pipeline.

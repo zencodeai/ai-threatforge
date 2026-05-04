@@ -5,6 +5,8 @@ import sqlite3
 from pathlib import Path
 from typing import Sequence
 
+from project_paths import ProjectPaths
+
 from .models import Mitigation, Tactic, Technique
 
 _SCHEMA_SQL = """\
@@ -60,14 +62,13 @@ CREATE INDEX IF NOT EXISTS idx_techniques_domain ON techniques(domain);
 CREATE INDEX IF NOT EXISTS idx_techniques_parent ON techniques(parent_id);
 """
 
-from project_paths import ProjectPaths
-
-DEFAULT_DB_PATH = ProjectPaths.default().knowledge_db
+def default_db_path() -> Path:
+    return ProjectPaths.default().knowledge_db
 
 
 class TechniqueStore:
-    def __init__(self, db_path: Path | str = DEFAULT_DB_PATH):
-        self._db_path = Path(db_path)
+    def __init__(self, db_path: Path | str | None = None):
+        self._db_path = Path(db_path) if db_path is not None else default_db_path()
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(self._db_path))
         self._conn.execute("PRAGMA journal_mode=WAL")

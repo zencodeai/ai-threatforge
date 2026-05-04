@@ -1,5 +1,11 @@
-from .threat_generation import ThreatHeuristic, THREAT_HEURISTICS
-from .technique_mapping import TechniqueMapping, map_rule_to_techniques
+from .threat_heuristics import ThreatHeuristic, THREAT_HEURISTICS
+from .mapping_catalog import (
+    get_all_technique_mappings,
+    get_rule_technique_mappings,
+    validate_mapping_coverage,
+)
+from .mapping_engine import map_rule_to_techniques
+from .mapping_types import TechniqueMapping
 from .threat_outputs import (
     ThreatReport,
     build_threat_report_from_snapshot,
@@ -19,7 +25,10 @@ __all__ = [
     "ThreatHeuristic",
     "THREAT_HEURISTICS",
     "TechniqueMapping",
+    "get_rule_technique_mappings",
+    "get_all_technique_mappings",
     "map_rule_to_techniques",
+    "validate_mapping_coverage",
     "ThreatReport",
     "build_threat_report_from_snapshot",
     "generate_threat_report",

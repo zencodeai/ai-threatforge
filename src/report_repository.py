@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Protocol
 
 from analysis_manifest import AnalysisManifestStore
 from models.schema.risk_model import RiskReport
 from models.schema.threat_model import ThreatReport
+from pydantic import ValidationError
 from project_paths import ProjectPaths
 from session_store import SessionStore
 
@@ -56,9 +58,16 @@ class FileReportRepository:
         )
         if threat_path is None or not threat_path.exists():
             return None, None
-        report = ThreatReport.model_validate_json(
-            threat_path.read_text(encoding="utf-8"),
-        )
+        try:
+            report = ThreatReport.model_validate_json(
+                threat_path.read_text(encoding="utf-8"),
+            )
+        except (OSError, ValidationError, ValueError) as exc:
+            logging.getLogger(__name__).exception(
+                "Failed to load threat artifact",
+                extra={"artifact_path": str(threat_path), "artifact_kind": "threat"},
+            )
+            raise ArtifactLoadError(f"Failed to load threat artifact at {threat_path}: {exc}") from exc
         return report, threat_path
 
     def load_risk_report(
@@ -73,9 +82,16 @@ class FileReportRepository:
         )
         if risk_path is None or not risk_path.exists():
             return None, None
-        report = RiskReport.model_validate_json(
-            risk_path.read_text(encoding="utf-8"),
-        )
+        try:
+            report = RiskReport.model_validate_json(
+                risk_path.read_text(encoding="utf-8"),
+            )
+        except (OSError, ValidationError, ValueError) as exc:
+            logging.getLogger(__name__).exception(
+                "Failed to load risk artifact",
+                extra={"artifact_path": str(risk_path), "artifact_kind": "risk"},
+            )
+            raise ArtifactLoadError(f"Failed to load risk artifact at {risk_path}: {exc}") from exc
         return report, risk_path
 
     def save_threat_report(
@@ -95,3 +111,7 @@ class FileReportRepository:
         out.write_text(report.model_dump_json(indent=2), encoding="utf-8")
         self._session_store.set_risk_report(out)
         return out
+
+
+class ArtifactLoadError(RuntimeError):
+    """Raised when a persisted threat/risk artifact cannot be read."""

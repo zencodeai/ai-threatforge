@@ -4,7 +4,7 @@ from pathlib import Path
 
 from project_paths import ProjectPaths
 from session_store import SessionStore
-from ui import app as ui_app
+from ui import streamlit_app as ui_app
 
 
 class _FakeSidebar:

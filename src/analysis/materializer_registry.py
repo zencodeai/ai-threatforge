@@ -5,7 +5,7 @@ from typing import Any, Protocol
 from models.schema.canonical_model import CanonicalModel
 from models.schema.threat_model import ThreatRecord
 
-from .threat_generation import ThreatHeuristic
+from .threat_heuristics import ThreatHeuristic
 
 
 class ThreatMaterializer(Protocol):
@@ -48,12 +48,15 @@ def auto_discover() -> None:
 
 
 def get_materializer(rule_id: str) -> ThreatMaterializer:
+    auto_discover()
     return _REGISTRY[rule_id]
 
 
 def registered_rule_ids() -> frozenset[str]:
+    auto_discover()
     return frozenset(_REGISTRY)
 
 
 def all_materializers() -> list[ThreatMaterializer]:
+    auto_discover()
     return list(_REGISTRY.values())
