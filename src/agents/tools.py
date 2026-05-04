@@ -9,10 +9,11 @@ from analysis.threat_generation import THREAT_HEURISTICS
 from artifact_locator import ArtifactLocator
 from graph.graph_queries import GraphQueries
 from graph.neo4j_client import Neo4jClient, Neo4jConfig
-from knowledge.index import TechniqueIndex
+from knowledge.provider import KnowledgeProvider
 from models.schema.risk_model import RiskReport
 from models.schema.threat_model import ThreatReport
 from report_repository import FileReportRepository, ReportRepository
+from project_paths import ProjectPaths
 
 from .state import ToolError, ToolResponse
 from .tool_protocol import Tool, ToolRegistry
@@ -86,11 +87,15 @@ class AgentTools:
         base_dir: str | Path = ".",
         graph_runner: GraphRunner | None = None,
         report_repo: ReportRepository | None = None,
+        knowledge_provider: KnowledgeProvider | None = None,
     ):
         self.base_dir = Path(base_dir)
         self._graph_runner = graph_runner
         self._locator = ArtifactLocator(self.base_dir)
         self._repo = report_repo or FileReportRepository(self.base_dir)
+        self._knowledge_provider = knowledge_provider or KnowledgeProvider.from_paths(
+            ProjectPaths.from_root(self.base_dir.resolve()),
+        )
 
     def _ok(
         self,
@@ -247,8 +252,8 @@ class AgentTools:
 
         # Try the knowledge base first
         try:
-            index = TechniqueIndex.get()
-            if index.is_populated():
+            index = self._knowledge_provider.maybe_get_index()
+            if index is not None:
                 tech = index.lookup(technique_id)
                 if tech:
                     matches = [{
@@ -315,8 +320,8 @@ class AgentTools:
 
         # Use knowledge base if available, otherwise fall back to curated mappings
         try:
-            index = TechniqueIndex.get()
-            if index.is_populated():
+            index = self._knowledge_provider.maybe_get_index()
+            if index is not None:
                 kb_results = index.search(query, top_k=top_k)
                 for tech in kb_results:
                     corpus.append(

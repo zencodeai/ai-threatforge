@@ -5,6 +5,7 @@ from pathlib import Path
 
 from app.analysis_service import AnalysisService
 from app.knowledge_service import KnowledgeService
+from knowledge.index import get_index, set_index
 from project_paths import ProjectPaths
 from session_store import SessionStore
 
@@ -59,3 +60,32 @@ def test_knowledge_service_status_uses_injected_paths(monkeypatch, tmp_path: Pat
 
     assert status["status"] == "synced"
     assert captured["db_path"] == paths.knowledge_db
+
+
+def test_knowledge_service_sync_invalidates_provider_and_legacy_index(monkeypatch, tmp_path: Path) -> None:
+    paths = ProjectPaths.from_root(tmp_path)
+    service = KnowledgeService(paths=paths)
+
+    class SentinelIndex:
+        pass
+
+    set_index(SentinelIndex())
+
+    invalidated = {"provider": False}
+
+    monkeypatch.setattr(service.knowledge_provider, "invalidate", lambda: invalidated.__setitem__("provider", True))
+
+    import importlib
+
+    sync_module = importlib.import_module("knowledge.sync")
+
+    def fake_sync(**kwargs):
+        return {"tactics": 1, "techniques": 1, "mitigations": 1}
+
+    monkeypatch.setattr(sync_module, "sync", fake_sync)
+
+    result = service.sync()
+
+    assert result.ok is True
+    assert invalidated["provider"] is True
+    assert get_index() is None

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from agents.tools import AgentTools
+from knowledge.models import Mitigation, Technique
 from models.schema.risk_model import RiskFactors, RiskRecord, RiskReport
 from models.schema.threat_model import TechniqueReference, ThreatRecord, ThreatReport
 
@@ -153,3 +154,59 @@ def test_search_knowledge_returns_ranked_items() -> None:
     if response.evidence:
         scores = [item["match_score"] for item in response.evidence]
         assert scores == sorted(scores, reverse=True)
+
+
+def test_lookup_and_search_use_injected_knowledge_provider() -> None:
+    class FakeIndex:
+        def is_populated(self) -> bool:
+            return True
+
+        def lookup(self, technique_id: str):
+            return Technique(
+                "T1190",
+                "Exploit Public-Facing Application",
+                "ATTACK",
+                "enterprise",
+                "Exploit description.",
+                False,
+                None,
+                ("Linux",),
+                ("initial-access",),
+                False,
+                "https://attack.mitre.org/techniques/T1190",
+            )
+
+        def mitigations_for(self, _technique_id: str):
+            return [Mitigation("M1050", "Exploit Protection", "ATTACK", "enterprise", "desc", ("T1190",))]
+
+        def search(self, _query: str, *, top_k: int = 10):
+            return [
+                Technique(
+                    "T1190",
+                    "Exploit Public-Facing Application",
+                    "ATTACK",
+                    "enterprise",
+                    "Exploit description.",
+                    False,
+                    None,
+                    ("Linux",),
+                    ("initial-access",),
+                    False,
+                    "https://attack.mitre.org/techniques/T1190",
+                )
+            ][:top_k]
+
+    class FakeProvider:
+        def maybe_get_index(self):
+            return FakeIndex()
+
+    tools = AgentTools(knowledge_provider=FakeProvider())
+
+    lookup = tools.lookup_technique("T1190")
+    search = tools.search_knowledge("exploit public facing", top_k=1)
+
+    assert lookup.ok is True
+    assert lookup.source == "knowledge-base"
+    assert lookup.evidence[0]["technique_id"] == "T1190"
+    assert search.ok is True
+    assert any(item["source"] == "knowledge-base" for item in search.evidence)

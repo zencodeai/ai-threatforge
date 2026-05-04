@@ -10,8 +10,10 @@ from typing import Any
 
 from graph.graph_queries import GraphQueries
 from graph.neo4j_client import Neo4jClient, Neo4jConfig
+from knowledge.provider import KnowledgeProvider
 from models.schema.canonical_model import CanonicalModel, load_canonical_model
 from models.schema.threat_model import TechniqueReference, ThreatRecord, ThreatReport
+from project_paths import ProjectPaths
 
 from .materializer_registry import all_materializers, auto_discover
 from .snapshot_resolver import ThreatSnapshotResolver
@@ -37,7 +39,8 @@ def _sorted_unique(values: list[str]) -> list[str]:
     return sorted({value for value in values if value})
 
 
-def _technique_refs(rule_id: str) -> list[TechniqueReference]:
+def _technique_refs(rule_id: str, *, knowledge_provider: KnowledgeProvider | None = None) -> list[TechniqueReference]:
+    index = knowledge_provider.maybe_get_index() if knowledge_provider is not None else None
     return [
         TechniqueReference(**{
             "framework": mapping.framework,
@@ -47,7 +50,7 @@ def _technique_refs(rule_id: str) -> list[TechniqueReference]:
             "mapping_rationale": mapping.mapping_rationale,
             "mapping_type": mapping.mapping_type,
         })
-        for mapping in map_rule_to_techniques(rule_id)
+        for mapping in map_rule_to_techniques(rule_id, index=index)
     ]
 
 
@@ -60,6 +63,7 @@ def build_threat_report_from_snapshot(
     snapshot: Mapping[str, list[dict[str, Any]]],
     *,
     neo4j_client: Neo4jClient | None = None,
+    knowledge_provider: KnowledgeProvider | None = None,
 ) -> ThreatReport:
     now = _timestamp()
     threats: list[ThreatRecord] = []
@@ -75,7 +79,10 @@ def build_threat_report_from_snapshot(
                 model,
                 snapshot,
                 now=now,
-                technique_refs_fn=_technique_refs,
+                technique_refs_fn=lambda rule_id: _technique_refs(
+                    rule_id,
+                    knowledge_provider=knowledge_provider,
+                ),
                 stable_id_fn=_stable_threat_id,
                 sorted_unique_fn=_sorted_unique,
             )
@@ -118,8 +125,10 @@ def generate_threat_report(
     output_path: str | Path | None = None,
     *,
     enrich: bool = False,
+    knowledge_provider: KnowledgeProvider | None = None,
 ) -> tuple[ThreatReport, Path]:
     model = load_canonical_model(model_path)
+    provider = knowledge_provider or KnowledgeProvider.from_paths(ProjectPaths.default())
 
     config = Neo4jConfig.from_env()
     with Neo4jClient(config) as client:
@@ -128,7 +137,10 @@ def generate_threat_report(
         snapshot = ThreatSnapshotResolver(queries)
 
         report = build_threat_report_from_snapshot(
-            model, snapshot, neo4j_client=client if enrich else None,
+            model,
+            snapshot,
+            neo4j_client=client if enrich else None,
+            knowledge_provider=provider,
         )
 
     if output_path is None:

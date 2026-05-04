@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from knowledge.provider import KnowledgeProvider
 from project_paths import ProjectPaths
 from session_store import SessionStore
 
@@ -28,6 +29,7 @@ class AnalysisService:
     ) -> None:
         self.paths = paths or ProjectPaths.default()
         self.session_store = session_store or SessionStore(self.paths)
+        self.knowledge_provider = KnowledgeProvider.from_paths(self.paths)
 
     def validate_model(self, model_path: str | Path | None = None) -> ServiceResult:
         from models.schema.canonical_model import validate_canonical_model
@@ -83,6 +85,7 @@ class AnalysisService:
                 resolved,
                 output_path,
                 enrich=enrich,
+                knowledge_provider=self.knowledge_provider,
             )
         except Exception as exc:
             return self._error(str(exc))

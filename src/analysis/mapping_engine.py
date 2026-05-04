@@ -3,6 +3,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from knowledge.provider import KnowledgeProvider
+from project_paths import ProjectPaths
+
 from .mapping_loader import (
     load_curated_mappings,
     load_expansion_config,
@@ -106,13 +109,13 @@ def _filter_by_context(
 
 
 def _get_default_index() -> TechniqueIndex | None:
-    """Try to get the global TechniqueIndex singleton; return None if unavailable."""
+    """Resolve the default knowledge index without using the legacy singleton path."""
     try:
-        from knowledge.index import TechniqueIndex
-        return TechniqueIndex.get()
+        provider = KnowledgeProvider.from_paths(ProjectPaths.default())
+        return provider.maybe_get_index()
     except Exception:
         logging.getLogger(__name__).debug(
-            "TechniqueIndex singleton unavailable", exc_info=True,
+            "Knowledge index unavailable", exc_info=True,
         )
         return None
 

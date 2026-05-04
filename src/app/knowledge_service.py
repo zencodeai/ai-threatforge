@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from knowledge.index import TechniqueIndex
+from knowledge.provider import KnowledgeProvider
 from project_paths import ProjectPaths
 
 from .analysis_service import ServiceResult
@@ -12,6 +14,7 @@ class KnowledgeService:
 
     def __init__(self, *, paths: ProjectPaths | None = None) -> None:
         self.paths = paths or ProjectPaths.default()
+        self.knowledge_provider = KnowledgeProvider.from_paths(self.paths)
 
     def sync(
         self,
@@ -43,6 +46,10 @@ class KnowledgeService:
             )
         except Exception as exc:
             return ServiceResult(ok=False, stdout="", stderr=f"FAILED: {exc}", returncode=1)
+
+        # Invalidate both the injected provider cache and the legacy context cache.
+        self.knowledge_provider.invalidate()
+        TechniqueIndex.reset()
 
         lines = [
             "SYNC COMPLETE",

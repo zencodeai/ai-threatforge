@@ -123,6 +123,8 @@ Primary tests:
 
 ### Phase 4: Remove default-global repository and index access
 
+Status: completed on `architecture-review`.
+
 Problem:
 - `ProjectPaths.default()` and `TechniqueIndex.get()` still behave like hidden globals.
 - Long-lived sessions can serve stale technique data after sync.
@@ -136,10 +138,11 @@ Deliverables:
 - sync invalidates active technique index cleanly
 - long-lived UI and agent processes reload knowledge safely
 
-Order:
-1. Introduce constructor injection where globals are used most heavily.
-2. Replace hidden globals in knowledge and UI layers.
-3. Remove compatibility singleton access last.
+Delivered in this phase:
+- Added an explicit `KnowledgeProvider` for refreshable knowledge-store and index access.
+- Migrated long-lived runtime paths in the agent and analysis layers off `TechniqueIndex.get()`.
+- Invalidated both provider-backed and legacy context-backed technique index state on sync.
+- Added regression tests for provider refresh, injected knowledge behavior, and sync invalidation.
 
 Primary tests:
 - knowledge sync tests

@@ -32,7 +32,7 @@ def test_generate_threats_uses_session_model_when_flag_is_omitted(
 
     called: dict[str, Path] = {}
 
-    def fake_generate(model_path: str | Path, output_path=None, *, enrich: bool = False):
+    def fake_generate(model_path: str | Path, output_path=None, *, enrich: bool = False, knowledge_provider=None):
         called["model_path"] = Path(model_path)
         report = ThreatReport(model_id="fintech-ai-demo", generated_at="2026-01-01T00:00:00+00:00", threat_count=0, threats=[])
         return report, Path("models/outputs/threats/fintech-ai-demo_threats.json")
