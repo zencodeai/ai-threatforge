@@ -5,16 +5,18 @@ title: ""
 graph LR
     A["TOML Model\nArchitecture as code"]
     B["Validate\nPydantic schema"]
-    C["Graph\nNeo4j traversal"]
-    D["Threats\nATT&CK / ATLAS"]
-    E["Risks\nWeighted scoring"]
-    F["Analyst UI\nQuery + Observe"]
+    C["Graph\nNeo4j + MITRE KG"]
+    D["Threats\n44 heuristics"]
+    E["Enrich\nGraphRAG mitigations"]
+    F["Risks\nWeighted scoring"]
+    G["Analyst UI\nQuery + Observe"]
 
-    A --> B --> C --> D --> E --> F
+    A --> B --> C --> D --> E --> F --> G
 
     style A fill:#dbeafe,stroke:#3b82f6,color:#1e40af
     style B fill:#e0e7ff,stroke:#6366f1,color:#3730a3
     style C fill:#e0e7ff,stroke:#6366f1,color:#3730a3
     style D fill:#fef3c7,stroke:#f59e0b,color:#92400e
-    style E fill:#fee2e2,stroke:#ef4444,color:#991b1b
-    style F fill:#d1fae5,stroke:#10b981,color:#065f46
+    style E fill:#fef3c7,stroke:#f59e0b,color:#92400e
+    style F fill:#fee2e2,stroke:#ef4444,color:#991b1b
+    style G fill:#d1fae5,stroke:#10b981,color:#065f46

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -111,6 +112,8 @@ def _heuristic(rule_id: str):
 def build_threat_report_from_snapshot(
     model: CanonicalModel,
     snapshot: dict[str, list[dict[str, Any]]],
+    *,
+    neo4j_client: Neo4jClient | None = None,
 ) -> ThreatReport:
     now = _timestamp()
     threats: list[ThreatRecord] = []
@@ -133,6 +136,19 @@ def build_threat_report_from_snapshot(
     unique = {threat.threat_id: threat for threat in threats}
     ordered = sorted(unique.values(), key=lambda t: (t.rule_id, t.target_id, t.threat_id))
 
+    # GraphRAG enrichment (opt-in when Neo4j client is provided)
+    if neo4j_client is not None:
+        try:
+            from .threat_enricher import ThreatEnricher
+
+            enricher = ThreatEnricher(neo4j_client)
+            enricher.enrich(ordered, model)
+        except Exception:
+            logging.getLogger(__name__).warning(
+                "GraphRAG enrichment failed; returning unenriched report.",
+                exc_info=True,
+            )
+
     return ThreatReport(
         model_id=model.meta.model_id,
         generated_at=now,
@@ -151,6 +167,8 @@ def write_threat_report(report: ThreatReport, output_path: str | Path) -> Path:
 def generate_threat_report(
     model_path: str | Path,
     output_path: str | Path | None = None,
+    *,
+    enrich: bool = False,
 ) -> tuple[ThreatReport, Path]:
     model = load_canonical_model(model_path)
 
@@ -160,7 +178,9 @@ def generate_threat_report(
         queries = GraphQueries(client)
         snapshot = _build_snapshot(queries)
 
-    report = build_threat_report_from_snapshot(model, snapshot)
+        report = build_threat_report_from_snapshot(
+            model, snapshot, neo4j_client=client if enrich else None,
+        )
 
     if output_path is None:
         output_path = (

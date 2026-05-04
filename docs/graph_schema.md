@@ -1,14 +1,16 @@
-# Graph Schema v0.1
+# Graph Schema v0.2
 
-This document defines how the canonical TOML model is represented in Neo4j.
+This document defines how the canonical TOML model and MITRE knowledge base are represented in Neo4j.
 
 ## Goals
 - preserve model semantics from `CanonicalModel`
+- represent MITRE ATT&CK/ATLAS knowledge (techniques, tactics, mitigations) as a connected sub-graph
 - support idempotent loading with `MERGE`
-- enable threat and risk traversal queries
+- enable threat, risk, and mitigation-gap traversal queries
+- support vector-indexed semantic search over chunked technique/mitigation descriptions
 - keep initial schema explicit and easy to evolve
 
-## Node labels
+## Architecture node labels
 - `System`
   - keys: `id`
   - properties: `name`, `description`, `criticality`, `industry`
@@ -20,7 +22,7 @@ This document defines how the canonical TOML model is represented in Neo4j.
   - properties: `level`, `description`
 - `Module`
   - keys: `id`
-  - properties: `name`, `module_type`, `internet_exposed`, `processes_sensitive_data`, `ai_relevant`, `description`
+  - properties: `name`, `module_type`, `internet_exposed`, `processes_sensitive_data`, `ai_relevant`, `description`, `authentication_required`, `input_validation`, `rate_limiting`, `logging_enabled`, `api_endpoints`, `deployment_context`, `control_functions`
 - `Object`
   - keys: `id`
   - properties: `name`, `object_type`, `classification`, `regulated`, `ai_relevant`
@@ -37,7 +39,24 @@ This document defines how the canonical TOML model is represented in Neo4j.
   - keys: `id`
   - properties: `name`
 
-## Relationships
+## MITRE knowledge node labels
+- `Technique`
+  - keys: `technique_id`
+  - properties: `name`, `framework`, `domain`, `description`, `is_subtechnique`, `platforms`, `deprecated`, `url`
+- `Tactic`
+  - keys: `tactic_id`
+  - properties: `name`, `framework`, `domain`, `shortname`, `sort_order`
+- `Mitigation`
+  - keys: `mitigation_id`
+  - properties: `name`, `framework`, `domain`, `description`
+- `TextChunk`
+  - keys: `chunk_id`
+  - properties: `entity_id`, `entity_type`, `text`, `embedding` (384-dim vector, indexed), `chunk_index`, `token_count`
+- `HeuristicRule`
+  - keys: `rule_id`
+  - properties: `name`, `severity_hint`, `target_type`
+
+## Architecture relationships
 - `(Module)-[:IN_DOMAIN]->(SecurityDomain)`
 - `(DataStore)-[:IN_DOMAIN]->(SecurityDomain)`
 - `(Module)-[:HAS_PRIVILEGE]->(PrivilegeLevel)`
@@ -47,7 +66,7 @@ This document defines how the canonical TOML model is represented in Neo4j.
 - `(TrustBoundary)-[:CROSSES_FROM]->(SecurityDomain)`
 - `(TrustBoundary)-[:CROSSES_TO]->(SecurityDomain)`
 - `(ExternalActor)-[:PARTICIPATES_IN]->(Workflow)` (derived from workflow step text)
-- `(Module)-[:DEPENDS_ON {relationship}]->(Module|DataStore)`
+- `(Module)-[:DEPENDS_ON {relationship, encryption_in_transit, data_flow_direction}]->(Module|DataStore)`
 - `(System)-[:HAS_DOMAIN]->(SecurityDomain)`
 - `(System)-[:HAS_MODULE]->(Module)`
 - `(System)-[:HAS_DATASTORE]->(DataStore)`
@@ -55,23 +74,44 @@ This document defines how the canonical TOML model is represented in Neo4j.
 - `(System)-[:HAS_WORKFLOW]->(Workflow)`
 - `(System)-[:HAS_BOUNDARY]->(TrustBoundary)`
 
+## MITRE knowledge relationships
+- `(Technique)-[:IN_TACTIC]->(Tactic)`
+- `(Technique)-[:IS_SUBTECHNIQUE_OF]->(Technique)`
+- `(Technique)-[:MITIGATED_BY]->(Mitigation)`
+- `(TextChunk)-[:CHUNK_OF]->(Technique|Mitigation)`
+
+## Bridge relationships (architecture ↔ MITRE)
+- `(HeuristicRule)-[:MAPS_TO {tactic, rationale, mapping_type}]->(Technique)`
+- `(Module)-[:IMPLEMENTS_CONTROL {control_id}]->(Mitigation)`
+
 ## Constraints
-Each primary node label has a unique `id` constraint.
+Each primary node label has a unique constraint on its key field (`id`, `technique_id`, `tactic_id`, `mitigation_id`, `chunk_id`, `rule_id`).
 
 ## Indexes
-Initial indexes prioritize common filtering fields:
+Architecture indexes:
 - `Module.internet_exposed`
 - `Module.ai_relevant`
 - `Object.classification`
 - `Object.regulated`
 - `Workflow.id`
 
+MITRE indexes:
+- `Technique.framework`
+- `Technique.deprecated`
+- `Tactic.framework`
+
+Vector index:
+- `textchunk_embedding` — Neo4j native vector index on `TextChunk.embedding` (384 dimensions, cosine similarity)
+
 ## Idempotency
 Loader behavior is idempotent by design:
-- nodes are loaded with `MERGE` on `id`
+- nodes are loaded with `MERGE` on key fields
 - relationships are loaded with deterministic pattern `MERGE`
 - constraints and indexes use `IF NOT EXISTS`
 
 ## Notes
 - Workflow actor participation is inferred by parsing `workflow.steps` where step source matches `external_actors[].id`.
-- Dependency edge preserves the source TOML `relationship` field as relationship property.
+- Dependency edge preserves the source TOML `relationship` field as relationship property, plus optional `encryption_in_transit` and `data_flow_direction` properties.
+- MITRE knowledge nodes are populated by `KnowledgeGraphLoader` during `threatforge sync --neo4j`.
+- TextChunk embeddings are generated by `ChunkingPipeline` using `all-MiniLM-L6-v2` (384 dimensions) at sync time.
+- Bridge relationships (`MAPS_TO`, `IMPLEMENTS_CONTROL`) are derived from curated TOML mappings and module `control_functions` respectively.

@@ -14,6 +14,26 @@ class TechniqueReference(BaseModel):
     mapping_type: Literal["curated", "tactic-expansion"] = "curated"
 
 
+class SuggestedMitigation(BaseModel):
+    """A mitigation suggested by GraphRAG enrichment."""
+
+    mitigation_id: str
+    name: str
+    technique_id: str
+    technique_name: str
+    rationale: str
+
+
+class RelatedTechnique(BaseModel):
+    """A technique discovered via graph traversal (shared mitigations / sub-technique)."""
+
+    technique_id: str
+    technique_name: str
+    framework: str
+    relationship: Literal["shared-mitigation", "subtechnique", "parent"]
+    shared_mitigations: int = 0
+
+
 class ThreatRecord(BaseModel):
     threat_id: str
     model_id: str
@@ -28,6 +48,8 @@ class ThreatRecord(BaseModel):
     evidence: dict[str, Any] = Field(default_factory=dict)
     affected_workflows: list[str] = Field(default_factory=list)
     affected_objects: list[str] = Field(default_factory=list)
+    suggested_mitigations: list[SuggestedMitigation] = Field(default_factory=list)
+    related_techniques: list[RelatedTechnique] = Field(default_factory=list)
     created_at: str
 
 

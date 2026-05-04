@@ -529,8 +529,8 @@ The `_technique_refs(rule_id)` function continues to call `map_rule_to_technique
 threatforge sync                          # fetch latest ATT&CK + ATLAS
 threatforge sync --attack-version 18.1    # pin specific version
 threatforge sync --offline ./stix-files/  # use local files
-threatforge sync --embed                  # also generate technique embeddings
-threatforge sync --map-heuristics         # embed + batch-generate suggested mappings
+threatforge sync --embed                  # also generate Neo4j TextChunk embeddings
+threatforge sync --map-heuristics         # refresh chunks + batch-generate suggested mappings
 threatforge sync --map-threshold 0.35     # custom composite score threshold
 threatforge sync --map-top-k 15           # max suggestions per heuristic
 threatforge sync --status                 # show current versions + suggestion count
@@ -696,13 +696,9 @@ Considered storing techniques as additional nodes in the existing Neo4j graph. R
 - Technique data is reference data, not model-specific — doesn't belong with per-model graph state
 - SQLite is zero-config and included in stdlib
 
-### Vector embeddings for technique matching
+### Historical note: vector-only matching
 
-Considered using sentence embeddings (e.g., sentence-transformers) for semantic technique matching. Rejected because:
-- Introduces non-determinism (embedding model versions, floating-point variance)
-- Adds heavyweight dependency (~500 MB model)
-- Not needed for structured catalog matching — tactic-based expansion is deterministic and sufficient
-- Can be revisited as a Layer 4 in the agent's `search_knowledge()` tool without affecting core threat generation
+This document predates the current GraphRAG implementation. The earlier rejection of embedding-based matching no longer reflects the runtime: technique suggestion now uses deterministic GraphRAG retrieval over Neo4j `TextChunk` nodes, while curated mappings remain authoritative for threat generation.
 
 ### Python `stix2` library for parsing
 

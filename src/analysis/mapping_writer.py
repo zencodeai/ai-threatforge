@@ -8,9 +8,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from project_paths import ProjectPaths
+from toml_utils import toml_scalar, toml_string
 
 from .mapping_loader import load_curated_mappings
-from .suggestion_scorer import ScoredSuggestion, score_suggestions
+from .graphrag_scorer import GraphRAGSuggestion
 
 if TYPE_CHECKING:
     from knowledge.store import TechniqueStore
@@ -46,60 +47,60 @@ def generate_mapping_suggestions(
     dict mapping rule_id → count of accepted suggestions.  Also includes a
     ``"_total"`` key with the grand total.
     """
+    from graph.neo4j_client import Neo4jClient, Neo4jConfig
     from knowledge.embedder import SentenceTransformerEmbedder
     from knowledge.index import TechniqueIndex
-    from knowledge.vector_index import VectorIndex
 
     from .heuristics import discovered_heuristics
+    from .mapping_engine import graphrag_score_suggestions
 
     output_path = output_path or _DEFAULT_OUTPUT
 
     embedder = SentenceTransformerEmbedder()
-    vec_idx = VectorIndex(store, embedder.model_name)
-
-    if not vec_idx.is_populated:
-        _log.warning("No embeddings in store — skipping suggestion generation.")
-        return {"_total": 0}
-
     tech_idx = TechniqueIndex(store)
     heuristics = discovered_heuristics()
+    config = Neo4jConfig.from_env()
+    client = Neo4jClient(config)
+    client.verify_connectivity()
 
-    all_suggestions: list[tuple[str, ScoredSuggestion]] = []
-    counts: dict[str, int] = {}
+    try:
+        all_suggestions: list[tuple[str, GraphRAGSuggestion]] = []
+        counts: dict[str, int] = {}
 
-    for h in heuristics:
-        curated = load_curated_mappings(h.rule_id, index=tech_idx)
-        query_text = f"{h.name}. {h.description}"
+        for h in heuristics:
+            curated = load_curated_mappings(h.rule_id, index=tech_idx)
+            query_text = f"{h.name}. {h.description}"
+            accepted = graphrag_score_suggestions(
+                rule_id=h.rule_id,
+                heuristic_text=query_text,
+                neo4j_client=client,
+                embedder=embedder,
+                curated_mappings=curated,
+                target_frameworks=h.frameworks,
+                top_k=top_k,
+                threshold=threshold,
+            )
+            counts[h.rule_id] = len(accepted)
+            for s in accepted:
+                all_suggestions.append((h.rule_id, s))
 
-        suggestions = score_suggestions(
-            rule_id=h.rule_id,
-            heuristic_text=query_text,
-            embedder=embedder,
-            vector_index=vec_idx,
-            technique_index=tech_idx,
-            curated_mappings=curated,
-            target_frameworks=h.frameworks,
-            top_k=top_k,
+        counts["_total"] = sum(v for k, v in counts.items() if k != "_total")
+
+        _write_suggestions_toml(all_suggestions, output_path, threshold=threshold, top_k=top_k)
+        _log.info(
+            "Wrote %d suggestions for %d heuristics to %s",
+            counts["_total"],
+            len(heuristics),
+            output_path,
         )
-        accepted = [s for s in suggestions if s.composite_score >= threshold]
-        counts[h.rule_id] = len(accepted)
-        for s in accepted:
-            all_suggestions.append((h.rule_id, s))
-
-    counts["_total"] = sum(v for k, v in counts.items() if k != "_total")
-
-    _write_suggestions_toml(all_suggestions, output_path, threshold=threshold, top_k=top_k)
-    _log.info(
-        "Wrote %d suggestions for %d heuristics to %s",
-        counts["_total"],
-        len(heuristics),
-        output_path,
-    )
-    return counts
+        return counts
+    finally:
+        if client is not None:
+            client.close()
 
 
 def _write_suggestions_toml(
-    suggestions: list[tuple[str, ScoredSuggestion]],
+    suggestions: list[tuple[str, GraphRAGSuggestion]],
     path: Path,
     *,
     threshold: float,
@@ -116,13 +117,13 @@ def _write_suggestions_toml(
 
     for rule_id, s in suggestions:
         lines.append("[[mappings]]")
-        lines.append(f'rule_id = "{rule_id}"')
-        lines.append(f'technique_id = "{s.technique_id}"')
-        lines.append(f'framework = "{s.framework}"')
-        lines.append(f'tactic = "{s.tactic}"')
-        lines.append(f'rationale = "{s.explanation}"')
+        lines.append(f"rule_id = {toml_string(rule_id)}")
+        lines.append(f"technique_id = {toml_string(s.technique_id)}")
+        lines.append(f"framework = {toml_string(s.framework)}")
+        lines.append(f"tactic = {toml_string(s.tactic)}")
+        lines.append(f"rationale = {toml_string(s.explanation)}")
         lines.append(f'mapping_type = "suggested"')
-        lines.append(f"composite_score = {s.composite_score:.4f}")
+        lines.append(f"composite_score = {toml_scalar(round(s.composite_score, 4))}")
         lines.append("")
 
     path.parent.mkdir(parents=True, exist_ok=True)

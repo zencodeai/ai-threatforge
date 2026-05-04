@@ -6,7 +6,7 @@ flowchart TB
         LOCAL["Local files<br/>(--offline)"]
         FETCH["Fetcher<br/>httpx / file reader"]
         NORM["Normalizer / ETL<br/>STIX → Technique<br/>YAML → Technique"]
-        DB[("SQLite KB<br/>threatforge_kb.db<br/>techniques, tactics,<br/>mitigations")]
+        DB[("SQLite Catalog<br/>threatforge_kb.db<br/>techniques · tactics · mitigations")]
 
         GH --> FETCH
         LOCAL --> FETCH
@@ -14,26 +14,49 @@ flowchart TB
         NORM --> DB
     end
 
+    subgraph NEO4J["Neo4j Knowledge Graph (--neo4j)"]
+        direction TB
+        KGL["KnowledgeGraphLoader<br/>Technique · Tactic · Mitigation<br/>+ relationships"]
+        CHUNK["ChunkingPipeline<br/>256-token chunks<br/>64-token overlap"]
+        EMBED["TextEmbedder<br/>all-MiniLM-L6-v2<br/>384 dimensions"]
+        TCNODES["TextChunk Nodes<br/>embedding property"]
+        VIDX["Vector Index<br/>Native Neo4j cosine"]
+        BRIDGE["Bridge Relationships<br/>MAPS_TO · IMPLEMENTS_CONTROL"]
+
+        NORM --> KGL
+        KGL --> CHUNK
+        CHUNK --> EMBED --> TCNODES --> VIDX
+        KGL --> BRIDGE
+    end
+
     subgraph RUNTIME["Runtime (per process)"]
         direction TB
-        IDX["TechniqueIndex<br/>in-memory singleton<br/>by_id, by_tactic,<br/>by_platform"]
+        IDX["TechniqueIndex<br/>in-memory singleton"]
         CURATED["Curated Rules<br/>mapping_rules.toml"]
         ENGINE["Mapping Engine<br/>L1: curated<br/>L2: tactic expansion<br/>L3: context filter"]
+        GVS["GraphVectorSearch<br/>Neo4j vector queries"]
+        GSCORER["GraphRAGScorer<br/>vector + tactic + framework<br/>+ mitigation gap + subtechnique"]
 
         DB --> IDX
         IDX --> ENGINE
         CURATED --> ENGINE
+        VIDX --> GVS --> GSCORER
+        ENGINE --> GSCORER
     end
 
     subgraph CONSUMERS["Consumers"]
         direction TB
-        THREATS["Threat Engine<br/>technique_mapping.py<br/>threat_outputs.py"]
+        THREATS["Threat Engine<br/>44 heuristics"]
+        ENRICHER["ThreatEnricher<br/>suggested mitigations<br/>related techniques"]
         TOOLS["Agent Tools<br/>lookup_technique<br/>search_knowledge"]
-        UI["Streamlit UI<br/>threat details +<br/>mitigation view"]
+        UI["Streamlit UI<br/>threats · mappings<br/>sync + enrichment controls"]
     end
 
     ENGINE --> THREATS
+    GSCORER --> THREATS
+    KGL -.-> ENRICHER
+    THREATS --> ENRICHER
     ENGINE --> TOOLS
     IDX --> TOOLS
-    THREATS --> UI
+    ENRICHER --> UI
     TOOLS --> UI

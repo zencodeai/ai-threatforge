@@ -7,8 +7,9 @@ from artifact_locator import ArtifactLocator
 from project_paths import ProjectPaths
 from models.schema.canonical_model import CanonicalModel, load_canonical_model
 from models.schema.risk_model import RiskReport
-from models.schema.threat_model import ThreatReport
+from models.schema.threat_model import ThreatRecord, ThreatReport
 from report_repository import FileReportRepository, ReportRepository
+from toml_utils import toml_array, toml_scalar, toml_string
 
 _DEFAULT_PATHS = ProjectPaths.default()
 ROOT = _DEFAULT_PATHS.root
@@ -80,12 +81,42 @@ def threat_rows(report: ThreatReport, limit: int | None = None) -> list[dict[str
             "severity_hint": threat.severity_hint,
             "frameworks": ", ".join(sorted({m.framework for m in threat.framework_mappings})),
             "techniques": ", ".join(sorted({m.technique_id for m in threat.framework_mappings})),
+            "mitigations": len(threat.suggested_mitigations),
+            "related": len(threat.related_techniques),
         }
         for threat in report.threats
     ]
     if limit is None:
         return rows
     return rows[: max(0, limit)]
+
+
+def mitigation_rows(threat: ThreatRecord) -> list[dict[str, str]]:
+    """Extract suggested mitigations from a ThreatRecord as flat dicts."""
+    return [
+        {
+            "mitigation_id": m.mitigation_id,
+            "name": m.name,
+            "technique_id": m.technique_id,
+            "technique_name": m.technique_name,
+            "rationale": m.rationale,
+        }
+        for m in threat.suggested_mitigations
+    ]
+
+
+def related_technique_rows(threat: ThreatRecord) -> list[dict[str, object]]:
+    """Extract related techniques from a ThreatRecord as flat dicts."""
+    return [
+        {
+            "technique_id": r.technique_id,
+            "technique_name": r.technique_name,
+            "framework": r.framework,
+            "relationship": r.relationship,
+            "shared_mitigations": r.shared_mitigations,
+        }
+        for r in threat.related_techniques
+    ]
 
 
 def risk_rows(report: RiskReport, limit: int | None = None) -> list[dict[str, object]]:
@@ -201,6 +232,7 @@ def load_mapping_config(
         return {
             "expansion": {"enabled": False},
             "suggestions": {"include_suggested": False},
+            "graphrag": {},
         }
     with open(config_path, "rb") as f:
         return tomllib.load(f)
@@ -215,9 +247,7 @@ def save_mapping_config(
     config_path = config_path or _DEFAULT_PATHS.mapping_config
     expansion = config.get("expansion", {})
     suggestions = config.get("suggestions", {})
-
-    domains_list = expansion.get("domains", ["enterprise"])
-    domains_str = ", ".join(f'"{d}"' for d in domains_list)
+    graphrag = config.get("graphrag", {})
 
     lines = [
         "# Technique mapping expansion configuration.",
@@ -237,14 +267,22 @@ def save_mapping_config(
         "",
         '# ATT&CK domains to include in expansion.',
         '# Options: "enterprise", "mobile", "ics"',
-        f"domains = [{domains_str}]",
+        f"domains = {toml_array(expansion.get('domains', ['enterprise']))}",
         "",
         "[suggestions]",
         "# Include auto-suggested mappings alongside curated ones at analysis time.",
         f"include_suggested = {str(suggestions.get('include_suggested', False)).lower()}",
         "",
         "# Path to the auto-generated suggestions file (relative to project root).",
-        f'suggestions_path = "{suggestions.get("suggestions_path", "data/threat_intel/mapping_suggestions.toml")}"',
+        f"suggestions_path = {toml_string(suggestions.get('suggestions_path', 'data/threat_intel/mapping_suggestions.toml'))}",
+        "",
+        "[graphrag]",
+        "# Weights for the graph-aware suggestion scorer.",
+        f"weight_vector = {toml_scalar(graphrag.get('weight_vector', 0.45))}",
+        f"weight_tactic = {toml_scalar(graphrag.get('weight_tactic', 0.15))}",
+        f"weight_framework = {toml_scalar(graphrag.get('weight_framework', 0.10))}",
+        f"weight_mitigation_gap = {toml_scalar(graphrag.get('weight_mitigation_gap', 0.20))}",
+        f"weight_subtechnique = {toml_scalar(graphrag.get('weight_subtechnique', 0.10))}",
     ]
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -289,14 +327,14 @@ def promote_suggestion(
     suggestion_lines = list(header_lines)
     for entry in remaining:
         suggestion_lines.append("[[mappings]]")
-        suggestion_lines.append(f'rule_id = "{entry["rule_id"]}"')
-        suggestion_lines.append(f'technique_id = "{entry["technique_id"]}"')
-        suggestion_lines.append(f'framework = "{entry["framework"]}"')
-        suggestion_lines.append(f'tactic = "{entry["tactic"]}"')
-        suggestion_lines.append(f'rationale = "{entry.get("rationale", "")}"')
-        suggestion_lines.append(f'mapping_type = "{entry.get("mapping_type", "suggested")}"')
+        suggestion_lines.append(f"rule_id = {toml_string(entry['rule_id'])}")
+        suggestion_lines.append(f"technique_id = {toml_string(entry['technique_id'])}")
+        suggestion_lines.append(f"framework = {toml_string(entry['framework'])}")
+        suggestion_lines.append(f"tactic = {toml_string(entry['tactic'])}")
+        suggestion_lines.append(f"rationale = {toml_string(entry.get('rationale', ''))}")
+        suggestion_lines.append(f"mapping_type = {toml_string(entry.get('mapping_type', 'suggested'))}")
         if "composite_score" in entry:
-            suggestion_lines.append(f"composite_score = {entry['composite_score']:.4f}")
+            suggestion_lines.append(f"composite_score = {toml_scalar(round(entry['composite_score'], 4))}")
         suggestion_lines.append("")
     suggestions_path.write_text("\n".join(suggestion_lines), encoding="utf-8")
 
@@ -304,11 +342,11 @@ def promote_suggestion(
     block = "\n".join([
         "",
         "[[mappings]]",
-        f'rule_id = "{target["rule_id"]}"',
-        f'technique_id = "{target["technique_id"]}"',
-        f'framework = "{target["framework"]}"',
-        f'tactic = "{target["tactic"]}"',
-        f'rationale = "{target.get("rationale", "Promoted from suggested mappings.")}"',
+        f"rule_id = {toml_string(target['rule_id'])}",
+        f"technique_id = {toml_string(target['technique_id'])}",
+        f"framework = {toml_string(target['framework'])}",
+        f"tactic = {toml_string(target['tactic'])}",
+        f"rationale = {toml_string(target.get('rationale', 'Promoted from suggested mappings.'))}",
         "",
     ])
     with open(rules_path, "a", encoding="utf-8") as f:

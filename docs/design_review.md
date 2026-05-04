@@ -2,7 +2,7 @@
 
 > Generated: 2026-04-17
 > Scope: Full codebase SOLID analysis, Python pattern review, phased improvement plan
-> **Status: All issues identified in Sections 1–3 have been resolved.** Implementation details are recorded in Appendices A (Phase 1), B (Phase 2), C (Phase 3), and D (Phase 4).
+> **Status: Historical review.** Several appendix sections describe intermediate implementations that have since been superseded by the graph-only suggestion pipeline. Prefer `architecture.md`, `design_graphrag.md`, and `migration_graphrag.md` for the current runtime.
 
 ---
 

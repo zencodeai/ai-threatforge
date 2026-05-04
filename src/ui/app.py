@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 
@@ -22,9 +23,20 @@ def _resolve_model_path(uploaded_file, selected_example: Path | None) -> Path | 
     return selected_example
 
 
+def _graphrag_available() -> bool:
+    """Check if GraphRAG is enabled via env var."""
+    return os.environ.get("THREATFORGE_GRAPHRAG", "") == "1"
+
+
 def _render_pipeline_controls(model_path: Path | None) -> None:
     st.sidebar.markdown("### Rebuild Analysis")
     clear_graph = st.sidebar.checkbox("Clear graph before load", value=True)
+    enrich = st.sidebar.checkbox(
+        "GraphRAG enrichment",
+        value=False,
+        key="rebuild_enrich",
+        help="Add suggested mitigations and related techniques via Neo4j graph traversal.",
+    )
 
     if st.sidebar.button("Run Rebuild Workflow"):
         if model_path is None:
@@ -32,7 +44,9 @@ def _render_pipeline_controls(model_path: Path | None) -> None:
             return
 
         with st.spinner("Running analysis workflow..."):
-            step_results = rebuild_analysis(model_path, clear_graph=clear_graph)
+            step_results = rebuild_analysis(
+                model_path, clear_graph=clear_graph, enrich=enrich,
+            )
 
         for step_name, result in step_results:
             if result.ok:
@@ -49,6 +63,12 @@ def _render_knowledge_status() -> None:
     st.sidebar.markdown("### Knowledge Base")
     status = load_sync_status()
 
+    graphrag_on = _graphrag_available()
+    if graphrag_on:
+        st.sidebar.caption("GraphRAG: enabled")
+    else:
+        st.sidebar.caption("GraphRAG: off (set THREATFORGE_GRAPHRAG=1)")
+
     if status.get("status") == "not synced":
         st.sidebar.info("Knowledge base not synced yet.")
     else:
@@ -57,7 +77,7 @@ def _render_knowledge_status() -> None:
         col2.metric("ATLAS", status.get("atlas_version", "—"))
         col3, col4 = st.sidebar.columns(2)
         col3.metric("Techniques", status.get("technique_count", "0"))
-        col4.metric("Embeddings", status.get("embedding_count", "0"))
+        col4.metric("Text Chunks", status.get("text_chunk_count", "0"))
         st.sidebar.metric("Suggestions", status.get("suggestion_count", "0"))
         last_sync = status.get("last_sync_utc", "never")
         if len(last_sync) > 16:
@@ -67,7 +87,11 @@ def _render_knowledge_status() -> None:
     with st.sidebar.expander("Sync Options", expanded=False):
         attack_ver = st.text_input("ATT&CK version", value="latest", key="sync_attack_ver")
         atlas_ver = st.text_input("ATLAS version", value="latest", key="sync_atlas_ver")
-        embed = st.checkbox("Generate embeddings", key="sync_embed")
+        embed = st.checkbox(
+            "Embed text chunks in Neo4j",
+            key="sync_embed",
+            help="Runs the chunking pipeline and stores vectorized TextChunk nodes in Neo4j.",
+        )
         map_heuristics = st.checkbox("Map heuristics", key="sync_map_heuristics")
         threshold = st.slider(
             "Threshold", 0.10, 0.90, 0.40, 0.05,

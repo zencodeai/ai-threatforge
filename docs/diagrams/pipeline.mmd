@@ -10,11 +10,13 @@ graph TD
 
     subgraph graph ["Graph"]
         C["Graph Loader\nNeo4j ingestion"]
-        D["Security Graph\nNodes & relationships"]
+        D["Security Graph\n14 node types · 22 rel types"]
+        N["MITRE Knowledge Graph\nTechnique · Tactic · Mitigation"]
     end
 
     subgraph threat ["Threat Analysis"]
-        E["Threat Engine\nHeuristics + ATT&CK/ATLAS"]
+        E["Threat Engine\n44 heuristics · ATT&CK/ATLAS"]
+        EN["GraphRAG Enrichment\nMitigations · Related techniques"]
         F["Threat Report\nStructured JSON output"]
     end
 
@@ -24,14 +26,17 @@ graph TD
     end
 
     subgraph agent ["Agent & UI"]
-        J["Knowledge Layer\nRules + mappings"]
+        J["Knowledge Layer\ncatalog + GraphRAG + curated rules"]
         I["Agent Tools\nGraph · Threats · Risks"]
         K["Query Workflow\nRoute → Execute → Compose"]
-        L["Analyst UI\nStreamlit dashboard"]
+        L["Analyst UI\nStreamlit · 5 screens"]
     end
 
     A --> B --> C --> D
-    D --> E --> F
+    C --> N
+    D --> E --> EN --> F
+    N -.-> EN
+    N -.-> J
     F --> G --> H
 
     D -.-> I
@@ -44,7 +49,9 @@ graph TD
     style B fill:#dbeafe,stroke:#3b82f6,color:#1e40af
     style C fill:#e0e7ff,stroke:#6366f1,color:#3730a3
     style D fill:#e0e7ff,stroke:#6366f1,color:#3730a3
+    style N fill:#e0e7ff,stroke:#6366f1,color:#3730a3
     style E fill:#fef3c7,stroke:#f59e0b,color:#92400e
+    style EN fill:#fef3c7,stroke:#f59e0b,color:#92400e
     style F fill:#fef3c7,stroke:#f59e0b,color:#92400e
     style G fill:#fee2e2,stroke:#ef4444,color:#991b1b
     style H fill:#fee2e2,stroke:#ef4444,color:#991b1b

@@ -8,13 +8,13 @@
 
 ## 1. Motivation
 
-The mapping pipeline (curated rules, tactic expansion, vector suggestions) and the
+The mapping pipeline (curated rules, tactic expansion, GraphRAG suggestions) and the
 knowledge sync subsystem are currently CLI-only.  Analysts must drop to a terminal to:
 
 - Check sync status or trigger a refresh.
 - Browse curated and suggested technique mappings.
 - Adjust mapping config (enable expansion, include suggestions).
-- Promote a vector-suggested mapping to the curated rules file.
+- Promote a suggested mapping to the curated rules file.
 
 Adding these to the Streamlit UI gives analysts a self-service loop: **sync → review
 suggestions → promote → re-run analysis** — without leaving the interface.
@@ -28,7 +28,7 @@ suggestions → promote → re-run analysis** — without leaving the interface.
 | Feature | Description |
 |---------|-------------|
 | **Knowledge Status panel** | Read-only dashboard showing sync metadata (versions, counts, last sync time). Displayed in the sidebar. |
-| **Sync Controls** | Sidebar controls to trigger `sync` with options (embed, map-heuristics, threshold, top-k). |
+| **Sync Controls** | Sidebar controls to trigger `sync` with options (embed chunks, map-heuristics, threshold, top-k). |
 | **Mappings page** | New top-level page with three tabs: Curated, Suggested, Heuristics. |
 | **Curated tab** | Table of all curated mappings from `mapping_rules.toml`, filterable by rule_id. |
 | **Suggested tab** | Table of all suggested mappings from `mapping_suggestions.toml`, filterable by rule_id, sortable by composite_score. Promote action per row. |
@@ -61,7 +61,7 @@ The existing sidebar has: model selector, upload, Rebuild Analysis, page radio.
 │  ### Knowledge Base         │
 │  ATT&CK: v16.1  ATLAS: 4.1 │
 │  Techniques: 830            │
-│  Embeddings:  812           │
+│  Text Chunks: 2074          │
 │  Suggestions: 47            │
 │  Last sync: 2026-04-18 …    │
 │  [Sync Now ▶]               │
@@ -88,14 +88,14 @@ expander with advanced options before executing.
 ▸ Sync Options
   ATT&CK version: [latest     ]
   ATLAS version:  [latest     ]
-  ☐ Generate embeddings
+  ☐ Embed text chunks in Neo4j
   ☐ Map heuristics
   Threshold: [0.40] (slider 0.10–0.90)
   Top-k:     [10  ] (slider 1–30)
   [Run Sync]
 ```
 
-When **Map heuristics** is checked, **Generate embeddings** is forced on (greyed
+When **Map heuristics** is checked, **Embed text chunks in Neo4j** is forced on (greyed
 out + checked), matching CLI behaviour.
 
 ### 3.3 Mappings page — three tabs
@@ -201,7 +201,7 @@ def get_sync_status(*, executor: Executor | None = None) -> ActionResult:
 ```
 
 Sync actions use subprocess (like existing `rebuild_analysis`) to avoid blocking
-the Streamlit event loop with heavy embedding work and to keep the UI process lean.
+the Streamlit event loop with chunking and embedding work and to keep the UI process lean.
 
 ### 4.5 Promote action
 
@@ -265,7 +265,7 @@ using a template approach (preserving the comment header).
     │
     ├─→ actions.sync_knowledge(embed=True, map_heuristics=True, …)
     │       └── subprocess: python -m cli.main sync --embed --map-heuristics …
-    │           └── knowledge.sync.sync() → writes DB + mapping_suggestions.toml
+    │           └── knowledge.sync.sync() → writes catalog metadata + Neo4j chunks + mapping_suggestions.toml
     │
     ├─→ Display ActionResult (success/failure + stdout)
     │
@@ -364,7 +364,7 @@ using a template approach (preserving the comment header).
 
 ## 8. Conventions & Constraints
 
-- **Subprocess for sync.** Sync may take 30+ seconds with embedding. Running it
+- **Subprocess for sync.** Sync may take 30+ seconds with chunking and embedding. Running it
   in-process would block the Streamlit event loop.  Subprocess matches the existing
   `rebuild_analysis` pattern.
 - **In-process for reads.** Loading TOML files and calling `discovered_heuristics()`

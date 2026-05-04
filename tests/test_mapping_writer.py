@@ -7,6 +7,7 @@ from typing import Sequence
 import numpy as np
 import pytest
 
+from analysis.graphrag_scorer import GraphRAGSuggestion
 from knowledge.models import Tactic, Technique
 from knowledge.store import TechniqueStore
 
@@ -66,33 +67,83 @@ def _make_tactics() -> list[Tactic]:
     ]
 
 
-def _build_store(tmp_path, *, embed: bool = True):
-    """Create a populated store with optional embeddings."""
+def _build_store(tmp_path):
+    """Create a populated store without legacy SQLite embeddings."""
     db = tmp_path / "writer_test.db"
     store = TechniqueStore(db)
     techniques = _make_techniques()
     store.replace_all(tactics=_make_tactics(), techniques=techniques, mitigations=[])
-
-    if embed:
-        query = _norm([1.0, 0.0, 0.0, 0.0])
-        tech_vecs = {
-            "T1190": _norm([0.9, 0.1, 0.0, 0.0]),
-            "T1021": _norm([0.3, 0.7, 0.1, 0.0]),
-            "T1485": _norm([0.0, 0.0, 0.1, 0.9]),
-            "AML.T0016": _norm([0.5, 0.5, 0.0, 0.0]),
-        }
-        ids = list(tech_vecs.keys())
-        vecs = np.stack([tech_vecs[tid] for tid in ids])
-        hashes = [f"h_{tid}" for tid in ids]
-        store.upsert_embeddings(
-            entity_ids=ids,
-            entity_type="technique",
-            model_name="fixed-test-model",
-            vectors=vecs,
-            text_hashes=hashes,
-        )
-
     return store
+
+
+def _patch_graphrag(monkeypatch, *, scores: list[float] | None = None) -> None:
+    class FakeNeo4jClient:
+        def __init__(self, _config) -> None:
+            self.closed = False
+
+        def verify_connectivity(self) -> None:
+            return None
+
+        def close(self) -> None:
+            self.closed = True
+
+    base_scores = scores or [0.86, 0.52]
+
+    def fake_graphrag_score_suggestions(
+        rule_id,
+        heuristic_text,
+        *,
+        neo4j_client,
+        embedder,
+        curated_mappings,
+        target_frameworks,
+        top_k,
+        threshold,
+    ):
+        _ = (rule_id, heuristic_text, neo4j_client, embedder, target_frameworks)
+        base = [
+            GraphRAGSuggestion(
+                technique_id="T1190",
+                technique_name="Exploit Public-Facing Application",
+                framework="ATTACK",
+                tactic="initial-access",
+                vector_score=0.91,
+                tactic_bonus=1.0,
+                framework_bonus=1.0,
+                mitigation_gap_score=0.5,
+                subtechnique_bonus=0.0,
+                composite_score=base_scores[0],
+                explanation='GraphRAG score for "T1190"\nLine two',
+                mitigations=["M1050"],
+            ),
+            GraphRAGSuggestion(
+                technique_id="T1021",
+                technique_name="Remote Services",
+                framework="ATTACK",
+                tactic="lateral-movement",
+                vector_score=0.63,
+                tactic_bonus=0.0,
+                framework_bonus=1.0,
+                mitigation_gap_score=0.5,
+                subtechnique_bonus=0.0,
+                composite_score=base_scores[1],
+                explanation="GraphRAG fallback",
+                mitigations=[],
+            ),
+        ]
+        curated_ids = {mapping.technique_id for mapping in curated_mappings}
+        return [
+            item for item in base
+            if item.technique_id not in curated_ids and item.composite_score >= threshold
+        ][:top_k]
+
+    monkeypatch.setattr("graph.neo4j_client.Neo4jConfig.from_env", lambda: object())
+    monkeypatch.setattr("graph.neo4j_client.Neo4jClient", FakeNeo4jClient)
+    monkeypatch.setattr("analysis.mapping_engine.graphrag_score_suggestions", fake_graphrag_score_suggestions)
+    monkeypatch.setattr(
+        "knowledge.embedder.SentenceTransformerEmbedder",
+        lambda: FixedEmbedder(_norm([1.0, 0.0, 0.0, 0.0])),
+    )
 
 
 # ── _write_suggestions_toml ─────────────────────────────────────
@@ -102,11 +153,11 @@ def test_write_suggestions_toml_format(tmp_path):
     """Written TOML round-trips correctly via tomllib."""
     import tomllib
 
-    from analysis.suggestion_scorer import ScoredSuggestion
+    from analysis.graphrag_scorer import GraphRAGSuggestion
     from analysis.mapping_writer import _write_suggestions_toml
 
     suggestions = [
-        ("TH-001", ScoredSuggestion(
+        ("TH-001", GraphRAGSuggestion(
             technique_id="T1190",
             technique_name="Exploit Public-Facing Application",
             framework="ATTACK",
@@ -114,10 +165,12 @@ def test_write_suggestions_toml_format(tmp_path):
             vector_score=0.85,
             tactic_bonus=0.15,
             framework_bonus=0.10,
+            mitigation_gap_score=0.0,
+            subtechnique_bonus=0.0,
             composite_score=0.56,
             explanation="Composite 0.560: vector=0.850, tactic-overlap=initial-access",
         )),
-        ("TH-002", ScoredSuggestion(
+        ("TH-002", GraphRAGSuggestion(
             technique_id="T1021",
             technique_name="Remote Services",
             framework="ATTACK",
@@ -125,6 +178,8 @@ def test_write_suggestions_toml_format(tmp_path):
             vector_score=0.70,
             tactic_bonus=0.0,
             framework_bonus=0.10,
+            mitigation_gap_score=0.0,
+            subtechnique_bonus=0.0,
             composite_score=0.435,
             explanation="Composite 0.435: vector=0.700",
         )),
@@ -173,17 +228,61 @@ def test_write_suggestions_toml_header_contains_params(tmp_path):
     assert "threatforge sync --map-heuristics" in content
 
 
+def test_write_suggestions_toml_escapes_quotes_and_newlines(tmp_path):
+    """Suggestion rationale survives TOML serialization."""
+    import tomllib
+
+    from analysis.graphrag_scorer import GraphRAGSuggestion
+    from analysis.mapping_writer import _write_suggestions_toml
+
+    suggestions = [
+        ("TH-001", GraphRAGSuggestion(
+            technique_id="T1190",
+            technique_name="Exploit",
+            framework="ATTACK",
+            tactic="initial-access",
+            vector_score=0.85,
+            tactic_bonus=0.15,
+            framework_bonus=0.10,
+            mitigation_gap_score=0.0,
+            subtechnique_bonus=0.0,
+            composite_score=0.56,
+            explanation='Quote: "x"\nLine two',
+        )),
+    ]
+
+    path = tmp_path / "escaped.toml"
+    _write_suggestions_toml(suggestions, path, threshold=0.40, top_k=10)
+
+    with open(path, "rb") as f:
+        data = tomllib.load(f)
+
+    assert data["mappings"][0]["rationale"] == 'Quote: "x"\nLine two'
+
+
 # ── generate_mapping_suggestions ─────────────────────────────────
 
 
-def test_generate_suggestions_empty_index(tmp_path, monkeypatch):
-    """Returns _total=0 when no embeddings exist."""
+def test_generate_suggestions_graphrag_empty_results(tmp_path, monkeypatch):
+    """Returns _total=0 when the GraphRAG scorer finds no suggestions."""
     from analysis.mapping_writer import generate_mapping_suggestions
 
-    store = _build_store(tmp_path, embed=False)
+    class FakeNeo4jClient:
+        def __init__(self, _config) -> None:
+            return None
+
+        def verify_connectivity(self) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+    store = _build_store(tmp_path)
     output = tmp_path / "out.toml"
 
-    # Patch embedder import to use our fixed embedder
+    monkeypatch.setattr("graph.neo4j_client.Neo4jConfig.from_env", lambda: object())
+    monkeypatch.setattr("graph.neo4j_client.Neo4jClient", FakeNeo4jClient)
+    monkeypatch.setattr("analysis.mapping_engine.graphrag_score_suggestions", lambda *args, **kwargs: [])
     monkeypatch.setattr(
         "knowledge.embedder.SentenceTransformerEmbedder",
         lambda: FixedEmbedder(_norm([1.0, 0.0, 0.0, 0.0])),
@@ -195,21 +294,42 @@ def test_generate_suggestions_empty_index(tmp_path, monkeypatch):
     assert counts["_total"] == 0
 
 
+def test_generate_suggestions_graphrag_produces_output_without_sqlite_embeddings(tmp_path, monkeypatch):
+    """GraphRAG path can generate suggestions without legacy SQLite embeddings."""
+    import tomllib
+
+    from analysis.graphrag_scorer import GraphRAGSuggestion
+    from analysis.mapping_writer import generate_mapping_suggestions
+
+    store = _build_store(tmp_path)
+    output = tmp_path / "graphrag_suggestions.toml"
+
+    _patch_graphrag(monkeypatch)
+
+    counts = generate_mapping_suggestions(
+        store,
+        threshold=0.40,
+        top_k=5,
+        output_path=output,
+    )
+    store.close()
+
+    assert counts["_total"] > 0
+    with open(output, "rb") as f:
+        data = tomllib.load(f)
+    assert len(data["mappings"]) == counts["_total"]
+    assert {entry["technique_id"] for entry in data["mappings"]}
+
+
 def test_generate_suggestions_produces_output(tmp_path, monkeypatch):
     """Basic end-to-end: suggestions are written for discovered heuristics."""
     import tomllib
 
     from analysis.mapping_writer import generate_mapping_suggestions
 
-    store = _build_store(tmp_path, embed=True)
+    store = _build_store(tmp_path)
     output = tmp_path / "suggestions.toml"
-    embedder = FixedEmbedder(_norm([1.0, 0.0, 0.0, 0.0]))
-
-    # Patch to use our fixed embedder and model name
-    monkeypatch.setattr(
-        "knowledge.embedder.SentenceTransformerEmbedder",
-        lambda: embedder,
-    )
+    _patch_graphrag(monkeypatch)
 
     counts = generate_mapping_suggestions(
         store,
@@ -232,25 +352,30 @@ def test_generate_suggestions_produces_output(tmp_path, monkeypatch):
 
 
 def test_generate_suggestions_respects_threshold(tmp_path, monkeypatch):
-    """High threshold filters out low-scoring suggestions."""
+    """Threshold controls inclusion and only admits suggestions at or above it."""
+    import tomllib
+
     from analysis.mapping_writer import generate_mapping_suggestions
 
-    store = _build_store(tmp_path, embed=True)
+    store = _build_store(tmp_path)
     output = tmp_path / "suggestions.toml"
-    embedder = FixedEmbedder(_norm([1.0, 0.0, 0.0, 0.0]))
+    _patch_graphrag(monkeypatch, scores=[1.0, 0.52])
 
-    monkeypatch.setattr(
-        "knowledge.embedder.SentenceTransformerEmbedder",
-        lambda: embedder,
+    low = generate_mapping_suggestions(
+        store, threshold=0.0, top_k=5, output_path=output,
     )
-
     high = generate_mapping_suggestions(
         store, threshold=0.99, top_k=5, output_path=output,
     )
     store.close()
 
-    # With threshold 0.99 most/all should be filtered out
-    assert high["_total"] == 0 or high["_total"] < 4  # 4 techniques total
+    assert high["_total"] <= low["_total"]
+
+    with open(output, "rb") as f:
+        data = tomllib.load(f)
+
+    scores = [entry["composite_score"] for entry in data.get("mappings", [])]
+    assert all(score >= 0.99 for score in scores)
 
 
 def test_generate_suggestions_excludes_curated(tmp_path, monkeypatch):
@@ -259,14 +384,9 @@ def test_generate_suggestions_excludes_curated(tmp_path, monkeypatch):
 
     from analysis.mapping_writer import generate_mapping_suggestions
 
-    store = _build_store(tmp_path, embed=True)
+    store = _build_store(tmp_path)
     output = tmp_path / "suggestions.toml"
-    embedder = FixedEmbedder(_norm([1.0, 0.0, 0.0, 0.0]))
-
-    monkeypatch.setattr(
-        "knowledge.embedder.SentenceTransformerEmbedder",
-        lambda: embedder,
-    )
+    _patch_graphrag(monkeypatch)
 
     counts = generate_mapping_suggestions(
         store, threshold=0.0, top_k=20, output_path=output,
@@ -304,10 +424,10 @@ def test_load_suggested_mappings_round_trip(tmp_path):
     """Suggestions written by _write_suggestions_toml can be read back."""
     from analysis.mapping_loader import load_suggested_mappings
     from analysis.mapping_writer import _write_suggestions_toml
-    from analysis.suggestion_scorer import ScoredSuggestion
+    from analysis.graphrag_scorer import GraphRAGSuggestion
 
     suggestions = [
-        ("TH-001", ScoredSuggestion(
+        ("TH-001", GraphRAGSuggestion(
             technique_id="T1190",
             technique_name="Exploit Public-Facing Application",
             framework="ATTACK",
@@ -315,6 +435,8 @@ def test_load_suggested_mappings_round_trip(tmp_path):
             vector_score=0.85,
             tactic_bonus=0.15,
             framework_bonus=0.10,
+            mitigation_gap_score=0.0,
+            subtechnique_bonus=0.0,
             composite_score=0.56,
             explanation="Composite 0.560: vector=0.850",
         )),
@@ -336,13 +458,13 @@ def test_load_suggested_mappings_filters_by_rule_id(tmp_path):
     """Filtering by rule_id returns only matching entries."""
     from analysis.mapping_loader import load_suggested_mappings
     from analysis.mapping_writer import _write_suggestions_toml
-    from analysis.suggestion_scorer import ScoredSuggestion
+    from analysis.graphrag_scorer import GraphRAGSuggestion
 
     suggestions = [
-        ("TH-001", ScoredSuggestion("T1190", "Exploit", "ATTACK", "initial-access",
-                                     0.85, 0.15, 0.10, 0.56, "test")),
-        ("TH-002", ScoredSuggestion("T1021", "Remote", "ATTACK", "lateral-movement",
-                                     0.70, 0.0, 0.10, 0.44, "test")),
+        ("TH-001", GraphRAGSuggestion("T1190", "Exploit", "ATTACK", "initial-access",
+                                       0.85, 0.15, 0.10, 0.0, 0.0, 0.56, "test")),
+        ("TH-002", GraphRAGSuggestion("T1021", "Remote", "ATTACK", "lateral-movement",
+                                       0.70, 0.0, 0.10, 0.0, 0.0, 0.44, "test")),
     ]
 
     path = tmp_path / "suggestions.toml"
@@ -363,20 +485,29 @@ def test_load_suggested_mappings_filters_by_rule_id(tmp_path):
 # ── sync() integration ───────────────────────────────────────────
 
 
-def test_sync_map_heuristics_implies_embed(monkeypatch, tmp_path):
-    """When map_heuristics=True, embed step must run even if embed=False."""
+def test_sync_map_heuristics_implies_neo4j_sync(monkeypatch, tmp_path):
+    """When map_heuristics=True, the Neo4j sync path must run even if neo4j=False."""
     import sys
 
     import knowledge.sync  # noqa: F401 — ensure module loaded
     sync_mod = sys.modules["knowledge.sync"]
 
-    embed_called = False
+    neo4j_called = False
     map_called = False
 
-    def fake_embed(store, embedder=None):
-        nonlocal embed_called
-        embed_called = True
-        return 0
+    class FakeNeo4jCounts:
+        techniques = 0
+        tactics = 0
+        mitigations = 0
+        heuristic_rules = 0
+        maps_to_edges = 0
+        implements_control_edges = 0
+        text_chunks = 7
+
+    def fake_sync_to_neo4j(*args, **kwargs):
+        nonlocal neo4j_called
+        neo4j_called = True
+        return FakeNeo4jCounts()
 
     def fake_generate(store, *, threshold, top_k, output_path):
         nonlocal map_called
@@ -388,13 +519,13 @@ def test_sync_map_heuristics_implies_embed(monkeypatch, tmp_path):
     monkeypatch.setattr(sync_mod, "parse_attack_bundle", lambda *a, **kw: ([], [], []))
     monkeypatch.setattr(sync_mod, "fetch_atlas_data", lambda *a, **kw: {"matrices": []})
     monkeypatch.setattr(sync_mod, "parse_atlas_data", lambda *a, **kw: ([], [], []))
-    monkeypatch.setattr("knowledge.embedder.embed_techniques", fake_embed)
+    monkeypatch.setattr(sync_mod, "_sync_to_neo4j", fake_sync_to_neo4j)
     monkeypatch.setattr("analysis.mapping_writer.generate_mapping_suggestions", fake_generate)
 
     db = tmp_path / "sync_test.db"
     counts = sync_mod.sync(map_heuristics=True, embed=False, db_path=db)
 
-    assert embed_called, "embed_techniques should be called when map_heuristics=True"
+    assert neo4j_called, "_sync_to_neo4j should be called when map_heuristics=True"
     assert map_called, "generate_mapping_suggestions should be called"
     assert "suggestions" in counts
 

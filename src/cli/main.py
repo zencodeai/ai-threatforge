@@ -1,8 +1,23 @@
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import sys
 from pathlib import Path
+
+from toml_utils import toml_string
+
+
+def _graphrag_enabled(args: argparse.Namespace) -> bool:
+    """Resolve whether GraphRAG mode is active.
+
+    Priority: ``--graphrag`` flag (force on) > ``THREATFORGE_GRAPHRAG``
+    env var (``1`` = on).
+    """
+    if getattr(args, "graphrag", False) or getattr(args, "enrich", False):
+        return True
+    return os.environ.get("THREATFORGE_GRAPHRAG", "") == "1"
 
 
 def _cmd_validate(args: argparse.Namespace) -> int:
@@ -33,7 +48,10 @@ def _cmd_generate_threats(args: argparse.Namespace) -> int:
     from analysis.threat_outputs import generate_threat_report
 
     try:
-        report, path = generate_threat_report(args.model, args.output)
+        report, path = generate_threat_report(
+            args.model, args.output,
+            enrich=_graphrag_enabled(args),
+        )
     except Exception as exc:
         print(f"FAILED: {exc}")
         return 1
@@ -101,6 +119,7 @@ def _cmd_sync(args: argparse.Namespace) -> int:
             atlas_version=args.atlas_version,
             offline_dir=args.offline,
             embed=args.embed,
+            neo4j=args.neo4j,
             map_heuristics=args.map_heuristics,
             map_threshold=args.map_threshold,
             map_top_k=args.map_top_k,
@@ -114,8 +133,16 @@ def _cmd_sync(args: argparse.Namespace) -> int:
     print(f"  tactics:     {counts['tactics']}")
     print(f"  techniques:  {counts['techniques']}")
     print(f"  mitigations: {counts['mitigations']}")
-    if "embedded" in counts:
-        print(f"  embedded:    {counts['embedded']}")
+    if "neo4j_techniques" in counts:
+        print(f"  neo4j:")
+        print(f"    techniques:  {counts['neo4j_techniques']}")
+        print(f"    tactics:     {counts['neo4j_tactics']}")
+        print(f"    mitigations: {counts['neo4j_mitigations']}")
+        print(f"    rules:       {counts['neo4j_heuristic_rules']}")
+        print(f"    maps_to:     {counts['neo4j_maps_to']}")
+        print(f"    ctrl_bridges:{counts['neo4j_implements_control']}")
+        if counts.get("neo4j_text_chunks"):
+            print(f"    text_chunks: {counts['neo4j_text_chunks']}")
     if "suggestions" in counts:
         print(f"  suggestions: {counts['suggestions']}")
     return 0
@@ -137,10 +164,6 @@ def _cmd_ui(args: argparse.Namespace) -> int:
 def _cmd_suggest_mappings(args: argparse.Namespace) -> int:
     from analysis.heuristics import discovered_heuristics
     from analysis.mapping_loader import load_curated_mappings
-    from analysis.suggestion_scorer import ScoredSuggestion, score_suggestions
-    from knowledge.index import TechniqueIndex
-    from knowledge.store import TechniqueStore
-    from knowledge.vector_index import VectorIndex
 
     try:
         from knowledge.embedder import SentenceTransformerEmbedder
@@ -148,17 +171,9 @@ def _cmd_suggest_mappings(args: argparse.Namespace) -> int:
         print("sentence-transformers is required. Install with: pip install -e '.[suggest]'")
         return 1
 
-    store = TechniqueStore()
     embedder = SentenceTransformerEmbedder()
-    vec_idx = VectorIndex(store, embedder.model_name)
 
-    if not vec_idx.is_populated:
-        print("No embeddings found. Run 'threatforge sync --embed' first.")
-        store.close()
-        return 1
-
-    tech_idx = TechniqueIndex(store)
-
+    # Resolve heuristic info
     if args.rule_id:
         heuristics = discovered_heuristics()
         heuristic = next(
@@ -166,36 +181,53 @@ def _cmd_suggest_mappings(args: argparse.Namespace) -> int:
         )
         if not heuristic:
             print(f"Unknown rule_id: {args.rule_id}")
-            store.close()
             return 1
         query_text = f"{heuristic.name}. {heuristic.description}"
-        curated = load_curated_mappings(args.rule_id, index=tech_idx)
         target_frameworks = heuristic.frameworks
     else:
         query_text = args.description
-        curated = ()
         target_frameworks = ()
 
-    suggestions = score_suggestions(
-        rule_id=args.rule_id or "AD-HOC",
-        heuristic_text=query_text,
-        embedder=embedder,
-        vector_index=vec_idx,
-        technique_index=tech_idx,
-        curated_mappings=curated,
-        target_frameworks=target_frameworks,
-        top_k=args.top_k,
-    )
-    suggestions = [s for s in suggestions if s.composite_score >= args.threshold]
-    store.close()
+    from graph.neo4j_client import Neo4jClient, Neo4jConfig
+
+    from analysis.mapping_engine import graphrag_score_suggestions
+
+    try:
+        config = Neo4jConfig.from_env()
+    except ValueError:
+        print("Neo4j credentials required. Set NEO4J_PASSWORD env var.")
+        return 1
+
+    client = Neo4jClient(config)
+    store = None
+    try:
+        from knowledge.index import TechniqueIndex
+        from knowledge.store import TechniqueStore
+
+        store = TechniqueStore()
+        tech_idx = TechniqueIndex(store)
+        curated = load_curated_mappings(args.rule_id or "AD-HOC", index=tech_idx) if args.rule_id else ()
+
+        suggestions = graphrag_score_suggestions(
+            rule_id=args.rule_id or "AD-HOC",
+            heuristic_text=query_text,
+            neo4j_client=client,
+            embedder=embedder,
+            curated_mappings=curated,
+            target_frameworks=target_frameworks,
+            top_k=args.top_k,
+            threshold=args.threshold,
+        )
+    finally:
+        if store:
+            store.close()
+        client.close()
 
     if not suggestions:
         print("No suggestions above threshold.")
         return 0
 
     if args.format == "json":
-        import json
-
         print(json.dumps(
             [{
                 "technique_id": s.technique_id,
@@ -211,11 +243,11 @@ def _cmd_suggest_mappings(args: argparse.Namespace) -> int:
     elif args.format == "toml":
         for s in suggestions:
             print(f'[[mappings]]')
-            print(f'rule_id = "{args.rule_id or "AD-HOC"}"')
-            print(f'technique_id = "{s.technique_id}"')
-            print(f'framework = "{s.framework}"')
-            print(f'tactic = "{s.tactic}"')
-            print(f'rationale = "{s.explanation}"')
+            print(f"rule_id = {toml_string(args.rule_id or 'AD-HOC')}")
+            print(f"technique_id = {toml_string(s.technique_id)}")
+            print(f"framework = {toml_string(s.framework)}")
+            print(f"tactic = {toml_string(s.tactic)}")
+            print(f"rationale = {toml_string(s.explanation)}")
             print()
     else:
         header = f"{'Rank':<5} {'ID':<14} {'Name':<40} {'Tactic':<25} {'Score':>6}"
@@ -251,6 +283,7 @@ def main(argv: list[str] | None = None) -> int:
     p_gt = sub.add_parser("generate-threats", help="Generate structured threat outputs")
     p_gt.add_argument("--model", required=True, type=Path, help="Path to canonical TOML model")
     p_gt.add_argument("--output", type=Path, default=None, help="Output file path for threats JSON")
+    p_gt.add_argument("--enrich", action="store_true", help="Enable GraphRAG threat enrichment (requires Neo4j)")
 
     # score-risks
     p_sr = sub.add_parser("score-risks", help="Score threats into prioritized risk records")
@@ -266,7 +299,8 @@ def main(argv: list[str] | None = None) -> int:
     p_sync.add_argument("--atlas-version", default="latest", help="ATLAS version to fetch (default: latest)")
     p_sync.add_argument("--offline", type=Path, default=None, help="Directory with local STIX/ATLAS files")
     p_sync.add_argument("--status", action="store_true", help="Show current sync status")
-    p_sync.add_argument("--embed", action="store_true", help="Generate technique embeddings after sync")
+    p_sync.add_argument("--embed", action="store_true", help="Embed MITRE text chunks in Neo4j during sync (implies --neo4j)")
+    p_sync.add_argument("--neo4j", action="store_true", help="Load MITRE knowledge graph into Neo4j")
     p_sync.add_argument("--map-heuristics", action="store_true", help="Generate suggested technique mappings for all heuristics")
     p_sync.add_argument("--map-threshold", type=float, default=0.40, help="Min composite score for suggestions (default: 0.40)")
     p_sync.add_argument("--map-top-k", type=int, default=10, help="Max suggestions per heuristic (default: 10)")

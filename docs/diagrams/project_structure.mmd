@@ -9,17 +9,19 @@ block-beta
         columns 1
         ex["examples/ — TOML model definitions"]
         outputs["models/outputs/ — threats · risks · traces"]
-        tests["tests/ — 13 modules · 49 tests"]
-        docs["docs/ — architecture · walkthrough · demo"]
+        data["data/threat_intel/ — mappings · suggestions · KB"]
+        tests["tests/ — 25 modules · 325 tests"]
+        docs["docs/ — architecture · design · migration"]
     end
 
     block:srcdir:1
         columns 1
         schema["models/schema/ — canonical · threat · risk"]
-        graphpkg["graph/ — neo4j_client · loader · queries"]
-        analysis["analysis/ — threat_generation · mapping · scoring"]
+        graphpkg["graph/ — neo4j_client · loader · queries · knowledge_loader"]
+        knowledge["knowledge/ — sync · store · chunking · embedder · graph_vector_search"]
+        analysis["analysis/ — 44 heuristics · mapping · scoring · enrichment"]
         agents["agents/ — tools · workflow · observability"]
-        ui["ui/ — app · actions · pages/"]
+        ui["ui/ — app · actions · 5 pages"]
         cli["cli/ — main.py"]
     end
 
@@ -27,10 +29,12 @@ block-beta
     style srcdir fill:none,stroke:#64748b,stroke-width:2px
     style ex fill:#dbeafe,stroke:#3b82f6,color:#1e40af
     style outputs fill:#f1f5f9,stroke:#94a3b8,color:#475569
+    style data fill:#f1f5f9,stroke:#94a3b8,color:#475569
     style tests fill:#f1f5f9,stroke:#94a3b8,color:#475569
     style docs fill:#f1f5f9,stroke:#94a3b8,color:#475569
     style schema fill:#eff6ff,stroke:#3b82f6,color:#1e40af
     style graphpkg fill:#eef2ff,stroke:#6366f1,color:#3730a3
+    style knowledge fill:#eef2ff,stroke:#6366f1,color:#3730a3
     style analysis fill:#fefce8,stroke:#f59e0b,color:#92400e
     style agents fill:#ecfdf5,stroke:#10b981,color:#065f46
     style ui fill:#f5f3ff,stroke:#8b5cf6,color:#5b21b6

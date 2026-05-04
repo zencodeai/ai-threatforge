@@ -134,18 +134,18 @@ def test_lookup_technique_returns_matches() -> None:
     response = tools.lookup_technique("T1190")
 
     assert response.ok is True
-    assert response.source == "technique-mappings"
+    assert response.source in {"knowledge-base", "technique-mappings"}
     assert response.error is None
     assert response.evidence
     assert all(item["technique_id"] == "T1190" for item in response.evidence)
 
 
-def test_search_knowledge_stub_returns_ranked_items() -> None:
+def test_search_knowledge_returns_ranked_items() -> None:
     tools = AgentTools()
     response = tools.search_knowledge("internet exposed sensitive", top_k=3)
 
     assert response.ok is True
-    assert response.source == "knowledge-stub"
+    assert response.source in {"knowledge-base", "knowledge-stub"}
     assert response.error is None
     assert len(response.evidence) <= 3
     if response.evidence:

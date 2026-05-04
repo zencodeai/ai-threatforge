@@ -247,13 +247,13 @@ Expanded heuristics connect to ATT&CK/ATLAS through the existing layered mapping
 
 ```
 STRIDE-per-element heuristic
-    → vector-based suggestion (Layer 0: candidate retrieval)
+    → GraphRAG suggestion (Layer 0: candidate retrieval)
     → curated technique mappings (Layer 1: TOML rules)
     → tactic-based expansion (Layer 2: TechniqueIndex)
     → context filtering (Layer 3: model metadata)
 ```
 
-**Layer 0 — Vector-based technique suggestion** (implemented) uses dense-vector similarity to discover candidate technique bindings for heuristics. At sync time (`threatforge sync --embed`), technique descriptions are encoded into 384-dimensional embeddings and stored in the knowledge base. The `SuggestionScorer` (`src/analysis/suggestion_scorer.py`) blends cosine similarity (60%) with tactic-overlap bonuses (25%) and framework-match bonuses (15%) to rank candidates. This is an offline advisory layer — candidates are surfaced via `threatforge suggest-mappings` for human review and promotion to curated mappings.
+**Layer 0 — GraphRAG technique suggestion** (implemented) uses Neo4j vector retrieval over chunked MITRE text to discover candidate technique bindings for heuristics. At sync time, `threatforge sync --embed` writes `TextChunk` nodes and embeddings into Neo4j. The `GraphRAGScorer` (`src/analysis/graphrag_scorer.py`) blends vector similarity (45%) with tactic overlap (15%), framework match (10%), mitigation gap (20%), and sub-technique bonus (10%) to rank candidates. This is an offline advisory layer — candidates are surfaced via `threatforge suggest-mappings` for human review and promotion to curated mappings.
 
 Precondition clustering at sync time would make Layer 2 smarter by grouping techniques by architectural precondition signature rather than by tactic alone.
 
@@ -269,7 +269,7 @@ Precondition clustering at sync time would make Layer 2 smarter by grouping tech
 | OWASP ASVS + MASVS | ~10–15 (ASVS now, MASVS with enrichment) | `deployment_context` for MASVS | Medium–Large |
 | NIST 800-53 control gaps | ~15–20 | Control annotations | Large |
 | ATT&CK precondition clustering | Improves mapping quality | None | Medium |
-| **Vector-based technique suggestion** | **Improves mapping discovery** | **None** | **Done** |
+| **GraphRAG technique suggestion** | **Improves mapping discovery** | **None** | **Done** |
 
 The bottleneck is the model, not the heuristics. STRIDE-per-element is the highest-value next step — it provides a structured audit of "which element × threat combinations can we detect?" and produces a clear gap analysis for subsequent model enrichment.
 
