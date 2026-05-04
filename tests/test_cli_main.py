@@ -80,3 +80,20 @@ def test_score_risks_prefers_session_threat_artifact(monkeypatch, tmp_path: Path
     assert rc == 0
     assert called["threat_report_path"] == threat_path
     assert store.load().risk_report_path.endswith("models/outputs/risks/demo_risks.json")
+
+
+def test_validate_command_uses_analysis_service(monkeypatch, capsys) -> None:
+    class FakeAnalysisService:
+        def validate_model(self, model):
+            assert model == Path("examples/fintech_ai_platform.toml")
+            from app import ServiceResult
+
+            return ServiceResult(ok=True, stdout="VALID: examples/fintech_ai_platform.toml", returncode=0)
+
+    monkeypatch.setattr(cli_main, "_analysis_service", lambda: FakeAnalysisService())
+
+    rc = cli_main.main(["validate", "--model", "examples/fintech_ai_platform.toml"])
+
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "VALID: examples/fintech_ai_platform.toml" in out

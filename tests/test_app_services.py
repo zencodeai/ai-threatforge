@@ -1,0 +1,61 @@
+from __future__ import annotations
+
+import importlib
+from pathlib import Path
+
+from app.analysis_service import AnalysisService
+from app.knowledge_service import KnowledgeService
+from project_paths import ProjectPaths
+from session_store import SessionStore
+
+
+def test_analysis_service_rebuild_uses_generated_threat_output(monkeypatch, tmp_path: Path) -> None:
+    paths = ProjectPaths.from_root(tmp_path)
+    store = SessionStore(paths)
+    service = AnalysisService(paths=paths, session_store=store)
+
+    monkeypatch.setattr(service, "validate_model", lambda _model=None: service._ok("VALID"))
+    monkeypatch.setattr(service, "load_graph", lambda _model=None, clear_graph=True: service._ok("LOADED"))
+    monkeypatch.setattr(
+        service,
+        "generate_threats",
+        lambda _model=None, output_path=None, enrich=False: service._ok(
+            "GENERATED",
+            output_path="models/outputs/threats/demo_threats.json",
+        ),
+    )
+
+    captured: dict[str, str | Path | None] = {}
+
+    def fake_score(*, threat_path=None, output_path=None):
+        captured["threat_path"] = threat_path
+        return service._ok("SCORED")
+
+    monkeypatch.setattr(service, "score_risks", fake_score)
+
+    steps = service.rebuild_analysis(Path("examples/fintech_ai_platform.toml"))
+
+    assert [name for name, _ in steps] == [
+        "validate_model", "load_graph", "generate_threats", "score_risks",
+    ]
+    assert captured["threat_path"] == "models/outputs/threats/demo_threats.json"
+
+
+def test_knowledge_service_status_uses_injected_paths(monkeypatch, tmp_path: Path) -> None:
+    paths = ProjectPaths.from_root(tmp_path)
+    service = KnowledgeService(paths=paths)
+
+    sync_module = importlib.import_module("knowledge.sync")
+
+    captured: dict[str, Path | str] = {}
+
+    def fake_status(*, db_path):
+        captured["db_path"] = db_path
+        return {"status": "synced", "db_path": str(db_path)}
+
+    monkeypatch.setattr(sync_module, "sync_status", fake_status)
+
+    status = service.status()
+
+    assert status["status"] == "synced"
+    assert captured["db_path"] == paths.knowledge_db

@@ -31,6 +31,8 @@ Why first:
 
 ### Phase 1: Introduce application services
 
+Status: completed on `architecture-review`.
+
 Target modules:
 - `src/app/analysis_service.py`
 - `src/app/knowledge_service.py`
@@ -50,11 +52,11 @@ Deliverables:
 - `KnowledgeService.sync(...)`
 - `QueryService.answer(question, session=...)`
 
-Order:
-1. Extract thin wrappers around existing library calls.
-2. Switch CLI to service calls.
-3. Switch UI actions to the same service calls.
-4. Remove `stdout` parsing from UI rebuild flow.
+Delivered in this phase:
+- Added shared application services in `src/app/analysis_service.py` and `src/app/knowledge_service.py`.
+- Switched CLI analysis and sync commands to the shared services.
+- Switched UI rebuild and sync actions to the same shared services.
+- Removed the default UI rebuild dependency on subprocess execution and `stdout` parsing.
 
 Primary tests:
 - CLI contract tests

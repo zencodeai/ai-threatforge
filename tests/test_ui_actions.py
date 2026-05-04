@@ -67,3 +67,23 @@ def test_score_risks_accepts_explicit_threat_path() -> None:
     score_risks(threat_path=Path("models/outputs/threats/demo_threats.json"), executor=fake_executor)
 
     assert calls[0][-2:] == ["--threats", "models/outputs/threats/demo_threats.json"]
+
+
+def test_rebuild_analysis_without_executor_uses_service_results(monkeypatch) -> None:
+    import ui.actions as actions
+    from app import ServiceResult
+
+    class FakeAnalysisService:
+        def rebuild_analysis(self, model_path, *, clear_graph=True, enrich=False):
+            return [
+                ("validate_model", ServiceResult(ok=True, stdout="VALID", returncode=0)),
+                ("load_graph", ServiceResult(ok=True, stdout="LOADED", returncode=0)),
+            ]
+
+    monkeypatch.setattr(actions, "AnalysisService", FakeAnalysisService)
+
+    steps = rebuild_analysis(Path("examples/fintech_ai_platform.toml"))
+
+    assert [name for name, _ in steps] == ["validate_model", "load_graph"]
+    assert steps[0][1].stdout == "VALID"
+    assert steps[1][1].stdout == "LOADED"

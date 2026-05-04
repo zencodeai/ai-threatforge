@@ -3,6 +3,7 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
+from app import KnowledgeService
 from artifact_locator import ArtifactLocator
 from project_paths import ProjectPaths
 from models.schema.canonical_model import CanonicalModel, load_canonical_model
@@ -176,10 +177,8 @@ def load_sync_status(
     paths: ProjectPaths | None = None,
 ) -> dict[str, str]:
     """Return knowledge-base sync status as a flat dict for the sidebar."""
-    from knowledge.sync import sync_status
-
     p = paths or _DEFAULT_PATHS
-    return sync_status(db_path=p.knowledge_db)
+    return KnowledgeService(paths=p).status()
 
 
 def curated_mapping_rows(
