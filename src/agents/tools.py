@@ -7,6 +7,7 @@ from typing import Any, Callable
 from analysis.technique_mapping import get_all_technique_mappings
 from analysis.threat_generation import THREAT_HEURISTICS
 from artifact_locator import ArtifactLocator
+from graph.graph_queries import GraphQueries
 from graph.neo4j_client import Neo4jClient, Neo4jConfig
 from knowledge.index import TechniqueIndex
 from models.schema.risk_model import RiskReport
@@ -27,7 +28,7 @@ class _QueryGraphTool:
 
     def run(self, tool_input: dict[str, Any]) -> ToolResponse:
         return self._tools.query_graph(
-            tool_input["query"],
+            tool_input["query_id"],
             tool_input.get("params"),
         )
 
@@ -125,22 +126,22 @@ class AgentTools:
     def _latest_artifact(self, folder: str, suffix: str) -> Path | None:
         return self._locator.latest(folder, suffix)
 
-    def _default_graph_runner(self, query: str, params: dict[str, Any] | None) -> list[dict[str, Any]]:
+    def _default_graph_runner(self, query_id: str, params: dict[str, Any] | None) -> list[dict[str, Any]]:
         config = Neo4jConfig.from_env()
         with Neo4jClient(config) as client:
             client.verify_connectivity()
-            return client.run_query(query, params)
+            return GraphQueries(client).execute(query_id, params)
 
-    def query_graph(self, query: str, params: dict[str, Any] | None = None) -> ToolResponse:
+    def query_graph(self, query_id: str, params: dict[str, Any] | None = None) -> ToolResponse:
         runner = self._graph_runner or self._default_graph_runner
         try:
-            rows = runner(query, params)
+            rows = runner(query_id, params)
         except Exception as exc:  # pragma: no cover - defensive pass-through
             return self._error(
                 "neo4j",
                 "GRAPH_QUERY_FAILED",
                 "Failed to execute graph query",
-                details={"exception": str(exc)},
+                details={"exception": str(exc), "query_id": query_id},
             )
 
         confidence = 0.9 if rows else 0.4
@@ -148,7 +149,7 @@ class AgentTools:
             "neo4j",
             rows,
             confidence=confidence,
-            meta={"rows": len(rows)},
+            meta={"rows": len(rows), "query_id": query_id},
         )
 
     def get_threats(

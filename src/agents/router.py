@@ -5,6 +5,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from graph.graph_queries import AGENT_GRAPH_QUERY_IDS
+
 
 @dataclass(frozen=True)
 class RoutedAction:
@@ -58,13 +60,12 @@ class QueryRouter:
 
         graph_intent = self._graph_intent_for_question(q)
         if graph_intent is not None:
-            cypher = self._graph_query_for_intent(graph_intent)
             actions.append(
                 RoutedAction(
                     name="query_graph",
                     tool_name="query_graph",
                     tool_input={
-                        "query": cypher,
+                        "query_id": AGENT_GRAPH_QUERY_IDS[graph_intent],
                         "params": None,
                         "graph_intent": graph_intent,
                     },
@@ -122,31 +123,6 @@ class QueryRouter:
             re.search(rf"\b{re.escape(term)}\b", question_lower)
             for term in terms
         )
-
-    @staticmethod
-    def _graph_query_for_intent(graph_intent: str) -> str:
-        if graph_intent == "trust_boundaries":
-            return (
-                "MATCH (tb:TrustBoundary)-[:CROSSES_FROM]->(from:SecurityDomain), "
-                "(tb)-[:CROSSES_TO]->(to:SecurityDomain) "
-                "RETURN tb.id AS trust_boundary, from.id AS from_domain, to.id AS to_domain "
-                "ORDER BY trust_boundary"
-            )
-
-        if graph_intent == "dependencies":
-            return (
-                "MATCH (s:Module)-[r:DEPENDS_ON]->(t) "
-                "RETURN s.id AS source, t.id AS target, r.relationship AS relationship "
-                "ORDER BY source, target"
-            )
-
-        return (
-            "MATCH (m:Module) "
-            "WHERE m.internet_exposed = true "
-            "RETURN m.id AS module_id, m.name AS module_name, m.module_type AS module_type "
-            "ORDER BY m.id"
-        )
-
 
 def _action_key(action: RoutedAction) -> str:
     return f"{action.tool_name}:{json.dumps(action.tool_input, sort_keys=True, default=str)}"

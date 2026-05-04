@@ -78,29 +78,31 @@ def _write_risk_report(path: Path) -> None:
 
 
 def test_query_graph_tool_can_run_independently() -> None:
-    tools = AgentTools(graph_runner=lambda _q, _p: [{"module_id": "api_gateway"}])
+    tools = AgentTools(graph_runner=lambda _qid, _p: [{"module_id": "api_gateway"}])
 
-    response = tools.query_graph("MATCH (m:Module) RETURN m.id AS module_id")
+    response = tools.query_graph("internet_exposed_modules")
 
     assert response.ok is True
     assert response.source == "neo4j"
     assert response.evidence == [{"module_id": "api_gateway"}]
     assert response.error is None
     assert response.confidence > 0
+    assert response.meta["query_id"] == "internet_exposed_modules"
 
 
 def test_query_graph_tool_returns_structured_error() -> None:
-    def _raise(_q: str, _p: dict | None) -> list[dict]:
+    def _raise(_qid: str, _p: dict | None) -> list[dict]:
         raise RuntimeError("boom")
 
     tools = AgentTools(graph_runner=_raise)
-    response = tools.query_graph("MATCH (n) RETURN n")
+    response = tools.query_graph("internet_exposed_modules")
 
     assert response.ok is False
     assert response.source == "neo4j"
     assert response.error is not None
     assert response.error.code == "GRAPH_QUERY_FAILED"
     assert "boom" in response.error.details["exception"]
+    assert response.error.details["query_id"] == "internet_exposed_modules"
     assert response.confidence == 0.0
 
 

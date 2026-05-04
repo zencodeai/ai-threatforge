@@ -15,8 +15,8 @@ EXAMPLE_MODEL = ROOT / "examples" / "fintech_ai_platform.toml"
 def _example_graph_runner() -> tuple[dict, callable]:
     model = tomllib.loads(EXAMPLE_MODEL.read_text(encoding="utf-8"))
 
-    def _run(query: str, _params: dict | None) -> list[dict]:
-        if "TrustBoundary" in query:
+    def _run(query_id: str, _params: dict | None) -> list[dict]:
+        if query_id == "trust_boundary_crossings":
             return [
                 {
                     "trust_boundary": tb["id"],
@@ -26,7 +26,7 @@ def _example_graph_runner() -> tuple[dict, callable]:
                 for tb in model["trust_boundaries"]
             ]
 
-        if "DEPENDS_ON" in query:
+        if query_id == "dependency_edges":
             return [
                 {
                     "source": dep["source"],

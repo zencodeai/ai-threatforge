@@ -137,10 +137,10 @@ def _write_artifacts(base_dir: Path) -> None:
 
 
 def _workflow(base_dir: Path) -> QueryWorkflow:
-    def _graph_runner(query: str, _params: dict | None) -> list[dict]:
-        if "TrustBoundary" in query:
+    def _graph_runner(query_id: str, _params: dict | None) -> list[dict]:
+        if query_id == "trust_boundary_crossings":
             return [{"trust_boundary": "internet_boundary", "from_domain": "client", "to_domain": "edge"}]
-        if "DEPENDS_ON" in query:
+        if query_id == "dependency_edges":
             return [{"source": "api_gateway", "target": "payment_service", "relationship": "calls"}]
         return [{"module_id": "api_gateway", "module_name": "API Gateway", "module_type": "gateway"}]
 

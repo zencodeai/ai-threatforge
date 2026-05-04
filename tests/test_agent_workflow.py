@@ -135,10 +135,10 @@ def _write_artifacts(base_dir: Path) -> None:
 
 
 def _workflow(base_dir: Path) -> QueryWorkflow:
-    def _graph_runner(query: str, _params: dict | None) -> list[dict]:
-        if "TrustBoundary" in query:
+    def _graph_runner(query_id: str, _params: dict | None) -> list[dict]:
+        if query_id == "trust_boundary_crossings":
             return [{"trust_boundary": "internet_boundary", "from_domain": "client", "to_domain": "edge"}]
-        if "DEPENDS_ON" in query:
+        if query_id == "dependency_edges":
             return [{"source": "api_gateway", "target": "payment_service", "relationship": "calls"}]
         return [{"module_id": "api_gateway", "module_name": "API Gateway", "module_type": "gateway"}]
 
@@ -178,7 +178,7 @@ def test_query_workflow_produces_grounded_references(tmp_path: Path) -> None:
 def test_query_workflow_reports_limitations_on_tool_failure(tmp_path: Path) -> None:
     _write_artifacts(tmp_path)
 
-    def _raise_graph(_query: str, _params: dict | None) -> list[dict]:
+    def _raise_graph(_query_id: str, _params: dict | None) -> list[dict]:
         raise RuntimeError("neo4j unavailable")
 
     tools = AgentTools(base_dir=tmp_path, graph_runner=_raise_graph)

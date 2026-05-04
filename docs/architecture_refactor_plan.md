@@ -65,6 +65,8 @@ Primary tests:
 
 ### Phase 2: Centralize graph query ownership
 
+Status: completed on `architecture-review`.
+
 Problem:
 - The agent router currently chooses concrete Cypher text directly.
 - The graph layer already owns equivalent queries.
@@ -79,10 +81,11 @@ Deliverables:
 - `query_graph(query_id, params)` tool contract
 - one source of truth for trust-boundary, dependency, and exposure queries
 
-Order:
-1. Add query IDs without removing current query methods.
-2. Migrate agent graph queries to IDs.
-3. Remove duplicated Cypher from the router.
+Delivered in this phase:
+- Added stable graph query IDs and dispatch in `src/graph/graph_queries.py`.
+- Migrated the agent router to emit query IDs instead of raw Cypher.
+- Migrated the agent tool path to execute named graph queries through the graph layer.
+- Added router and graph-dispatch regression tests to keep the contract stable.
 
 Primary tests:
 - agent workflow tests

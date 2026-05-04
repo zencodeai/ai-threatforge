@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from graph.graph_queries import GraphQueries, load_sample_queries
+from graph.graph_queries import AGENT_GRAPH_QUERY_IDS, GraphQueries, load_sample_queries
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -51,3 +51,14 @@ def test_attack_paths_query_passes_parameter() -> None:
     service.low_to_high_trust_attack_paths(max_depth=7)
 
     assert client.last_parameters == {"max_depth": 7}
+
+
+def test_execute_dispatches_named_agent_query() -> None:
+    client = FakeClient()
+    service = GraphQueries(client)  # type: ignore[arg-type]
+
+    result = service.execute(AGENT_GRAPH_QUERY_IDS["dependencies"])
+
+    assert result == [{"ok": True}]
+    assert client.last_query is not None
+    assert "MATCH (s:Module)-[r:DEPENDS_ON]->(t)" in client.last_query
