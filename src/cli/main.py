@@ -1,19 +1,20 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
+
+from toml_utils import toml_string
 
 
 def _graphrag_enabled(args: argparse.Namespace) -> bool:
     """Resolve whether GraphRAG mode is active.
 
-    Priority: ``--legacy`` flag (force off) > ``--graphrag`` flag (force on)
-    > ``THREATFORGE_GRAPHRAG`` env var (``1`` = on).
+    Priority: ``--graphrag`` flag (force on) > ``THREATFORGE_GRAPHRAG``
+    env var (``1`` = on).
     """
-    if getattr(args, "legacy", False):
-        return False
     if getattr(args, "graphrag", False) or getattr(args, "enrich", False):
         return True
     return os.environ.get("THREATFORGE_GRAPHRAG", "") == "1"
@@ -142,8 +143,6 @@ def _cmd_sync(args: argparse.Namespace) -> int:
         print(f"    ctrl_bridges:{counts['neo4j_implements_control']}")
         if counts.get("neo4j_text_chunks"):
             print(f"    text_chunks: {counts['neo4j_text_chunks']}")
-    if "embedded" in counts:
-        print(f"  embedded:    {counts['embedded']}")
     if "suggestions" in counts:
         print(f"  suggestions: {counts['suggestions']}")
     return 0
@@ -189,81 +188,46 @@ def _cmd_suggest_mappings(args: argparse.Namespace) -> int:
         query_text = args.description
         target_frameworks = ()
 
-    use_graphrag = _graphrag_enabled(args)
+    from graph.neo4j_client import Neo4jClient, Neo4jConfig
 
-    if use_graphrag:
-        from graph.neo4j_client import Neo4jClient, Neo4jConfig
+    from analysis.mapping_engine import graphrag_score_suggestions
 
-        from analysis.mapping_engine import graphrag_score_suggestions
+    try:
+        config = Neo4jConfig.from_env()
+    except ValueError:
+        print("Neo4j credentials required. Set NEO4J_PASSWORD env var.")
+        return 1
 
-        try:
-            config = Neo4jConfig.from_env()
-        except ValueError:
-            print("Neo4j credentials required. Set NEO4J_PASSWORD env var.")
-            return 1
-
-        client = Neo4jClient(config)
-        store = None
-        try:
-            from knowledge.index import TechniqueIndex
-            from knowledge.store import TechniqueStore
-
-            store = TechniqueStore()
-            tech_idx = TechniqueIndex(store)
-            curated = load_curated_mappings(args.rule_id or "AD-HOC", index=tech_idx) if args.rule_id else ()
-
-            suggestions = graphrag_score_suggestions(
-                rule_id=args.rule_id or "AD-HOC",
-                heuristic_text=query_text,
-                neo4j_client=client,
-                embedder=embedder,
-                curated_mappings=curated,
-                target_frameworks=target_frameworks,
-                top_k=args.top_k,
-                threshold=args.threshold,
-            )
-        finally:
-            if store:
-                store.close()
-            client.close()
-    else:
-        from analysis.suggestion_scorer import score_suggestions
+    client = Neo4jClient(config)
+    store = None
+    try:
         from knowledge.index import TechniqueIndex
         from knowledge.store import TechniqueStore
-        from knowledge.vector_index import VectorIndex
 
         store = TechniqueStore()
-        try:
-            vec_idx = VectorIndex(store, embedder.model_name)
+        tech_idx = TechniqueIndex(store)
+        curated = load_curated_mappings(args.rule_id or "AD-HOC", index=tech_idx) if args.rule_id else ()
 
-            if not vec_idx.is_populated:
-                print("No embeddings found. Run 'threatforge sync --embed' first.")
-                return 1
-
-            tech_idx = TechniqueIndex(store)
-            curated = load_curated_mappings(args.rule_id or "AD-HOC", index=tech_idx) if args.rule_id else ()
-
-            suggestions = score_suggestions(
-                rule_id=args.rule_id or "AD-HOC",
-                heuristic_text=query_text,
-                embedder=embedder,
-                vector_index=vec_idx,
-                technique_index=tech_idx,
-                curated_mappings=curated,
-                target_frameworks=target_frameworks,
-                top_k=args.top_k,
-            )
-            suggestions = [s for s in suggestions if s.composite_score >= args.threshold]
-        finally:
+        suggestions = graphrag_score_suggestions(
+            rule_id=args.rule_id or "AD-HOC",
+            heuristic_text=query_text,
+            neo4j_client=client,
+            embedder=embedder,
+            curated_mappings=curated,
+            target_frameworks=target_frameworks,
+            top_k=args.top_k,
+            threshold=args.threshold,
+        )
+    finally:
+        if store:
             store.close()
+        client.close()
 
     if not suggestions:
         print("No suggestions above threshold.")
         return 0
 
     if args.format == "json":
-        import json
-
         print(json.dumps(
             [{
                 "technique_id": s.technique_id,
@@ -279,11 +243,11 @@ def _cmd_suggest_mappings(args: argparse.Namespace) -> int:
     elif args.format == "toml":
         for s in suggestions:
             print(f'[[mappings]]')
-            print(f'rule_id = "{args.rule_id or "AD-HOC"}"')
-            print(f'technique_id = "{s.technique_id}"')
-            print(f'framework = "{s.framework}"')
-            print(f'tactic = "{s.tactic}"')
-            print(f'rationale = "{s.explanation}"')
+            print(f"rule_id = {toml_string(args.rule_id or 'AD-HOC')}")
+            print(f"technique_id = {toml_string(s.technique_id)}")
+            print(f"framework = {toml_string(s.framework)}")
+            print(f"tactic = {toml_string(s.tactic)}")
+            print(f"rationale = {toml_string(s.explanation)}")
             print()
     else:
         header = f"{'Rank':<5} {'ID':<14} {'Name':<40} {'Tactic':<25} {'Score':>6}"
@@ -320,7 +284,6 @@ def main(argv: list[str] | None = None) -> int:
     p_gt.add_argument("--model", required=True, type=Path, help="Path to canonical TOML model")
     p_gt.add_argument("--output", type=Path, default=None, help="Output file path for threats JSON")
     p_gt.add_argument("--enrich", action="store_true", help="Enable GraphRAG threat enrichment (requires Neo4j)")
-    p_gt.add_argument("--legacy", action="store_true", help="Force legacy SQLite path (ignore THREATFORGE_GRAPHRAG env)")
 
     # score-risks
     p_sr = sub.add_parser("score-risks", help="Score threats into prioritized risk records")
@@ -336,7 +299,7 @@ def main(argv: list[str] | None = None) -> int:
     p_sync.add_argument("--atlas-version", default="latest", help="ATLAS version to fetch (default: latest)")
     p_sync.add_argument("--offline", type=Path, default=None, help="Directory with local STIX/ATLAS files")
     p_sync.add_argument("--status", action="store_true", help="Show current sync status")
-    p_sync.add_argument("--embed", action="store_true", help="Generate technique embeddings after sync")
+    p_sync.add_argument("--embed", action="store_true", help="Embed MITRE text chunks in Neo4j during sync (implies --neo4j)")
     p_sync.add_argument("--neo4j", action="store_true", help="Load MITRE knowledge graph into Neo4j")
     p_sync.add_argument("--map-heuristics", action="store_true", help="Generate suggested technique mappings for all heuristics")
     p_sync.add_argument("--map-threshold", type=float, default=0.40, help="Min composite score for suggestions (default: 0.40)")
@@ -351,8 +314,6 @@ def main(argv: list[str] | None = None) -> int:
     p_sg.add_argument("--top-k", type=int, default=15, help="Max suggestions (default: 15)")
     p_sg.add_argument("--threshold", type=float, default=0.30, help="Min composite score (default: 0.30)")
     p_sg.add_argument("--format", choices=["table", "json", "toml"], default="table", help="Output format")
-    p_sg.add_argument("--graphrag", action="store_true", help="Use GraphRAG scorer (requires Neo4j)")
-    p_sg.add_argument("--legacy", action="store_true", help="Force legacy SQLite path (ignore THREATFORGE_GRAPHRAG env)")
 
     args = parser.parse_args(argv)
 

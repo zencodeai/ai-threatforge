@@ -57,7 +57,7 @@ Analyst questions are routed to tools via deterministic keyword matching, execut
 | `models/outputs/` | Generated threat, risk, and trace artifacts |
 | `src/models/` | Pydantic schema contracts |
 | `src/graph/` | Neo4j client, graph loader, query helpers, Cypher constraints/indexes |
-| `src/knowledge/` | MITRE ATT&CK + ATLAS ingestion, Neo4j GraphRAG (chunking, vector search), SQLite fallback |
+| `src/knowledge/` | MITRE ATT&CK + ATLAS ingestion, local technique catalog, Neo4j GraphRAG chunking/vector search |
 | `src/analysis/` | Threat generation engine, layered ATT&CK/ATLAS mapping, risk scoring |
 | `src/agents/` | Tool interfaces, deterministic query workflow, observability tracing |
 | `src/ui/` | Streamlit analyst interface (model overview, threats, risks, mappings, chat) |
@@ -88,11 +88,10 @@ cp .env.example .env
 ### 3. Sync the knowledge base (optional)
 
 ```bash
-threatforge sync                   # fetch ATT&CK + ATLAS techniques
-threatforge sync --embed           # also generate technique embeddings
-threatforge sync --neo4j           # load MITRE knowledge graph into Neo4j
-threatforge sync --map-heuristics  # embed + generate suggested technique mappings
-threatforge sync --map-heuristics --graphrag  # use Neo4j GraphRAG scorer for suggestions
+threatforge sync                   # fetch ATT&CK + ATLAS techniques into the local catalog
+threatforge sync --neo4j           # load the MITRE knowledge graph into Neo4j
+threatforge sync --embed           # chunk and embed MITRE text into Neo4j TextChunk nodes
+threatforge sync --map-heuristics  # refresh Neo4j chunks and generate suggested mappings
 threatforge sync --status          # check current sync state
 ```
 
@@ -126,7 +125,7 @@ threatforge ui
 | **Mappings** | Curated and suggested technique mappings, heuristic catalog, GraphRAG scoring weight config |
 | **Analyst Chat** | Natural-language Q&A grounded in graph, threat, and risk artifacts |
 
-The UI sidebar includes knowledge base sync status, **GraphRAG controls** (enrichment toggle, GraphRAG scorer toggle), and a **Run Rebuild Workflow** action that re-executes the full pipeline (validate → load → threats → risks) in one click.
+The UI sidebar includes knowledge base sync status, a **GraphRAG enrichment** toggle for rebuilds, and a **Run Rebuild Workflow** action that re-executes the full pipeline (validate → load → threats → risks) in one click.
 
 ---
 
@@ -161,7 +160,7 @@ No code changes are needed — the factory function `create_trace_recorder()` au
 pytest -q
 ```
 
-340 tests across schema validation, graph operations, threat generation (44 heuristics), technique mapping, risk scoring, knowledge ingestion, GraphRAG scoring, threat enrichment, chunking, graph vector search, agent workflow, observability, and UI layers.
+325 tests across schema validation, graph operations, threat generation (44 heuristics), technique mapping, risk scoring, knowledge ingestion, GraphRAG scoring, threat enrichment, chunking, graph vector search, agent workflow, observability, and UI layers.
 
 ---
 
@@ -178,7 +177,7 @@ pytest -q
 | [Risk Methodology](docs/risk_methodology.md) | Scoring formula, factor weights, and priority bands |
 | [ATT&CK/ATLAS Ingestion Design](docs/design_attack_atlas_ingestion.md) | Knowledge-base sync architecture and layered mapping engine |
 | [GraphRAG Design](docs/design_graphrag.md) | Neo4j GraphRAG integration: knowledge graph, chunking, vector search, enhanced scoring, threat enrichment |
-| [GraphRAG Migration](docs/migration_graphrag.md) | Step-by-step guide for enabling the GraphRAG pipeline |
+| [GraphRAG Migration](docs/migration_graphrag.md) | Final-state setup guide for the graph-backed suggestion and enrichment pipeline |
 | [Heuristic Expansion](docs/design_heuristics.md) | STRIDE, CAPEC, schema enrichment, and NIST 800-53 heuristic expansion strategy |
 | [Diagrams](docs/diagrams/) | Mermaid sources (.mmd) exported to SVG — pipeline, workflow, risk scoring, project layout, knowledge ingestion |
 
@@ -192,12 +191,12 @@ pytest -q
 | Schema validation | Pydantic ≥ 2.8 | Model contracts with cross-reference integrity enforcement |
 | Graph database | Neo4j ≥ 5.20 | Property graph for attack-path traversal and dependency analysis |
 | Graph protocol | Bolt (official `neo4j` driver) | Parameterised Cypher queries with connection pooling |
-| Knowledge base | MITRE ATT&CK + ATLAS | STIX 2.1 / YAML ingestion into Neo4j knowledge graph (primary) with SQLite fallback; chunked embeddings + native vector index |
-| Threat mapping | MITRE ATT&CK + ATLAS | Layered mapping: curated TOML rules, opt-in tactic expansion, context filtering, GraphRAG-enhanced suggestion scoring (mitigation gap, sub-technique, tactic overlap) |
-| UI | Streamlit ≥ 1.35 | Multipage analyst dashboard (5 screens) with knowledge sync, GraphRAG controls, and one-click rebuild |
+| Knowledge base | MITRE ATT&CK + ATLAS | STIX 2.1 / YAML ingestion into a local technique catalog plus a Neo4j knowledge graph with chunked embeddings and native vector search |
+| Threat mapping | MITRE ATT&CK + ATLAS | Layered mapping: curated TOML rules, opt-in tactic expansion, context filtering, and GraphRAG suggestion scoring (mitigation gap, sub-technique, tactic overlap) |
+| UI | Streamlit ≥ 1.35 | Multipage analyst dashboard (5 screens) with knowledge sync, GraphRAG enrichment, and one-click rebuild |
 | Observability | JSONL local traces | Structured event log for every workflow invocation |
 | Observability (opt.) | LangSmith | Cloud trace export with parent-child run relationships |
-| Testing | pytest ≥ 8.0 | 340 tests across 27 modules — schema, graph, analysis, knowledge, GraphRAG, agents, UI |
+| Testing | pytest ≥ 8.0 | 325 tests across 25 modules — schema, graph, analysis, knowledge, GraphRAG, agents, UI |
 
 ### Why these choices
 

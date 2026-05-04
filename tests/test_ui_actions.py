@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ui.actions import ActionResult, rebuild_analysis, run_command
+from ui.actions import ActionResult, rebuild_analysis, run_command, score_risks
 
 
 def test_run_command_uses_executor() -> None:
@@ -34,3 +34,36 @@ def test_rebuild_analysis_stops_on_first_failure() -> None:
     assert [name for name, _ in steps] == ["validate_model", "load_graph"]
     assert invocations == ["validate", "load-graph"]
     assert steps[-1][1].ok is False
+
+
+def test_rebuild_analysis_scores_generated_threat_artifact() -> None:
+    calls: list[list[str]] = []
+
+    def fake_executor(command, _cwd):
+        cmd = list(command)
+        calls.append(cmd)
+        subcommand = cmd[3]
+        stdout = "ok"
+        if subcommand == "generate-threats":
+            stdout = "GENERATED: 1 threats\nOUTPUT: models/outputs/threats/demo_threats.json"
+        return ActionResult(ok=True, command=" ".join(cmd), returncode=0, stdout=stdout, stderr="")
+
+    steps = rebuild_analysis(Path("examples/fintech_ai_platform.toml"), executor=fake_executor)
+
+    assert [name for name, _ in steps] == [
+        "validate_model", "load_graph", "generate_threats", "score_risks",
+    ]
+    assert calls[-1][-2:] == ["--threats", "models/outputs/threats/demo_threats.json"]
+
+
+def test_score_risks_accepts_explicit_threat_path() -> None:
+    calls: list[list[str]] = []
+
+    def fake_executor(command, _cwd):
+        cmd = list(command)
+        calls.append(cmd)
+        return ActionResult(ok=True, command=" ".join(cmd), returncode=0, stdout="ok", stderr="")
+
+    score_risks(threat_path=Path("models/outputs/threats/demo_threats.json"), executor=fake_executor)
+
+    assert calls[0][-2:] == ["--threats", "models/outputs/threats/demo_threats.json"]

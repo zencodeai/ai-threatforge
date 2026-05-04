@@ -161,8 +161,7 @@ def _render_config_editor() -> None:
 
         st.markdown("##### GraphRAG Scoring Weights")
         st.caption(
-            "Weights for the GraphRAG composite scorer. Must sum to ~1.0. "
-            "Only applies when using the GraphRAG scorer (--graphrag)."
+            "Weights for the GraphRAG composite scorer. Must sum to ~1.0."
         )
         gcol1, gcol2, gcol3 = st.columns(3)
         graphrag = config.get("graphrag", {})

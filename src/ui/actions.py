@@ -69,8 +69,22 @@ def generate_threats(
     return run_command(args, executor=executor)
 
 
-def score_risks(*, executor: Executor | None = None) -> ActionResult:
-    return run_command(["score-risks"], executor=executor)
+def score_risks(
+    *,
+    threat_path: Path | None = None,
+    executor: Executor | None = None,
+) -> ActionResult:
+    args = ["score-risks"]
+    if threat_path is not None:
+        args.extend(["--threats", str(threat_path)])
+    return run_command(args, executor=executor)
+
+
+def _extract_output_path(result: ActionResult) -> Path | None:
+    for line in result.stdout.splitlines():
+        if line.startswith("OUTPUT: "):
+            return Path(line.removeprefix("OUTPUT: ").strip())
+    return None
 
 
 def rebuild_analysis(
@@ -82,18 +96,24 @@ def rebuild_analysis(
 ) -> list[tuple[str, ActionResult]]:
     steps: list[tuple[str, ActionResult]] = []
 
-    pipeline = [
-        ("validate_model", lambda: validate_model(model_path, executor=executor)),
-        ("load_graph", lambda: load_graph(model_path, clear_graph=clear_graph, executor=executor)),
-        ("generate_threats", lambda: generate_threats(model_path, enrich=enrich, executor=executor)),
-        ("score_risks", lambda: score_risks(executor=executor)),
-    ]
+    result = validate_model(model_path, executor=executor)
+    steps.append(("validate_model", result))
+    if not result.ok:
+        return steps
 
-    for step_name, run_step in pipeline:
-        result = run_step()
-        steps.append((step_name, result))
-        if not result.ok:
-            break
+    result = load_graph(model_path, clear_graph=clear_graph, executor=executor)
+    steps.append(("load_graph", result))
+    if not result.ok:
+        return steps
+
+    result = generate_threats(model_path, enrich=enrich, executor=executor)
+    steps.append(("generate_threats", result))
+    if not result.ok:
+        return steps
+
+    threat_path = _extract_output_path(result)
+    result = score_risks(threat_path=threat_path, executor=executor)
+    steps.append(("score_risks", result))
 
     return steps
 
@@ -106,7 +126,6 @@ def sync_knowledge(
     map_heuristics: bool = False,
     map_threshold: float = 0.40,
     map_top_k: int = 10,
-    graphrag: bool = False,
     executor: Executor | None = None,
 ) -> ActionResult:
     """Run ``threatforge sync`` with the given options."""
@@ -123,8 +142,6 @@ def sync_knowledge(
             "--map-threshold", str(map_threshold),
             "--map-top-k", str(map_top_k),
         ])
-    if graphrag:
-        args.append("--graphrag")
     return run_command(args, executor=executor)
 
 

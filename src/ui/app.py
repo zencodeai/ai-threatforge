@@ -77,7 +77,7 @@ def _render_knowledge_status() -> None:
         col2.metric("ATLAS", status.get("atlas_version", "—"))
         col3, col4 = st.sidebar.columns(2)
         col3.metric("Techniques", status.get("technique_count", "0"))
-        col4.metric("Embeddings", status.get("embedding_count", "0"))
+        col4.metric("Text Chunks", status.get("text_chunk_count", "0"))
         st.sidebar.metric("Suggestions", status.get("suggestion_count", "0"))
         last_sync = status.get("last_sync_utc", "never")
         if len(last_sync) > 16:
@@ -87,13 +87,12 @@ def _render_knowledge_status() -> None:
     with st.sidebar.expander("Sync Options", expanded=False):
         attack_ver = st.text_input("ATT&CK version", value="latest", key="sync_attack_ver")
         atlas_ver = st.text_input("ATLAS version", value="latest", key="sync_atlas_ver")
-        embed = st.checkbox("Generate embeddings", key="sync_embed")
-        map_heuristics = st.checkbox("Map heuristics", key="sync_map_heuristics")
-        use_graphrag = st.checkbox(
-            "Use GraphRAG scorer",
-            key="sync_graphrag",
-            help="Use Neo4j vector search instead of SQLite for scoring suggestions.",
+        embed = st.checkbox(
+            "Embed text chunks in Neo4j",
+            key="sync_embed",
+            help="Runs the chunking pipeline and stores vectorized TextChunk nodes in Neo4j.",
         )
+        map_heuristics = st.checkbox("Map heuristics", key="sync_map_heuristics")
         threshold = st.slider(
             "Threshold", 0.10, 0.90, 0.40, 0.05,
             key="sync_threshold",
@@ -114,7 +113,6 @@ def _render_knowledge_status() -> None:
                     map_heuristics=map_heuristics,
                     map_threshold=threshold,
                     map_top_k=top_k,
-                    graphrag=use_graphrag,
                 )
             if result.ok:
                 st.success("Sync complete.")

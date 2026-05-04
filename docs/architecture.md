@@ -86,18 +86,15 @@ Both formats are registered automatically at import time. Adding a new heuristic
 
 Each heuristic is executed as a Cypher query against the Neo4j graph. Matched patterns are expanded into `ThreatRecord` objects with structured evidence (affected modules, objects, workflows, paths) and human-readable rationale. See [design_heuristics.md](design_heuristics.md) for the full catalog.
 
-**MITRE ATT&CK / ATLAS mapping** is handled by a layered mapping engine split across three modules: `mapping_types.py` (data model and legacy fallbacks), `mapping_loader.py` (TOML I/O and knowledge-base name resolution), and `mapping_engine.py` (curated + tactic-expansion + context-filtering pipeline). The original `technique_mapping.py` remains as a backward-compatible facade re-exporting the public API. Each `rule_id` maps to one or more `TechniqueMapping` entries containing the technique ID (e.g., `T1190`, `AML.T0016`), tactic category (e.g., Initial Access, Defense Evasion), and a rationale explaining the alignment. Coverage validation ensures every heuristic has at least one technique mapping.
+**MITRE ATT&CK / ATLAS mapping** is handled by a layered mapping engine split across three modules: `mapping_types.py` (data model), `mapping_loader.py` (TOML I/O and knowledge-base name resolution), and `mapping_engine.py` (curated + tactic-expansion + context-filtering pipeline). The original `technique_mapping.py` remains as a backward-compatible facade re-exporting the public API. Each `rule_id` maps to one or more `TechniqueMapping` entries containing the technique ID (e.g., `T1190`, `AML.T0016`), tactic category (e.g., Initial Access, Defense Evasion), and a rationale explaining the alignment. Coverage validation ensures every heuristic has at least one technique mapping.
 
-**Vector-based technique suggestion** (Layer 0) complements the curated mapping pipeline with a dense-vector similarity search. Two scorer implementations are available:
+**Graph-backed technique suggestion** (Layer 0) complements the curated mapping pipeline with GraphRAG retrieval over MITRE `TextChunk` nodes in Neo4j. The `GraphRAGScorer` (`src/analysis/graphrag_scorer.py`) queries the native vector index, then re-ranks candidates using graph-structural signals: vector similarity (45%), tactic overlap (15%), framework match (10%), mitigation gap (20%), and sub-technique bonus (10%). The mitigation-gap signal compares a technique's known mitigations against the target module's `control_functions`, prioritizing true coverage gaps.
 
-- **Legacy (SQLite)**: Technique descriptions are encoded at sync time into 384-dimensional embeddings (`all-MiniLM-L6-v2`) and stored in the SQLite knowledge base. A `VectorIndex` provides brute-force cosine similarity search over ~830 technique embeddings. The `SuggestionScorer` (`src/analysis/suggestion_scorer.py`) blends vector similarity (60%) with tactic-overlap bonuses (25%) and framework-match bonuses (15%).
-- **GraphRAG (Neo4j)**: The `GraphRAGScorer` (`src/analysis/graphrag_scorer.py`) queries the Neo4j native vector index over `TextChunk` nodes, then re-ranks using graph-structural signals: vector similarity (45%), tactic overlap (15%), framework match (10%), mitigation gap (20%), and sub-technique bonus (10%). The mitigation-gap signal compares a technique's known mitigations against the target module's `control_functions`, prioritizing true coverage gaps.
-
-Both are offline advisory layers — suggestions are reviewed by a human and promoted to curated mappings in `mapping_rules.toml`. Use `threatforge suggest-mappings --graphrag` to use the GraphRAG scorer, or `--legacy` to force the SQLite path.
+This is an offline advisory layer: suggestions are reviewed by a human and promoted to curated mappings in `mapping_rules.toml`. `threatforge suggest-mappings` always uses the GraphRAG scorer.
 
 **Runtime threat enrichment** (`src/analysis/threat_enricher.py`) is a post-materialization step that traverses the MITRE knowledge graph to add `suggested_mitigations` (controls not implemented by the target module) and `related_techniques` (linked by shared mitigations or sub-technique hierarchy) to each `ThreatRecord`. Enabled via `--enrich` flag or `THREATFORGE_GRAPHRAG=1` env var. Without enrichment, these fields default to empty lists.
 
-**Sync-time mapping generation** extends the sync lifecycle with `--map-heuristics`, which batch-scores all discovered heuristics and writes results to `mapping_suggestions.toml` — a separate file from the human-curated `mapping_rules.toml`. The `MappingWriter` (`src/analysis/mapping_writer.py`) orchestrates the batch flow: build vector and technique indexes from the freshly synced store, iterate all heuristics, call `score_suggestions()` per rule with configurable threshold and top-k, and serialize results as TOML. Suggested mappings carry `mapping_type = "suggested"` and do not flow into threat generation unless `include_suggested = true` is set in `mapping_config.toml`.
+**Sync-time mapping generation** extends the sync lifecycle with `--map-heuristics`, which batch-scores all discovered heuristics and writes results to `mapping_suggestions.toml` — a separate file from the human-curated `mapping_rules.toml`. The `MappingWriter` (`src/analysis/mapping_writer.py`) orchestrates the batch flow: refresh Neo4j knowledge chunks, iterate all heuristics, call the GraphRAG scorer per rule with configurable threshold and top-k, and serialize results as TOML. Suggested mappings carry `mapping_type = "suggested"` and do not flow into threat generation unless `include_suggested = true` is set in `mapping_config.toml`.
 
 Example mappings:
 
@@ -164,7 +161,7 @@ The five tools cover the full analysis surface:
 | `lookup_technique` | In-memory mapping catalog | ATT&CK/ATLAS technique details |
 | `search_knowledge` | Heuristic + mapping corpus | Full-text matches across rules and mappings |
 
-**Knowledge base.** The knowledge layer (`src/knowledge/`) provides a SQLite-backed store for MITRE ATT&CK and ATLAS technique data, synced via `threatforge sync`. The `TechniqueStore` holds tactics, techniques, mitigations, and (optionally) dense vector embeddings. The `TechniqueIndex` provides an in-memory read-only index for fast lookups by ID, tactic, platform, and framework. The `VectorIndex` (`src/knowledge/vector_index.py`) loads pre-computed embeddings for cosine similarity search. Embedding generation is performed by the `TextEmbedder` protocol (`src/knowledge/embedder.py`), with `SentenceTransformerEmbedder` as the default implementation (optional `.[suggest]` dependency).
+**Knowledge base.** The knowledge layer (`src/knowledge/`) provides a local SQLite catalog for MITRE ATT&CK and ATLAS technique data, synced via `threatforge sync`. The `TechniqueStore` holds tactics, techniques, mitigations, and sync metadata. The `TechniqueIndex` provides an in-memory read-only index for fast lookups by ID, tactic, platform, and framework. Semantic retrieval is handled in Neo4j via `TextChunk` nodes and the native vector index, populated by the chunking pipeline using the `TextEmbedder` protocol (`src/knowledge/embedder.py`) and `SentenceTransformerEmbedder` (optional `.[suggest]` dependency).
 
 ### 6. Observability layer
 
@@ -192,13 +189,13 @@ The factory function `create_trace_recorder()` auto-detects the environment and 
 | **Source** | `src/ui/app.py`, `src/ui/pages/*` |
 | **Framework** | Streamlit (`.[ui]` extra) |
 | **Screens** | Model Overview · Threats · Risks · Mappings · Analyst Chat |
-| **Responsibility** | Provide analyst workflows for exploring model structure, reviewing generated threats and risks, managing technique mappings, and running natural-language queries against the analysis outputs. Includes knowledge sync, GraphRAG controls, and one-click rebuild. |
+| **Responsibility** | Provide analyst workflows for exploring model structure, reviewing generated threats and risks, managing technique mappings, and running natural-language queries against the analysis outputs. Includes knowledge sync, GraphRAG enrichment, and one-click rebuild. |
 
 The UI is built with **Streamlit** for rapid prototyping with minimal frontend code. It uses Streamlit's native multipage pattern — each screen is a standalone module under `src/ui/pages/` that can be rendered independently or routed from the main app shell.
 
 The sidebar provides four interaction modes:
 - **Model selection** — choose from bundled example models or upload a custom TOML file.
-- **Knowledge base** — sync status (ATT&CK/ATLAS versions, technique/embedding counts), GraphRAG availability indicator, sync options (embed, map heuristics, GraphRAG scorer toggle).
+- **Knowledge base** — sync status (ATT&CK/ATLAS versions, technique/text-chunk counts), GraphRAG availability indicator, sync options (embed chunks, map heuristics).
 - **Rebuild workflow** — sequential pipeline (validate → load → threats → risks) with an optional **GraphRAG enrichment** toggle that adds `--enrich` to the threat generation step.
 - **Screen navigation** — five screens: Model Overview, Threats, Risks, Mappings, Chat.
 

@@ -388,21 +388,21 @@ threat-forge-ai/
 │   │       └── sample_queries.cypher
 │   ├── knowledge/
 │   │   ├── models.py                   # Tactic, Technique, Mitigation dataclasses
-│   │   ├── store.py                    # SQLite persistence layer (incl. embeddings table)
+│   │   ├── store.py                    # SQLite persistence layer for MITRE catalog + sync metadata
 │   │   ├── index.py                    # In-memory TechniqueIndex (context-var scoped)
 │   │   ├── embedder.py                 # TextEmbedder protocol + SentenceTransformerEmbedder
-│   │   ├── vector_index.py             # In-memory VectorIndex for cosine similarity search
+│   │   ├── graph_vector_search.py      # Neo4j-backed vector retrieval over TextChunk nodes
 │   │   ├── sync_attack.py              # ATT&CK STIX 2.1 parser + fetcher
 │   │   ├── sync_atlas.py               # ATLAS YAML parser + fetcher
 │   │   └── sync.py                     # Orchestrates full sync (+ --embed, --map-heuristics)
 │   ├── analysis/
 │   │   ├── threat_generation.py        # ThreatHeuristic dataclass + auto-discovered catalog
 │   │   ├── technique_mapping.py        # Mapping facade (re-exports from mapping_engine/loader/types)
-│   │   ├── mapping_types.py            # TechniqueMapping dataclass + legacy fallbacks
+│   │   ├── mapping_types.py            # TechniqueMapping dataclass
 │   │   ├── mapping_loader.py           # TOML I/O + knowledge-base name resolution + suggestions loader
 │   │   ├── mapping_engine.py           # Layered mapping: curated + tactic expansion + filtering
 │   │   ├── mapping_writer.py           # Batch suggestion generation + TOML serialization
-│   │   ├── suggestion_scorer.py        # Vector-based technique suggestion (Layer 0 composite scoring)
+│   │   ├── graphrag_scorer.py          # Graph-backed technique suggestion (Layer 0 composite scoring)
 │   │   ├── materializer_registry.py    # ThreatMaterializer protocol + registry
 │   │   ├── materializers.py            # Backward-compat re-exports from heuristics package
 │   │   ├── risk_scoring.py             # Risk score computation + report generation
@@ -1740,4 +1740,3 @@ class CanonicalModel(BaseModel):
 **Done when:**
 - the repo tells a coherent AI + security story
 ```
-

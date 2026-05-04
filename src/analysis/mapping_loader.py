@@ -91,6 +91,19 @@ def load_suggestions_config(
     return data.get("suggestions", {"include_suggested": False})
 
 
+def load_graphrag_config(
+    *,
+    config_path: Path | None = None,
+) -> dict:
+    """Load GraphRAG scorer configuration from TOML."""
+    config_path = config_path or _DEFAULT_PATHS.mapping_config
+    if not config_path.exists():
+        return {}
+    with open(config_path, "rb") as f:
+        data = tomllib.load(f)
+    return data.get("graphrag", {})
+
+
 def load_suggested_mappings(
     rule_id: str | None = None,
     *,

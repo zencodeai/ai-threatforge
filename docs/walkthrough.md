@@ -45,13 +45,13 @@ Expected outcome:
 - Prioritized risks saved under `models/outputs/risks/`.
 - Each risk includes weighted score drivers and explanation text.
 
-### Step 4b. (Optional) Generate embeddings and suggest mappings
+### Step 4b. (Optional) Embed Neo4j text chunks and suggest mappings
 ```bash
 threatforge sync --embed
 threatforge suggest-mappings --rule-id TH-001 --top-k 10
 ```
 Expected outcome:
-- Technique embeddings are stored in the knowledge base.
+- MITRE `TextChunk` embeddings are stored in Neo4j.
 - Ranked technique suggestions are displayed with composite scores.
 - Use `--format toml` to produce ready-to-paste `[[mappings]]` entries.
 
@@ -60,7 +60,7 @@ Expected outcome:
 threatforge sync --map-heuristics --map-threshold 0.35
 ```
 Expected outcome:
-- Embeddings are generated automatically (implied by `--map-heuristics`).
+- Text chunks are refreshed automatically (implied by `--map-heuristics`).
 - All discovered heuristics are scored against the technique corpus.
 - Results are written to `data/threat_intel/mapping_suggestions.toml`.
 - Curated `mapping_rules.toml` is never overwritten — review and promote manually.

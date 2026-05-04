@@ -6,7 +6,7 @@ flowchart TB
         LOCAL["Local files<br/>(--offline)"]
         FETCH["Fetcher<br/>httpx / file reader"]
         NORM["Normalizer / ETL<br/>STIX → Technique<br/>YAML → Technique"]
-        DB[("SQLite KB<br/>threatforge_kb.db<br/>(legacy fallback)")]
+        DB[("SQLite Catalog<br/>threatforge_kb.db<br/>techniques · tactics · mitigations")]
 
         GH --> FETCH
         LOCAL --> FETCH
@@ -49,7 +49,7 @@ flowchart TB
         THREATS["Threat Engine<br/>44 heuristics"]
         ENRICHER["ThreatEnricher<br/>suggested mitigations<br/>related techniques"]
         TOOLS["Agent Tools<br/>lookup_technique<br/>search_knowledge"]
-        UI["Streamlit UI<br/>threats · mappings<br/>GraphRAG controls"]
+        UI["Streamlit UI<br/>threats · mappings<br/>sync + enrichment controls"]
     end
 
     ENGINE --> THREATS

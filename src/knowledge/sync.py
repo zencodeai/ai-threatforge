@@ -230,8 +230,10 @@ def sync(
         store.set_meta("last_sync_utc", datetime.now(UTC).isoformat())
         store.set_meta("technique_count", str(counts["techniques"]))
 
+        use_neo4j = neo4j or embed or map_heuristics
+
         # ── Neo4j knowledge graph ────────────────────────────────
-        if neo4j:
+        if use_neo4j:
             neo4j_counts = _sync_to_neo4j(
                 deduped_tactics, deduped_techniques, deduped_mitigations,
             )
@@ -242,13 +244,7 @@ def sync(
             counts["neo4j_maps_to"] = neo4j_counts.maps_to_edges
             counts["neo4j_implements_control"] = neo4j_counts.implements_control_edges
             counts["neo4j_text_chunks"] = neo4j_counts.text_chunks
-
-        # map_heuristics implies embed
-        if map_heuristics or embed:
-            from .embedder import embed_techniques
-
-            embedded = embed_techniques(store)
-            counts["embedded"] = embedded
+            store.set_meta("text_chunk_count", str(neo4j_counts.text_chunks))
 
         if map_heuristics:
             from analysis.mapping_writer import generate_mapping_suggestions
@@ -289,7 +285,7 @@ def sync_status(db_path: Path | str = DEFAULT_DB_PATH) -> dict[str, str]:
             "atlas_version": store.get_meta("atlas_version", "unknown"),
             "last_sync_utc": store.get_meta("last_sync_utc", "never"),
             "technique_count": store.get_meta("technique_count", "0"),
-            "embedding_count": str(store.embedding_count("technique")),
+            "text_chunk_count": store.get_meta("text_chunk_count", "0"),
             "suggestion_count": str(suggestion_count),
             "db_path": str(path),
         }

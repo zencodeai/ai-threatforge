@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from analysis.mapping_types import TechniqueMapping
 from analysis.technique_mapping import (
     get_all_technique_mappings,
     get_rule_technique_mappings,
@@ -41,3 +42,36 @@ def test_mapping_entries_have_required_fields() -> None:
         assert mapping.technique_name
         assert mapping.tactic
         assert mapping.mapping_rationale
+
+
+def test_map_rule_to_techniques_includes_suggestions_when_enabled(monkeypatch) -> None:
+    curated = (
+        TechniqueMapping(
+            rule_id="TH-001",
+            framework="ATTACK",
+            technique_id="T1190",
+            technique_name="Exploit Public-Facing Application",
+            tactic="initial-access",
+            mapping_rationale="curated",
+        ),
+    )
+    suggested = (
+        TechniqueMapping(
+            rule_id="TH-001",
+            framework="ATTACK",
+            technique_id="T1059",
+            technique_name="Command and Scripting Interpreter",
+            tactic="execution",
+            mapping_rationale="suggested",
+            mapping_type="suggested",
+        ),
+    )
+
+    monkeypatch.setattr("analysis.mapping_engine.load_curated_mappings", lambda rule_id, index=None: curated)
+    monkeypatch.setattr("analysis.mapping_engine.load_suggestions_config", lambda: {"include_suggested": True})
+    monkeypatch.setattr("analysis.mapping_engine.load_suggested_mappings", lambda rule_id, index=None: suggested)
+    monkeypatch.setattr("analysis.mapping_engine.load_expansion_config", lambda: {"enabled": False})
+
+    mappings = map_rule_to_techniques("TH-001")
+
+    assert [mapping.technique_id for mapping in mappings] == ["T1190", "T1059"]

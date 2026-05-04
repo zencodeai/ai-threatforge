@@ -90,6 +90,13 @@ domains = ["enterprise"]
 [suggestions]
 include_suggested = false
 suggestions_path = "data/threat_intel/mapping_suggestions.toml"
+
+[graphrag]
+weight_vector = 0.45
+weight_tactic = 0.15
+weight_framework = 0.10
+weight_mitigation_gap = 0.20
+weight_subtechnique = 0.10
 """
 
 
@@ -189,11 +196,13 @@ def test_save_mapping_config_roundtrip(config_file: Path) -> None:
     config = load_mapping_config(config_path=config_file)
     config["expansion"]["enabled"] = True
     config["suggestions"]["include_suggested"] = True
+    config["graphrag"]["weight_vector"] = 0.5
     save_mapping_config(config, config_path=config_file)
 
     reloaded = load_mapping_config(config_path=config_file)
     assert reloaded["expansion"]["enabled"] is True
     assert reloaded["suggestions"]["include_suggested"] is True
+    assert reloaded["graphrag"]["weight_vector"] == pytest.approx(0.5)
     # Unchanged fields preserved
     assert reloaded["expansion"]["include_subtechniques"] is True
     assert reloaded["expansion"]["max_techniques_per_tactic"] == 20
@@ -247,6 +256,36 @@ def test_promote_nonexistent_returns_false(
         suggestions_path=suggestions_file,
     )
     assert ok is False
+
+
+def test_promote_suggestion_preserves_toml_escaping(
+    rules_file: Path,
+    suggestions_file: Path,
+) -> None:
+    suggestions_file.write_text(
+        """\
+[[mappings]]
+rule_id = "TH-001"
+technique_id = "T1059"
+framework = "ATTACK"
+tactic = "execution"
+rationale = "Quote: \\"x\\"\\nLine two"
+mapping_type = "suggested"
+composite_score = 0.5
+""",
+        encoding="utf-8",
+    )
+
+    ok = promote_suggestion(
+        "TH-001", "T1059",
+        rules_path=rules_file,
+        suggestions_path=suggestions_file,
+    )
+
+    assert ok is True
+    rows = curated_mapping_rows(rules_path=rules_file)
+    promoted = next(r for r in rows if r["technique_id"] == "T1059")
+    assert promoted["rationale"] == 'Quote: "x"\nLine two'
 
 
 # ── Sync actions ─────────────────────────────────────────────────
