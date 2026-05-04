@@ -63,7 +63,7 @@ Analyst questions are routed to tools via deterministic keyword matching, execut
 | `src/ui/` | Streamlit analyst interface (model overview, threats, risks, mappings, chat) |
 | `src/cli/` | Unified CLI (`threatforge` command) |
 | `data/threat_intel/` | Curated mapping rules, expansion config, auto-generated suggestions, knowledge-base SQLite |
-| `tests/` | 336 passing tests across 29 modules, plus 2 skipped integration checks |
+| `tests/` | 339 passing tests across 31 modules, plus 2 skipped integration checks |
 | `docs/` | Architecture narrative, walkthrough, demo script, diagrams |
 
 ---
@@ -162,7 +162,7 @@ No code changes are needed — the factory function `create_trace_recorder()` au
 pytest -q
 ```
 
-336 passing tests across schema validation, graph operations, threat generation (44 heuristics), technique mapping, risk scoring, knowledge ingestion, GraphRAG scoring, threat enrichment, chunking, graph vector search, agent workflow, observability, session persistence, and UI layers, with 2 skipped integration checks.
+339 passing tests across schema validation, graph operations, threat generation (44 heuristics), technique mapping, risk scoring, knowledge ingestion, GraphRAG scoring, threat enrichment, chunking, graph vector search, agent workflow, observability, session persistence, artifact resolution, and UI layers, with 2 skipped integration checks.
 
 ---
 
@@ -200,7 +200,7 @@ pytest -q
 | UI | Streamlit ≥ 1.35 | Multipage analyst dashboard (5 screens) with knowledge sync, GraphRAG enrichment, and one-click rebuild |
 | Observability | JSONL local traces | Structured event log for every workflow invocation |
 | Observability (opt.) | LangSmith | Cloud trace export with parent-child run relationships |
-| Testing | pytest ≥ 8.0 | 336 passing tests across 29 modules, plus 2 skipped integration checks — schema, graph, analysis, knowledge, GraphRAG, agents, sessions, UI |
+| Testing | pytest ≥ 8.0 | 339 passing tests across 31 modules, plus 2 skipped integration checks — schema, graph, analysis, knowledge, GraphRAG, agents, sessions, artifact resolution, UI |
 
 ### Why these choices
 

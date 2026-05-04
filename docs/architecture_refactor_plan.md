@@ -11,7 +11,7 @@ This plan turns the current architecture review into an implementation roadmap w
 
 ### Phase 0: Low-risk groundwork
 
-Status: partially implemented on `architecture-review`.
+Status: completed on `architecture-review`.
 
 Completed:
 - Added a shared session store used by both CLI and UI.
@@ -19,10 +19,10 @@ Completed:
 - Made report loading prefer the session artifact before falling back to discovery.
 - Added focused regression tests for session persistence and CLI/UI resolution.
 
-Remaining low-risk tasks:
-- Replace lexicographic artifact fallback with mtime or manifest-based resolution.
-- Move more default-path lookups off module globals and onto injected `ProjectPaths`.
-- Add session-aware integration tests for the Streamlit app shell.
+Delivered in this phase:
+- Replaced lexicographic artifact fallback with mtime-based selection.
+- Reduced default-path coupling in CLI/UI session-aware flows by adding path/session injection points.
+- Added session-aware integration tests for the Streamlit app shell.
 
 Why first:
 - This reduces correctness bugs immediately.

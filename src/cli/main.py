@@ -103,11 +103,12 @@ def _cmd_generate_threats(args: argparse.Namespace) -> int:
 def _default_threat_path() -> Path:
     from artifact_locator import ArtifactLocator
 
-    session_path = _session_store().resolve_threat_report_path()
+    store = _session_store()
+    session_path = store.resolve_threat_report_path()
     if session_path is not None:
         return session_path
 
-    path = ArtifactLocator(Path(".")).latest_threats()
+    path = ArtifactLocator(store.paths.root).latest_threats()
     if path is None:
         raise FileNotFoundError(
             "No threat artifacts found in session or models/outputs/threats/. "
