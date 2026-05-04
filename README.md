@@ -41,7 +41,7 @@ The pipeline flows through seven layers, each with a single responsibility and w
   <img src="docs/diagrams/query_workflow.svg" alt="Query workflow routing diagram" width="720" />
 </p>
 
-Analyst questions are routed to tools via deterministic keyword matching, executed against the analysis artifacts, and composed into answers with evidence references and stated limitations.
+Analyst questions are routed to tools via deterministic keyword matching, executed against the analysis artifacts, and composed into answers with evidence references and stated limitations. Query quality is regression-tested with versioned golden prompt suites covering both synthetic fixtures and the checked-in fintech example artifacts.
 
 ---
 
@@ -63,7 +63,7 @@ Analyst questions are routed to tools via deterministic keyword matching, execut
 | `src/ui/` | Streamlit analyst interface (model overview, threats, risks, mappings, chat) |
 | `src/cli/` | Unified CLI (`threatforge` command) |
 | `data/threat_intel/` | Curated mapping rules, expansion config, auto-generated suggestions, knowledge-base SQLite |
-| `tests/` | 340 tests across 27 modules |
+| `tests/` | 330 passing tests across 27 modules, plus 2 skipped integration checks |
 | `docs/` | Architecture narrative, walkthrough, demo script, diagrams |
 
 ---
@@ -160,7 +160,7 @@ No code changes are needed — the factory function `create_trace_recorder()` au
 pytest -q
 ```
 
-325 tests across schema validation, graph operations, threat generation (44 heuristics), technique mapping, risk scoring, knowledge ingestion, GraphRAG scoring, threat enrichment, chunking, graph vector search, agent workflow, observability, and UI layers.
+330 passing tests across schema validation, graph operations, threat generation (44 heuristics), technique mapping, risk scoring, knowledge ingestion, GraphRAG scoring, threat enrichment, chunking, graph vector search, agent workflow, observability, and UI layers, with 2 skipped integration checks.
 
 ---
 
@@ -179,6 +179,7 @@ pytest -q
 | [GraphRAG Design](docs/design_graphrag.md) | Neo4j GraphRAG integration: knowledge graph, chunking, vector search, enhanced scoring, threat enrichment |
 | [GraphRAG Migration](docs/migration_graphrag.md) | Final-state setup guide for the graph-backed suggestion and enrichment pipeline |
 | [Heuristic Expansion](docs/design_heuristics.md) | STRIDE, CAPEC, schema enrichment, and NIST 800-53 heuristic expansion strategy |
+| [NLP Quality Fixtures](tests/fixtures/nlp_quality/README.md) | Golden prompt suites and quality metrics for deterministic query workflow regression testing |
 | [Diagrams](docs/diagrams/) | Mermaid sources (.mmd) exported to SVG — pipeline, workflow, risk scoring, project layout, knowledge ingestion |
 
 ---
@@ -196,7 +197,7 @@ pytest -q
 | UI | Streamlit ≥ 1.35 | Multipage analyst dashboard (5 screens) with knowledge sync, GraphRAG enrichment, and one-click rebuild |
 | Observability | JSONL local traces | Structured event log for every workflow invocation |
 | Observability (opt.) | LangSmith | Cloud trace export with parent-child run relationships |
-| Testing | pytest ≥ 8.0 | 325 tests across 25 modules — schema, graph, analysis, knowledge, GraphRAG, agents, UI |
+| Testing | pytest ≥ 8.0 | 330 passing tests across 27 modules, plus 2 skipped integration checks — schema, graph, analysis, knowledge, GraphRAG, agents, UI |
 
 ### Why these choices
 

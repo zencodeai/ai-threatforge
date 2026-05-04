@@ -32,7 +32,7 @@ class QueryRouter:
                 )
             )
 
-        if any(token in q for token in ("risk", "risks", "priority", "highest")):
+        if self._contains_any(q, ("risk", "risks", "priority", "highest")):
             actions.append(
                 RoutedAction(
                     name="get_risks",
@@ -41,11 +41,13 @@ class QueryRouter:
                 )
             )
 
-        if any(token in q for token in ("threat", "threats", "rule", "rules")):
+        if self._contains_any(q, ("threat", "threats", "rule", "rules")):
             filter_by: dict[str, Any] = {}
             module = self._extract_module_hint(question)
             if module:
                 filter_by["target_id"] = module
+            if "atlas" in q or "ai" in q:
+                filter_by["framework"] = "ATLAS"
             actions.append(
                 RoutedAction(
                     name="get_threats",
@@ -54,17 +56,22 @@ class QueryRouter:
                 )
             )
 
-        if any(token in q for token in ("graph", "dependency", "dependencies", "trust boundary", "internet exposed")):
-            cypher = self._graph_query_for_question(q)
+        graph_intent = self._graph_intent_for_question(q)
+        if graph_intent is not None:
+            cypher = self._graph_query_for_intent(graph_intent)
             actions.append(
                 RoutedAction(
                     name="query_graph",
                     tool_name="query_graph",
-                    tool_input={"query": cypher, "params": None},
+                    tool_input={
+                        "query": cypher,
+                        "params": None,
+                        "graph_intent": graph_intent,
+                    },
                 )
             )
 
-        if any(token in q for token in ("why", "explain", "how", "atlas", "attack", "mitre")):
+        if self._contains_any(q, ("why", "explain", "how", "atlas", "attack", "mitre")):
             actions.append(
                 RoutedAction(
                     name="search_knowledge",
@@ -85,12 +92,40 @@ class QueryRouter:
 
     @staticmethod
     def _extract_module_hint(question: str) -> str | None:
-        match = re.search(r"\b(?:module|about|for)\s+([a-z][a-z0-9_\-]+)\b", question, re.IGNORECASE)
+        match = re.search(r"\bfor\s+module\s+([a-z][a-z0-9_\-]+)\b", question, re.IGNORECASE)
+        if match:
+            return match.group(1)
+
+        match = re.search(r"\bmodule\s+([a-z][a-z0-9_\-]+)\b", question, re.IGNORECASE)
+        if match:
+            return match.group(1)
+
+        match = re.search(r"\b(?:about|for)\s+([a-z][a-z0-9_\-]+)\b", question, re.IGNORECASE)
         return match.group(1) if match else None
 
     @staticmethod
-    def _graph_query_for_question(question_lower: str) -> str:
+    def _graph_intent_for_question(question_lower: str) -> str | None:
         if "trust boundary" in question_lower:
+            return "trust_boundaries"
+
+        if "dependency" in question_lower or "dependencies" in question_lower:
+            return "dependencies"
+
+        if "graph" in question_lower or "internet exposed" in question_lower:
+            return "internet_exposure"
+
+        return None
+
+    @staticmethod
+    def _contains_any(question_lower: str, terms: tuple[str, ...]) -> bool:
+        return any(
+            re.search(rf"\b{re.escape(term)}\b", question_lower)
+            for term in terms
+        )
+
+    @staticmethod
+    def _graph_query_for_intent(graph_intent: str) -> str:
+        if graph_intent == "trust_boundaries":
             return (
                 "MATCH (tb:TrustBoundary)-[:CROSSES_FROM]->(from:SecurityDomain), "
                 "(tb)-[:CROSSES_TO]->(to:SecurityDomain) "
@@ -98,7 +133,7 @@ class QueryRouter:
                 "ORDER BY trust_boundary"
             )
 
-        if "dependency" in question_lower:
+        if graph_intent == "dependencies":
             return (
                 "MATCH (s:Module)-[r:DEPENDS_ON]->(t) "
                 "RETURN s.id AS source, t.id AS target, r.relationship AS relationship "

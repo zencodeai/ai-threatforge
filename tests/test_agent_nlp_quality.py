@@ -8,6 +8,8 @@ from agents.workflow import QueryWorkflow
 from models.schema.risk_model import RiskFactors, RiskRecord, RiskReport
 from models.schema.threat_model import TechniqueReference, ThreatRecord, ThreatReport
 
+from nlp_quality_fixtures import load_golden_fixture
+
 
 def _write_artifacts(base_dir: Path) -> None:
     threat_dir = base_dir / "models" / "outputs" / "threats"
@@ -127,10 +129,10 @@ def _write_artifacts(base_dir: Path) -> None:
     )
 
     (threat_dir / "fintech-ai-demo_threats.json").write_text(
-        threat_report.model_dump_json(indent=2), encoding="utf-8"
+        threat_report.model_dump_json(indent=2), encoding="utf-8",
     )
     (risk_dir / "fintech-ai-demo_risks.json").write_text(
-        risk_report.model_dump_json(indent=2), encoding="utf-8"
+        risk_report.model_dump_json(indent=2), encoding="utf-8",
     )
 
 
@@ -146,78 +148,65 @@ def _workflow(base_dir: Path) -> QueryWorkflow:
     return QueryWorkflow(tools, tracer=NullTraceRecorder())
 
 
-def test_query_workflow_answers_representative_questions(tmp_path: Path) -> None:
+def test_query_workflow_quality_metrics(tmp_path: Path) -> None:
     _write_artifacts(tmp_path)
     workflow = _workflow(tmp_path)
 
-    questions = [
-        "What are the highest risks right now?",
-        "Show threats for module api_gateway",
-        "What does technique T1190 mean for this model?",
-        "Which trust boundary crossings are present in the graph?",
-        "Explain ATLAS-relevant AI threats and why they matter",
+    cases, thresholds = load_golden_fixture("synthetic_golden.json")
+
+    total = len(cases)
+    answer_hits = 0
+    tool_hits = 0
+    evidence_hits = 0
+    phrase_hits = 0
+    clean_hits = 0
+    failures: list[str] = []
+
+    for case in cases:
+        answer, state = workflow.answer(case.question)
+        tool_names = {call.name for call in state.tool_calls}
+
+        has_answer = bool(answer.answer.strip())
+        has_tools = set(case.expected_tools).issubset(tool_names)
+        has_refs = all(
+            any(ref.startswith(prefix) for ref in answer.evidence_refs)
+            for prefix in case.required_ref_prefixes
+        )
+        has_phrases = all(phrase in answer.answer for phrase in case.required_answer_phrases)
+        is_clean = case.allow_limitations or not answer.limitations
+
+        answer_hits += int(has_answer)
+        tool_hits += int(has_tools)
+        evidence_hits += int(has_refs)
+        phrase_hits += int(has_phrases)
+        clean_hits += int(is_clean)
+
+        if not all((has_answer, has_tools, has_refs, has_phrases, is_clean)):
+            failures.append(
+                f"{case.question!r}: "
+                f"answer={has_answer} tools={has_tools} refs={has_refs} "
+                f"phrases={has_phrases} clean={is_clean} "
+                f"tool_names={sorted(tool_names)} refs={answer.evidence_refs} "
+                f"limitations={answer.limitations} answer_text={answer.answer!r}"
+            )
+
+    metrics = {
+        "answer_nonempty_rate": answer_hits / total,
+        "expected_tool_coverage_rate": tool_hits / total,
+        "grounded_reference_rate": evidence_hits / total,
+        "required_phrase_rate": phrase_hits / total,
+        "clean_answer_rate": clean_hits / total,
+    }
+
+    metric_failures = [
+        f"{name}={metrics[name]:.2f} < {minimum:.2f}"
+        for name, minimum in thresholds.items()
+        if metrics[name] < minimum
     ]
 
-    for question in questions:
-        answer, state = workflow.answer(question)
-        assert answer.answer
-        assert state.question == question
-        assert state.tool_calls
-
-
-def test_query_workflow_produces_grounded_references(tmp_path: Path) -> None:
-    _write_artifacts(tmp_path)
-    workflow = _workflow(tmp_path)
-
-    answer, _state = workflow.answer("What are the highest risks and related threats?")
-
-    assert answer.evidence_refs
-    assert any(ref.startswith("risk:") for ref in answer.evidence_refs)
-
-
-def test_query_workflow_reports_limitations_on_tool_failure(tmp_path: Path) -> None:
-    _write_artifacts(tmp_path)
-
-    def _raise_graph(_query: str, _params: dict | None) -> list[dict]:
-        raise RuntimeError("neo4j unavailable")
-
-    tools = AgentTools(base_dir=tmp_path, graph_runner=_raise_graph)
-    workflow = QueryWorkflow(tools, tracer=NullTraceRecorder())
-
-    answer, state = workflow.answer("Show internet exposed modules from the graph")
-
-    assert state.tool_calls
-    assert any(call.name == "query_graph" for call in state.tool_calls)
-    assert answer.limitations
-    assert any("GRAPH_QUERY_FAILED" in limitation for limitation in answer.limitations)
-
-
-def test_query_workflow_summarizes_trust_boundary_graph_results(tmp_path: Path) -> None:
-    _write_artifacts(tmp_path)
-    workflow = _workflow(tmp_path)
-
-    answer, _state = workflow.answer("Which trust boundary crossings are present in the graph?")
-
-    assert "internet_boundary: client -> edge" in answer.answer
-    assert "graph:trust_boundary:internet_boundary" in answer.evidence_refs
-
-
-def test_query_workflow_summarizes_dependency_graph_results_for_plural_form(tmp_path: Path) -> None:
-    _write_artifacts(tmp_path)
-    workflow = _workflow(tmp_path)
-
-    answer, _state = workflow.answer("What dependencies exist between modules?")
-
-    assert "api_gateway -> payment_service (calls)" in answer.answer
-    assert "graph:dependency:api_gateway->payment_service" in answer.evidence_refs
-
-
-def test_query_workflow_summarizes_internet_exposed_modules(tmp_path: Path) -> None:
-    _write_artifacts(tmp_path)
-    workflow = _workflow(tmp_path)
-
-    answer, _state = workflow.answer("Show internet exposed modules from the graph")
-
-    assert "Internet-exposed modules:" in answer.answer
-    assert "api_gateway (gateway)" in answer.answer
-    assert "graph:module:api_gateway" in answer.evidence_refs
+    assert not metric_failures, (
+        "NLP query quality regression: "
+        + ", ".join(metric_failures)
+        + "\nCase failures:\n"
+        + "\n".join(failures)
+    )

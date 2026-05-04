@@ -173,7 +173,7 @@ class AgentTools:
             rows = [
                 row
                 for row in rows
-                if all(row.get(key) == value for key, value in filter_by.items())
+                if self._matches_threat_filter(row, filter_by)
             ]
 
         if top_n is not None:
@@ -186,6 +186,24 @@ class AgentTools:
             confidence=confidence,
             meta={"path": str(threat_path), "count": len(rows)},
         )
+
+    @staticmethod
+    def _matches_threat_filter(row: dict[str, Any], filter_by: dict[str, Any]) -> bool:
+        for key, value in filter_by.items():
+            if key == "framework":
+                frameworks = {
+                    mapping.get("framework")
+                    for mapping in row.get("framework_mappings", [])
+                    if mapping.get("framework")
+                }
+                if value not in frameworks:
+                    return False
+                continue
+
+            if row.get(key) != value:
+                return False
+
+        return True
 
     def get_risks(
         self,

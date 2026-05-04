@@ -72,6 +72,7 @@ threatforge ui
 Expected outcome:
 - Analyst can ask natural-language questions from the Chat page.
 - Responses include evidence references from graph, threat, and risk artifacts.
+- Deterministic query quality is regression-tested with golden prompt suites in `tests/fixtures/nlp_quality/`.
 
 ## Example analyst prompts
 - "What are the highest risks and why?"

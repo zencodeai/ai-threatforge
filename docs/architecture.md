@@ -144,12 +144,14 @@ The workflow is split into three single-responsibility modules: **`QueryRouter`*
 
 Each tool implements a **`Tool` protocol** (defined in `tool_protocol.py`) with a `name` property and a `run(input) -> ToolResponse` method. Tools are registered in a name-keyed `ToolRegistry` built at startup, replacing the earlier if/elif dispatch chain.
 
-**Routing** uses a two-stage pattern matcher:
+**Routing** uses a deterministic pattern matcher:
 1. **Regex match** — technique IDs like `T1190` or `AML.T0016` trigger `lookup_technique` immediately.
 2. **Keyword match** — terms like "risk", "threat", "graph", "dependency", "explain" route to the corresponding tool. Multiple tools can fire for a single question.
 3. **Fallback** — unmatched questions fall through to `search_knowledge`.
 
 Each tool returns a structured `ToolResponse` (Pydantic model) with `ok`, `source`, `evidence` (list of dicts), `confidence` (0.0–1.0), and optional error metadata. The **answer composer** aggregates tool results into an `AgentAnswer` containing the summary text, `evidence_refs` (traceable back to source artifacts), and `limitations` (explicitly stating what the workflow could not answer). All tool invocations are recorded in `AgentState` as `ToolCallRecord` objects for full auditability.
+
+Query quality is protected by golden-suite regression tests under `tests/fixtures/nlp_quality/`. The suite evaluates both synthetic fixtures and the checked-in fintech example artifacts against explicit metrics such as tool coverage, grounded evidence references, required answer phrases, forbidden-tool avoidance, and clean-answer rate.
 
 The five tools cover the full analysis surface:
 
