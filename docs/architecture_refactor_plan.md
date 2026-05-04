@@ -94,6 +94,8 @@ Primary tests:
 
 ### Phase 3: Make threat generation dependency-driven
 
+Status: completed on `architecture-review`.
+
 Problem:
 - Threat generation eagerly builds a full graph snapshot for every run.
 - New heuristics require edits to a central snapshot builder.
@@ -108,11 +110,11 @@ Deliverables:
 - snapshot resolver with per-run cache
 - threat-generation benchmark covering query count and runtime stability
 
-Order:
-1. Add dependency metadata to materializers.
-2. Wrap existing snapshot calls behind a resolver.
-3. Switch one or two heuristics first.
-4. Migrate the full catalog after tests are stable.
+Delivered in this phase:
+- Added declared snapshot dependencies to Python materializers and inferred them for the generic TOML materializer.
+- Added a lazy, cached snapshot resolver in `src/analysis/snapshot_resolver.py`.
+- Migrated threat generation to use the resolver while preserving deterministic output behavior.
+- Added resolver regression tests, including a check that the build path only hydrates declared graph views.
 
 Primary tests:
 - threat generation suite

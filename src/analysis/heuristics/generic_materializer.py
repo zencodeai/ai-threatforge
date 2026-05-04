@@ -24,6 +24,7 @@ class GenericMaterializer:
     def __init__(self, rule_id: str, config: dict[str, Any]) -> None:
         self.rule_id = rule_id
         self._cfg = config
+        self.required_snapshot_keys = self._infer_required_snapshot_keys(config)
 
     # ------------------------------------------------------------------
     # Protocol entry-point
@@ -116,6 +117,26 @@ class GenericMaterializer:
                 )
             )
         return threats
+
+    @staticmethod
+    def _infer_required_snapshot_keys(config: dict[str, Any]) -> tuple[str, ...]:
+        keys: list[str] = []
+
+        primary = config.get("primary")
+        if primary:
+            keys.append(primary)
+
+        for collect_cfg in config.get("collect", {}).values():
+            source = collect_cfg.get("source")
+            if source:
+                keys.append(source)
+
+        for join_cfg in config.get("join", {}).values():
+            source = join_cfg.get("source")
+            if source:
+                keys.append(source)
+
+        return tuple(dict.fromkeys(keys))
 
 
 # ------------------------------------------------------------------
