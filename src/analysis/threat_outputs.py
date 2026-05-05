@@ -24,8 +24,8 @@ def _timestamp() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _stable_threat_id(rule_id: str, target_id: str, suffix: str = "") -> str:
-    payload = f"{rule_id}|{target_id}|{suffix}".encode("utf-8")
+def _stable_threat_id(rule_id: str, *parts: str) -> str:
+    payload = "|".join([rule_id, *parts]).encode("utf-8")
     digest = hashlib.sha1(payload).hexdigest()[:10]
     return f"{rule_id}-{digest}"
 

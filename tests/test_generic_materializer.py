@@ -265,6 +265,27 @@ class TestGenericMaterializerEdgeCases:
         assert threats[0].target_id == "mod_a"
         assert threats[1].target_id == "mod_b"
 
+    def test_three_part_ids_are_supported(self) -> None:
+        _, mat = _load_rule("th_023.toml")
+        h, _ = _load_rule("th_023.toml")
+        snapshot = {
+            "multi_domain_chain": [
+                {
+                    "source_module": "mobile_app",
+                    "source_domain": "client",
+                    "intermediate": "api_gateway",
+                    "intermediate_domain": "edge",
+                    "target": "payment_service",
+                    "target_domain": "backend",
+                },
+            ],
+        }
+
+        threats = _run_materializer(mat, h, snapshot)
+
+        assert len(threats) == 1
+        assert threats[0].threat_id == _stable_id("TH-023", "mobile_app", "api_gateway", "payment_service")
+
 
 class TestDiscoveryIntegration:
     """Verify the discovery engine finds and deduplicates Python + TOML rules."""
